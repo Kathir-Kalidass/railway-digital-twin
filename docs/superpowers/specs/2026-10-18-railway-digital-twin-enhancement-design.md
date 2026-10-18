@@ -64,10 +64,12 @@ topics. This is the core security property.
 
 | Client | Credential | Publish | Subscribe |
 |---|---|---|---|
-| Godot | `godot` | `railway/zone1/train`, `railway/zone1/wildlife`, `railway/zone1/signal`, `railway/zone2/train`, `railway/zone2/wildlife`, `railway/zone2/signal` | `railway/commands/zone1`, `railway/commands/zone2`, `railway/speed/zone1`, `railway/speed/zone2` |
+| Godot | `godot` | `railway/zone1/train`, `railway/zone1/wildlife`, `railway/zone2/train`, `railway/zone2/wildlife` | `railway/commands/zone1`, `railway/commands/zone2`, `railway/speed/zone1`, `railway/speed/zone2`, `railway/zone1/signal`, `railway/zone2/signal` |
 | ESP32 | `esp32` | `railway/telemetry/esp32` | `railway/commands/esp32` |
-| Backend | `backend` | `railway/state`, `railway/events`, `railway/alerts`, `railway/commands/zone1`, `railway/commands/zone2`, `railway/commands/esp32`, `railway/speed/zone1`, `railway/speed/zone2`, `railway/security/events` | `railway/zone1/train`, `railway/zone1/wildlife`, `railway/zone1/signal`, `railway/zone2/train`, `railway/zone2/wildlife`, `railway/zone2/signal`, `railway/telemetry/esp32` |
+| Backend | `backend` | `railway/state`, `railway/events`, `railway/alerts`, `railway/zone1/signal`, `railway/zone2/signal`, `railway/commands/zone1`, `railway/commands/zone2`, `railway/commands/esp32`, `railway/speed/zone1`, `railway/speed/zone2`, `railway/security/events` | `railway/zone1/train`, `railway/zone1/wildlife`, `railway/zone2/train`, `railway/zone2/wildlife`, `railway/telemetry/esp32` |
 | Dashboard | `dashboard` | *(none)* | `railway/state`, `railway/events`, `railway/alerts` |
+
+**Signal ownership:** the backend is authoritative for `railway/zoneN/signal` (it computes the aspect and publishes it, retained); Godot only *observes* `train`/`wildlife` and *renders* the signal it is told.
 
 Wildcard ACL entries (`railway/#`, `railway/+`) are avoided: every client lists
 the exact topics it needs, and no client is granted a broad `railway/#`.
@@ -314,7 +316,7 @@ stages.
 | 5 | Duplicate `request_id` | rejected, no second action |
 | 6 | Dashboard publishes MQTT command | broker denies (ACL) |
 | 7 | Godot creds publish `railway/state` | broker denies (ACL) |
-| 8 | Wildlife in zone1 | zone1 restrictive; zone2 unchanged |
+| 8 | Wildlife in zone1 | zone1 RED; zone2 YELLOW caution (zone2 wildlife flag stays false) |
 | 9 | Wildlife in zone2 | zone2 responds independently |
 | 10 | Sensor failure / MQTT disconnect | fault visible; recovery policy applied |
 | 11 | MQTT reconnect | state reconciled, no stale command replay |
