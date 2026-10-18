@@ -1038,8 +1038,10 @@ test('godot cannot publish aggregate state', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `bash scripts/test-backend.sh`
-Expected: FAIL — with the current anonymous broker config, the dashboard's publish is delivered to the observer, so `assert.equal(seen.length, 0)` fails.
+The authenticated config and harness scripts are written in Step 3, so run the test file directly:
+
+Run: `cd backend && node --test test/broker_acl.test.js`
+Expected: FAIL — with the current anonymous broker config, the dashboard's publish is delivered to the observer, so `assert.equal(seen.length, 0)` fails (a connection error also counts as a failure here).
 
 - [ ] **Step 3: Write minimal implementation**
 
