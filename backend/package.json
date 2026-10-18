@@ -1,1 +1,19 @@
-{"name":"railway-twin-backend","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"node --watch server.js","start":"node server.js"},"dependencies":{"cors":"^2.8.5","express":"^4.21.2","mqtt":"^5.10.4"}}
+{
+  "name": "railway-digital-twin-backend",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "test": "node --env-file-if-exists=.env.test --test"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "mqtt": "^5.16.1"
+  }
+}

@@ -3,3 +3,7 @@ dist/
 .godot/
 .env
 .DS_Store
+backend/.env
+backend/.env.test
+backend/data/
+mosquitto/password_file
