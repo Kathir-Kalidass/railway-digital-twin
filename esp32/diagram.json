@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "author": "Railway Digital Twin Project",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-led", "id": "ledRed", "top": -80, "left": 200, "attrs": { "color": "red" } },
+    { "type": "wokwi-led", "id": "ledGreen", "top": -30, "left": 200, "attrs": { "color": "green" } },
+    { "type": "wokwi-buzzer", "id": "buzz", "top": 45, "left": 200, "attrs": { "volume": "0.1" } },
+    { "type": "wokwi-pushbutton", "id": "wildlife", "top": 130, "left": 180, "attrs": { "color": "yellow", "xray": "1" } },
+    { "type": "wokwi-pushbutton", "id": "fault", "top": 190, "left": 180, "attrs": { "color": "blue", "xray": "1" } }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ], [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "esp:25", "ledRed:A", "", [] ], [ "ledRed:C", "esp:GND.1", "", [] ],
+    [ "esp:26", "ledGreen:A", "", [] ], [ "ledGreen:C", "esp:GND.1", "", [] ],
+    [ "esp:27", "buzz:1", "", [] ], [ "buzz:2", "esp:GND.1", "", [] ],
+    [ "esp:3V3", "wildlife:1.l", "", [] ], [ "esp:33", "wildlife:2.l", "", [] ],
+    [ "esp:3V3", "fault:1.l", "", [] ], [ "esp:32", "fault:2.l", "", [] ]
+  ],
+  "dependencies": {}
+}

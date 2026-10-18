@@ -1,0 +1,26 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+  backend:
+    build: ./backend
+    environment:
+      PORT: 3001
+      MQTT_URL: mqtt://mqtt:1883
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mqtt
+  web:
+    build: ./web
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
