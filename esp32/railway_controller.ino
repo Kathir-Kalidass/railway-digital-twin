@@ -10,8 +10,11 @@ const char* WIFI_SSID = "Wokwi-GUEST"; // Wokwi default; replace for physical ha
 const char* WIFI_PASSWORD = "";
 const char* MQTT_HOST = "192.168.1.10"; // Replace with reachable broker IP; never use localhost on ESP32
 const uint16_t MQTT_PORT = 1883;
-const char* TOPIC_COMMANDS = "railway/commands";
-const char* TOPIC_TELEMETRY = "railway/telemetry";
+const char* MQTT_USER = "esp32";
+const char* MQTT_PASS = "esp32-dev-pass";
+
+const char* TOPIC_COMMANDS = "railway/commands/esp32";
+const char* TOPIC_TELEMETRY = "railway/telemetry/esp32";
 
 // Demo GPIOs: LEDs can represent restrictive/normal signal and a buzzer.
 const int RED_LED = 25;
@@ -57,8 +60,11 @@ void connectWiFi() {
 void connectMqtt() {
   while (!mqtt.connected()) {
     String clientId = "railway-esp32-" + String((uint32_t)ESP.getEfuseMac(), HEX);
-    if (mqtt.connect(clientId.c_str())) mqtt.subscribe(TOPIC_COMMANDS);
-    else delay(1500);
+    if (mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASS)) {
+      mqtt.subscribe(TOPIC_COMMANDS);
+    } else {
+      delay(1500);
+    }
   }
 }
 
