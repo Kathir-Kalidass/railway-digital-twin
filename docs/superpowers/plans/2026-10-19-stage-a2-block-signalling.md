@@ -28,7 +28,7 @@
 ## File Structure
 
 - Create `backend/src/railway.js` — topology builder (`buildTopology`, `blockById`, `nextBlockId`).
-- Create `backend/src/signalling.js` — pure aspect derivation (`mostRestrictive`, `isZoneRestrictive`, `deriveBlockAspects`, `zoneAspect`).
+- Create `backend/src/signalling.js` — pure aspect derivation (`mostRestrictive`, `isZoneRestrictive`, `deriveBlockAspects`, `zoneSignal`).
 - Create `backend/src/simulation.js` — pure fixed-step train integration (`stepTrains`, `occupyBlocks`).
 - Modify `backend/src/config.js` — add `topology`, `trains`, `simulation`; add `validateConfig`.
 - Modify `backend/src/state.js` — authoritative multi-train model, `tick`, `setWildlife`, `setSensor`, `applySpeed({trainId})`.
@@ -204,7 +204,8 @@ git commit -m "feat(backend): add railway topology builder and config"
 
 **Interfaces:**
 - Consumes: `topology` (Task 1), `blocks` (array with `id`,`line`,`index`,`zone`,`occupiedBy`), `zones` map, `config.simulation.lookaheadBlocks`.
-- Produces: `mostRestrictive(a,b) -> 'RED'|'YELLOW'|'GREEN'`; `isZoneRestrictive(zone) -> boolean`; `deriveBlockAspects({ topology, blocks, zones, lookaheadBlocks }) -> Record<blockId, aspect>`; `zoneAspect(zoneId, topology, aspects, zone) -> aspect`.
+- Produces: `mostRestrictive(a,b) -> 'RED'|'YELLOW'|'GREEN'`; `isZoneRestrictive(zone) -> boolean`; `deriveBlockAspects({ topology, blocks, zones, lookaheadBlocks }) -> Record<blockId, aspect>` (per-block aspects include occupancy + that block's zone hazard); `zoneSignal(zoneId, zones) -> 'RED'|'YELLOW'|'GREEN'` (hazard-layer zone aggregate: `RED` if the zone is restrictive, else `YELLOW` if any other zone is restrictive, else `GREEN`).
+- **Ruling (preflight):** the *zone* signal is the hazard-layer aggregate (Stage A back-compat), **not** the occupancy-driven block aggregate. Occupancy drives **per-block** signals only. This preserves baseline behaviour (`read_routes` expects `zone1` GREEN at rest; `e2e`/`state` expect the non-hazard zone `YELLOW`) while per-block signals carry approach/occupancy. This intentionally interprets spec §4.4's "never less restrictive than the existing Stage A hazard result" as the zone aggregate; it deviates from a literal reading of "most restrictive among its blocks".
 
 - [ ] **Step 1: Write the failing test**
 
@@ -214,7 +215,7 @@ Create `backend/test/signalling.test.js`:
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTopology } from '../src/railway.js';
-import { deriveBlockAspects, zoneAspect, mostRestrictive, isZoneRestrictive } from '../src/signalling.js';
+import { deriveBlockAspects, zoneSignal, mostRestrictive, isZoneRestrictive } from '../src/signalling.js';
 
 const config = { topology: { lines: ['UP', 'DOWN'], blocksPerLine: 5, blockLengthM: 300, zoneByIndex: ['zone1', 'zone1', 'zone1', 'zone2', 'zone2'], station: { id: 'station', name: 'x', upIndex: 2, downIndex: 2, dwellSec: 20 } } };
 const zones = () => ({ zone1: { wildlifeDetected: false, sensorHealthy: true, status: 'NORMAL' }, zone2: { wildlifeDetected: false, sensorHealthy: true, status: 'NORMAL' } });
@@ -250,14 +251,15 @@ test('zone hazard forces every block in the zone RED', () => {
   assert.equal(a['UP-B3'], 'GREEN');
 });
 
-test('zoneAspect is most restrictive of its blocks and hazard', () => {
-  const topo = buildTopology(config);
+test('zoneSignal reflects hazard layer and cross-zone caution', () => {
   const z = zones();
-  const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones: z, lookaheadBlocks: 2 });
-  assert.equal(zoneAspect('zone1', topo, aspects, z.zone1), 'GREEN');
+  assert.equal(zoneSignal('zone1', z), 'GREEN');
+  assert.equal(zoneSignal('zone2', z), 'GREEN');
+  z.zone1.wildlifeDetected = true;
+  assert.equal(zoneSignal('zone1', z), 'RED');
+  assert.equal(zoneSignal('zone2', z), 'YELLOW');
   z.zone2.sensorHealthy = false;
-  const a2 = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones: z, lookaheadBlocks: 2 });
-  assert.equal(zoneAspect('zone2', topo, a2, z.zone2), 'RED');
+  assert.equal(zoneSignal('zone2', z), 'RED');
 });
 
 test('isZoneRestrictive covers wildlife, fault, recovery', () => {
@@ -314,10 +316,10 @@ export function deriveBlockAspects({ topology, blocks, zones, lookaheadBlocks = 
   return aspects;
 }
 
-export function zoneAspect(zoneId, topology, aspects, zone) {
-  let a = isZoneRestrictive(zone) ? 'RED' : 'GREEN';
-  for (const b of topology.blocks) if (b.zone === zoneId) a = mostRestrictive(a, aspects[b.id] || 'GREEN');
-  return a;
+export function zoneSignal(zoneId, zones) {
+  if (isZoneRestrictive(zones[zoneId])) return 'RED';
+  const otherRestrictive = Object.keys(zones).some((id) => id !== zoneId && isZoneRestrictive(zones[id]));
+  return otherRestrictive ? 'YELLOW' : 'GREEN';
 }
 ```
 
@@ -445,7 +447,8 @@ function permittedTarget({ topology, simulation, zones, aspects, t }) {
   const idx = line.blocks.indexOf(t.block);
   const nextId = line.blocks[(idx + 1) % line.blocks.length];
   const zone = zones[t.zone];
-  let target = zone ? zone.targetSpeedKmh : simulation.defaultTargetSpeedKmh;
+  const base = t.commandedSpeedKmh != null ? t.commandedSpeedKmh : (zone ? zone.targetSpeedKmh : simulation.defaultTargetSpeedKmh);
+  let target = base;
   const nextAspect = aspects ? aspects[nextId] : 'GREEN';
   if (nextAspect === 'RED') target = 0;
   else if (nextAspect === 'YELLOW') target = Math.min(target, simulation.cautionSpeedKmh);
@@ -506,9 +509,9 @@ git commit -m "feat(backend): add deterministic multi-train simulation step"
 - Modify: `backend/test/state.test.js`
 
 **Interfaces:**
-- Consumes: `buildTopology` (Task 1), `deriveBlockAspects`/`zoneAspect` (Task 2), `occupyBlocks`/`stepTrains` (Task 3).
+- Consumes: `buildTopology` (Task 1), `deriveBlockAspects`/`zoneSignal` (Task 2), `occupyBlocks`/`stepTrains` (Task 3).
 - Produces: `makeState({ config, topology })` returning `{ snapshot, applyCommand, applySpeed, setWildlife, setSensor, tick, setBrokerConnected }`.
-- `snapshot()` returns `{ zones, train, trains, lines, blocks, station, comm, overall, lastEvent, updatedAt }` where `zones[z].signal` is layered and `zones[z].blocks` lists block ids.
+- `snapshot()` returns `{ zones, train, trains, lines, blocks, station, comm, overall, lastEvent, updatedAt }` where `zones[z].signal` is the hazard-layer aggregate (`zoneSignal`), each `blocks[i].signal` carries the occupancy-aware aspect, and `zones[z].blocks` lists block ids. Per-train speed is honored via `trains[i].commandedSpeedKmh`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -560,7 +563,8 @@ test('snapshot exposes authoritative trains, blocks, lines, station', () => {
   assert.equal(snap.lines.length, 2);
   assert.equal(snap.blocks.length, 10);
   assert.ok(snap.station.blocks.UP);
-  assert.deepEqual(snap.zones.zone1.blocks.sort(), ['UP-B0', 'UP-B1', 'UP-B2']);
+  assert.deepEqual(snap.zones.zone1.blocks.sort(), ['DOWN-B0', 'DOWN-B1', 'DOWN-B2', 'UP-B0', 'UP-B1', 'UP-B2']);
+  assert.equal(snap.blocks.find((b) => b.id === 'UP-B0').signal, 'RED'); // occupancy drives per-block aspect
   assert.equal(snap.train.id, 'T1'); // deprecated summary
 });
 
@@ -604,7 +608,7 @@ Replace `backend/src/state.js` with:
 
 ```js
 import { buildTopology } from './railway.js';
-import { deriveBlockAspects, zoneAspect } from './signalling.js';
+import { deriveBlockAspects, zoneSignal } from './signalling.js';
 import { occupyBlocks, stepTrains } from './simulation.js';
 
 const DECEL = 2.0; // m/s^2 illustrative braking
@@ -625,6 +629,7 @@ export function makeState({ config, topology }) {
     id: t.id, line: t.line, direction: t.direction,
     block: `${t.line}-B${t.startBlock}`, offsetM: t.startOffsetM,
     speedKmh: 0, targetSpeedKmh: zones[topo.blocks.find((b) => b.id === `${t.line}-B${t.startBlock}`).zone].targetSpeedKmh,
+    commandedSpeedKmh: null,
     lengthM: t.lengthM, status: 'RUNNING', zone: topo.blocks.find((b) => b.id === `${t.line}-B${t.startBlock}`).zone,
   }));
   occupyBlocks(topo, trains);
@@ -649,7 +654,7 @@ export function makeState({ config, topology }) {
   function snapshot() {
     const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones, lookaheadBlocks: sim.lookaheadBlocks });
     for (const id of config.zones) {
-      zones[id].signal = zoneAspect(id, topo, aspects, zones[id]);
+      zones[id].signal = zoneSignal(id, zones);
       zones[id].trainPresent = trains.some((t) => t.zone === id);
     }
     const outTrains = trains.map((t) => ({ ...t, stoppingDistanceM: Math.round((t.speedKmh / 3.6) ** 2 / (2 * DECEL)) }));
@@ -659,7 +664,7 @@ export function makeState({ config, topology }) {
       train: primary, // DEPRECATED: summary of trains[0] for un-migrated clients
       trains: outTrains,
       lines: topo.lines.map((l) => ({ id: l.id, blocks: [...l.blocks] })),
-      blocks: topo.blocks.map((b) => ({ ...b })),
+      blocks: topo.blocks.map((b) => ({ ...b, signal: aspects[b.id] || 'GREEN' })),
       station: { ...topo.station, blocks: { ...topo.station.blocks } },
       comm: { ...comm },
       overall: recomputeOverall(),
@@ -693,6 +698,7 @@ export function makeState({ config, topology }) {
     if (trainId) {
       const t = trains.find((x) => x.id === trainId);
       if (!t) return { ok: false, reason: 'unknown train' };
+      t.commandedSpeedKmh = v;
       t.targetSpeedKmh = v;
       return { ok: true };
     }
@@ -760,6 +766,15 @@ test('snapshot publishes retained per-block signals', () => {
   assert.equal(msg.o.signal, 'RED');
 });
 ```
+
+Also fix the two existing `makeState({ config: { zones: [...] } })` calls (lines 13 and 25): `makeState` now calls `buildTopology(config)`, which throws without a topology. Add `import { buildTopology } from '../src/railway.js';` and a shared config, then use it in both tests:
+
+```js
+const testConfig = { zones: ['zone1', 'zone2'], topology: { lines: ['UP', 'DOWN'], blocksPerLine: 5, blockLengthM: 300, zoneByIndex: ['zone1', 'zone1', 'zone1', 'zone2', 'zone2'], station: { id: 'station', name: 'x', upIndex: 2, downIndex: 2, dwellSec: 20 } }, trains: [], simulation: { tickMs: 500, lookaheadBlocks: 2, cautionSpeedKmh: 30, brakeMps2: 2.0, accelMps2: 0.6, defaultTargetSpeedKmh: 48 } };
+const makeTestState = () => makeState({ config: testConfig, topology: buildTopology(testConfig) });
+```
+
+Replace both `makeState({ config: { zones: ['zone1', 'zone2'] } })` occurrences with `makeTestState()`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1241,7 +1256,7 @@ git commit -m "docs: document multi-train block signalling contract"
 
 **Placeholder scan:** No `TBD`/`TODO`; every code step contains complete code. Task 9's ACL test uses the file's existing helper names with an explicit instruction to adapt — this is a real integration file that must be read at execution time.
 
-**Type consistency:** `buildTopology`/`blockById`/`nextBlockId` (Task 1) used consistently; `deriveBlockAspects`/`zoneAspect`/`isZoneRestrictive` (Task 2) reused in Tasks 3–4; `stepTrains`/`occupyBlocks` signatures (Task 3) match Task 4 calls; `applySpeed({zone,trainId,speedKmh})` matches Task 7 validate/route; `setWildlife`/`setSensor` match Task 6 ingest.
+**Type consistency:** `buildTopology`/`blockById`/`nextBlockId` (Task 1) used consistently; `deriveBlockAspects`/`zoneSignal`/`isZoneRestrictive` (Task 2) reused in Tasks 3–4; `stepTrains`/`occupyBlocks` signatures (Task 3) match Task 4 calls; `applySpeed({zone,trainId,speedKmh})` matches Task 7 validate/route; `setWildlife`/`setSensor` match Task 6 ingest.
 
 ## Execution Handoff
 
