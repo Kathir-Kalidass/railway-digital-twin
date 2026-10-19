@@ -1210,11 +1210,14 @@ test('snapshot publishes retained state and per-zone signals', () => {
 
 test('events are recorded and published newest-first', () => {
   const mqtt = fakeMqtt();
-  const bus = makeBus({ mqtt, state: makeState({ config: { zones: ['zone1', 'zone2'] } }), events: makeEvents() });
+  const events = makeEvents();
+  const bus = makeBus({ mqtt, state: makeState({ config: { zones: ['zone1', 'zone2'] } }), events });
   bus.event({ type: 'A' });
   bus.event({ type: 'B' });
-  assert.equal(bus.list?.length, undefined); // bus has no list; check publish
   assert.equal(mqtt.published.filter((m) => m.t === 'railway/events').length, 2);
+  const listed = events.list();
+  assert.equal(listed.length, 2);
+  assert.equal(listed[0].type, 'B');
 });
 ```
 
