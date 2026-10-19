@@ -332,9 +332,11 @@ installed). Deliver a manual checklist plus
 
 - **A — Backend foundation:** Express, auth/RBAC, SQLite audit + replay,
   two-zone state machine, MQTT bridge, **broker auth + ACLs + connectivity
-  validated here**, automated tests.
+  validated here**, automated tests. See the Stage A implementation plan:
+  [`2026-10-18-stage-a-backend-foundation.md`](../plans/2026-10-18-stage-a-backend-foundation.md).
 - **B — Dashboard:** login, role-aware controls (via REST), MQTT-over-WS
-  read-only live updates, two-zone visualization, audit feed.
+  read-only live updates, two-zone visualization, audit feed. See
+  [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md).
 - **C — Godot:** vendored MQTT addon + bridge, procedural two-track world,
   train/wildlife animation, braking dynamics, signals, cameras.
 - **D — ESP32/Wokwi:** per-client credentials, device-scoped topics, fault
@@ -342,6 +344,10 @@ installed). Deliver a manual checklist plus
 - **E — Delivery:** Docker/env setup, test scripts, demo scenarios, architecture
   diagram, limitations doc.
 
+Stages C–E have separate detailed designs:
+[`Stage C — Godot`](./2026-10-19-stage-c-godot-digital-twin-design.md),
+[`Stage D — ESP32/Wokwi`](./2026-10-19-stage-d-esp32-wokwi-design.md), and
+[`Stage E — Integrated delivery`](./2026-10-19-stage-e-integrated-delivery-design.md).
 Each stage is planned and verified before the next; Stage A first.
 
 ## 13. Risks & mitigations
