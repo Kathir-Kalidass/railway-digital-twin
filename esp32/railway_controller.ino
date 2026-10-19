@@ -5,8 +5,11 @@
 */
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 #include <time.h>
 #include "secrets.h"
+#include "src/command_logic.h"
+#include "src/output_logic.h"
 #include "src/telemetry.h"
 
 const char* TOPIC_COMMANDS = "railway/commands/esp32";
@@ -21,28 +24,58 @@ const int FAULT_INPUT = 32;    // Optional active-high pushbutton/sensor fault s
 
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
-bool wildlifeDetected = false;
-bool sensorHealthy = true;
+bool localWildlifeDetected = false;
+bool localFaultDetected = false;
+bool backendWildlifeDetected = false;
+bool backendFaultDetected = false;
 unsigned long lastPublish = 0;
 unsigned long telemetrySequence = 0;
+String lastCommandId;
 
 void applyOutputs() {
-  const bool restrictive = wildlifeDetected || !sensorHealthy;
+  const bool backendRestrictive = backendWildlifeDetected || backendFaultDetected;
+  const Output output = decide_output(localWildlifeDetected, localFaultDetected,
+                                      mqtt.connected(), backendRestrictive);
+  const bool restrictive = output != Output::RENDER_BACKEND || backendRestrictive;
   digitalWrite(RED_LED, restrictive ? HIGH : LOW);
   digitalWrite(GREEN_LED, restrictive ? LOW : HIGH);
-  digitalWrite(BUZZER, restrictive ? HIGH : LOW);
+  // Communication loss remains restrictive but is distinguishable by a pulse.
+  digitalWrite(BUZZER, output == Output::COMM_LOSS ? ((millis() / 250) % 2) : (restrictive ? HIGH : LOW));
+}
+
+bool commandTimestampFresh(const char *timestamp) {
+  if (!timestamp || !timestamp[0]) return false;
+  int year, month, day, hour, minute, second;
+  if (sscanf(timestamp, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6) return false;
+  struct tm parsed = {};
+  parsed.tm_year = year - 1900; parsed.tm_mon = month - 1; parsed.tm_mday = day;
+  parsed.tm_hour = hour; parsed.tm_min = minute; parsed.tm_sec = second;
+  const time_t commandTime = mktime(&parsed);
+  const time_t currentTime = time(nullptr);
+  return currentTime > 1600000000 && commandTime > 1600000000 &&
+         llabs(static_cast<long long>(currentTime) - static_cast<long long>(commandTime)) <= 5 * 60;
 }
 
 void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   if (String(topic) != TOPIC_COMMANDS) return;
-  String message;
-  for (unsigned int i = 0; i < length; i++) message += (char)payload[i];
-  if (message.indexOf("WILDLIFE_DETECTED") >= 0) wildlifeDetected = true;
-  else if (message.indexOf("WILDLIFE_CLEARED") >= 0) wildlifeDetected = false;
-  else if (message.indexOf("SENSOR_FAULT") >= 0) sensorHealthy = false;
-  else if (message.indexOf("SENSOR_RESTORED") >= 0) sensorHealthy = true;
-  else if (message.indexOf("RESET") >= 0 && !wildlifeDetected && sensorHealthy) {
-    // Reset does not override an active hazard/fault.
+  StaticJsonDocument<512> document;
+  if (deserializeJson(document, payload, length)) return;
+  const char *zone = document["zone"] | "";
+  const char *requestId = document["request_id"] | "";
+  const char *timestamp = document["timestamp"] | "";
+  if (strcmp(zone, DEVICE_ZONE) != 0 || !requestId[0] || !commandTimestampFresh(timestamp) ||
+      lastCommandId == requestId) return;
+  std::string message(reinterpret_cast<const char *>(payload), length);
+  const CmdEffect effect = parse_command(message, DEVICE_ZONE, millis());
+  if (effect == CmdEffect::NONE) return;
+  lastCommandId = requestId;
+  if (effect == CmdEffect::WILDLIFE_SET) backendWildlifeDetected = true;
+  else if (effect == CmdEffect::WILDLIFE_CLEAR) backendWildlifeDetected = false;
+  else if (effect == CmdEffect::FAULT_SET) backendFaultDetected = true;
+  else if (effect == CmdEffect::FAULT_RESTORE) backendFaultDetected = false;
+  else if (effect == CmdEffect::RESET && !localWildlifeDetected && !localFaultDetected) {
+    backendWildlifeDetected = false;
+    backendFaultDetected = false;
   }
   applyOutputs();
 }
@@ -90,7 +123,7 @@ void publishTelemetry() {
   snprintf(requestId, sizeof(requestId), "%s-%llx-%lu", DEVICE_ID,
            ESP.getEfuseMac(), ++telemetrySequence);
   const std::string payload = build_telemetry(DEVICE_ID, DEVICE_ZONE, requestId, timestamp,
-                                              clockValid, wildlifeDetected, sensorHealthy,
+                                              clockValid, localWildlifeDetected, !localFaultDetected,
                                               millis());
   mqtt.publish(TOPIC_TELEMETRY, payload.c_str(), false);
 }
@@ -104,8 +137,16 @@ void loop() {
   static bool lastWildlife = false, lastFault = false;
   bool nowWildlife = digitalRead(WILDLIFE_INPUT) == HIGH;
   bool nowFault = digitalRead(FAULT_INPUT) == HIGH;
-  if (nowWildlife != lastWildlife) { wildlifeDetected = nowWildlife; lastWildlife = nowWildlife; applyOutputs(); }
-  if (nowFault != lastFault) { sensorHealthy = !nowFault; lastFault = nowFault; applyOutputs(); }
+  if (nowWildlife != lastWildlife) {
+    localWildlifeDetected = nowWildlife;
+    lastWildlife = nowWildlife;
+    applyOutputs();
+  }
+  if (nowFault != lastFault) {
+    localFaultDetected = nowFault;
+    lastFault = nowFault;
+    applyOutputs();
+  }
 
   if (millis() - lastPublish > 1500) {
     lastPublish = millis();

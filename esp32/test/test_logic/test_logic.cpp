@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "debounce.h"
+#include "command_logic.h"
 #include "output_logic.h"
 #include "telemetry.h"
 
@@ -49,6 +50,23 @@ void test_telemetry_clock_invalid() {
   TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"clockValid\":false"));
 }
 
+void test_command_rejects_other_zone() {
+  const std::string json = "{\"event\":\"WILDLIFE_DETECTED\",\"zone\":\"zone2\",\"timestamp\":\"2026-10-19T12:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::NONE),
+                    static_cast<int>(parse_command(json, "zone1", 0)));
+}
+
+void test_command_accepts_same_zone() {
+  const std::string json = "{\"event\":\"SENSOR_FAULT\",\"zone\":\"zone1\",\"timestamp\":\"2026-10-19T12:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::FAULT_SET),
+                    static_cast<int>(parse_command(json, "zone1", 0)));
+}
+
+void test_command_rejects_malformed() {
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::NONE),
+                    static_cast<int>(parse_command("{not json", "zone1", 0)));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(test_local_wildlife_dominates);
@@ -58,5 +76,8 @@ int main(int, char **) {
   RUN_TEST(test_debounce_ignores_bounce);
   RUN_TEST(test_telemetry_envelope);
   RUN_TEST(test_telemetry_clock_invalid);
+  RUN_TEST(test_command_rejects_other_zone);
+  RUN_TEST(test_command_accepts_same_zone);
+  RUN_TEST(test_command_rejects_malformed);
   return UNITY_END();
 }
