@@ -430,7 +430,7 @@ export function occupyBlocks(topology, trains) {
     const line = topology.lines.find((l) => l.id === t.line);
     const n = line.blocks.length;
     let idx = line.blocks.indexOf(t.block);
-    let remaining = t.offsetM + t.lengthM;
+    let remaining = t.lengthM;
     let first = true;
     while (remaining > 0) {
       const block = topology.blocks.find((b) => b.id === line.blocks[idx]);
