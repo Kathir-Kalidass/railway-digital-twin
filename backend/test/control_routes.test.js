@@ -42,6 +42,7 @@ test('speed route validates range and applies per zone', async () => {
     const operator = await tokenFor(url, 'operator');
     const bad = await fetch(`${url}/api/speed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` }, body: JSON.stringify({ zone: 'zone1', speedKmh: 200 }) });
     assert.equal(bad.status, 400);
+    assert.ok(deps.mqtt.published.some((m) => m.t === 'railway/security/events'));
     const ok = await fetch(`${url}/api/speed`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` }, body: JSON.stringify({ zone: 'zone2', speedKmh: 30 }) });
     assert.equal(ok.status, 200);
     assert.equal((await ok.json()).state.zones.zone2.targetSpeedKmh, 30);
