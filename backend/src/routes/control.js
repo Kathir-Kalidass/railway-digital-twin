@@ -34,9 +34,12 @@ export function controlRouter({ auth, config, state, bus, audit, replay, mqtt })
       bus.security({ request_id: check.value.request_id, actor: req.user.username, reason: applied.reason, timestamp: new Date().toISOString() });
       return res.status(409).json({ error: 'transition rejected', reason: applied.reason });
     }
-    mqtt.publish(`railway/commands/${check.value.zone}`, check.value);
-    const snapshot = bus.snapshot();
     audit.write({ actor: req.user.username, role: req.user.role, action: check.value.event, zone: check.value.zone, result: 'ACCEPTED', source: 'rest' });
+    mqtt.publish(`railway/commands/${check.value.zone}`, check.value);
+    if (config.esp32Zone && config.esp32Zone === check.value.zone) {
+      mqtt.publish('railway/commands/esp32', check.value);
+    }
+    const snapshot = bus.snapshot();
     bus.event({ type: check.value.event, zone: check.value.zone, actor: req.user.username, result: 'ACCEPTED' });
     return res.json({ ok: true, state: snapshot });
   });

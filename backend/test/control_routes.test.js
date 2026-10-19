@@ -49,3 +49,33 @@ test('speed route validates range and applies per zone', async () => {
     assert.ok(deps.mqtt.published.some((m) => m.t === 'railway/speed/zone2'));
   });
 });
+
+test('only accepted commands for the configured ESP32 zone are forwarded', async () => {
+  const deps = buildDeps({ config: { ...config, esp32Zone: 'zone1' } });
+  await withServer(deps, async (url) => {
+    const operator = await tokenFor(url, 'operator');
+    const post = (body) => fetch(`${url}/api/control`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` },
+      body: JSON.stringify(body),
+    });
+
+    const accepted = await post(envelope('zone1', 'WILDLIFE_DETECTED', 'esp-forward-1'));
+    assert.equal(accepted.status, 200);
+    const forwards = () => deps.mqtt.published.filter((m) => m.t === 'railway/commands/esp32');
+    assert.equal(forwards().length, 1);
+    assert.equal(forwards()[0].o.zone, 'zone1');
+
+    const otherZone = await post(envelope('zone2', 'WILDLIFE_DETECTED', 'esp-forward-2'));
+    assert.equal(otherZone.status, 200);
+    assert.equal(forwards().length, 1);
+
+    const duplicate = await post(envelope('zone1', 'WILDLIFE_DETECTED', 'esp-forward-1'));
+    assert.equal(duplicate.status, 400);
+    assert.equal(forwards().length, 1);
+
+    const invalid = await post({ request_id: 'esp-forward-invalid', zone: 'zone1', event: 'NOT_A_COMMAND' });
+    assert.equal(invalid.status, 400);
+    assert.equal(forwards().length, 1);
+  });
+});
