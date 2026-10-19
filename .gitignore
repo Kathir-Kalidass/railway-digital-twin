@@ -12,3 +12,4 @@ backend/.env.*
 !backend/.env.sample
 mosquitto/password_file
 esp32/secrets.h
+esp32/.pio/
