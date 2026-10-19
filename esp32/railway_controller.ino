@@ -5,7 +5,9 @@
 */
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <time.h>
 #include "secrets.h"
+#include "src/telemetry.h"
 
 const char* TOPIC_COMMANDS = "railway/commands/esp32";
 const char* TOPIC_TELEMETRY = "railway/telemetry/esp32";
@@ -22,6 +24,7 @@ PubSubClient mqtt(wifiClient);
 bool wildlifeDetected = false;
 bool sensorHealthy = true;
 unsigned long lastPublish = 0;
+unsigned long telemetrySequence = 0;
 
 void applyOutputs() {
   const bool restrictive = wildlifeDetected || !sensorHealthy;
@@ -68,9 +71,28 @@ void setup() {
   pinMode(WILDLIFE_INPUT, INPUT_PULLDOWN); pinMode(FAULT_INPUT, INPUT_PULLDOWN);
   applyOutputs();
   connectWiFi();
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setCallback(onMqttMessage);
   mqtt.setBufferSize(512);
+}
+
+void publishTelemetry() {
+  const time_t now = time(nullptr);
+  const bool clockValid = now > 1600000000;
+  char timestamp[25] = "";
+  if (clockValid) {
+    struct tm utc;
+    gmtime_r(&now, &utc);
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", &utc);
+  }
+  char requestId[80];
+  snprintf(requestId, sizeof(requestId), "%s-%llx-%lu", DEVICE_ID,
+           ESP.getEfuseMac(), ++telemetrySequence);
+  const std::string payload = build_telemetry(DEVICE_ID, DEVICE_ZONE, requestId, timestamp,
+                                              clockValid, wildlifeDetected, sensorHealthy,
+                                              millis());
+  mqtt.publish(TOPIC_TELEMETRY, payload.c_str(), false);
 }
 
 void loop() {
@@ -87,12 +109,7 @@ void loop() {
 
   if (millis() - lastPublish > 1500) {
     lastPublish = millis();
-    char payload[220];
-    snprintf(payload, sizeof(payload),
-      "{\"device\":\"esp32\",\"wildlifeDetected\":%s,\"sensorHealthy\":%s,\"signal\":\"%s\",\"uptimeMs\":%lu}",
-      wildlifeDetected ? "true" : "false", sensorHealthy ? "true" : "false",
-      (wildlifeDetected || !sensorHealthy) ? "RED" : "GREEN", millis());
-    mqtt.publish(TOPIC_TELEMETRY, payload);
+    publishTelemetry();
   }
   delay(10);
 }
