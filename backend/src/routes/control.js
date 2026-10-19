@@ -48,6 +48,7 @@ export function controlRouter({ auth, config, state, bus, audit, replay, mqtt })
     const check = validateSpeed(req.body, ctx);
     if (!check.ok) {
       audit.write({ actor: req.user.username, role: req.user.role, action: 'SPEED', zone: req.body?.zone || null, result: 'REJECTED', reason: check.reason, source: 'rest' });
+      bus.security({ request_id: req.body?.request_id || null, actor: req.user.username, reason: check.reason, timestamp: new Date().toISOString() });
       return res.status(400).json({ error: 'invalid speed', reason: check.reason });
     }
     state.applySpeed(check.value);

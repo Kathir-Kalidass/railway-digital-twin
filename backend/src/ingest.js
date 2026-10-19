@@ -1,6 +1,4 @@
 export function makeIngest({ state, bus, config }) {
-  let esp32Online = false;
-
   function handle(topic, message = {}) {
     const zoneMatch = topic.match(/^railway\/(zone\d+)\/(train|wildlife)$/);
     if (zoneMatch) {
@@ -12,9 +10,9 @@ export function makeIngest({ state, bus, config }) {
       return;
     }
     if (topic === 'railway/telemetry/esp32') {
-      esp32Online = true;
+      const targets = message.zone && config.zones.includes(message.zone) ? [message.zone] : config.zones;
+      for (const zone of targets) state.applyTelemetry(zone, { sensorHealthy: message.sensorHealthy });
       if (message.sensorHealthy === false) {
-        for (const id of config.zones) state.applyTelemetry(id, { sensorHealthy: false });
         bus.alert({ source: 'esp32', severity: 'HIGH', message: 'ESP32 reports sensor fault', timestamp: new Date().toISOString() });
       }
       bus.snapshot();
