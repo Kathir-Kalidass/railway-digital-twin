@@ -530,7 +530,7 @@ func _build_zone_boundary_gantries() -> void:
 	# Overhead Arch marking Zone 1 -> Zone 2
 	var gantry = Node3D.new()
 	gantry.position = Vector3(12, 0, -14)
-	gantry.look_at(gantry.position + Vector3(1, 0, 0.8), Vector3.UP)
+	gantry.look_at_from_position(gantry.position, gantry.position + Vector3(1, 0, 0.8), Vector3.UP)
 	var steel_mat = _material(Color("323d42"), 0.4, 0.5)
 
 	var post_l = MeshInstance3D.new()
@@ -577,17 +577,14 @@ func _build_zone_boundary_gantries() -> void:
 func _build_train() -> void:
 	train_follow = PathFollow3D.new()
 	train_follow.loop = true
-	train_follow.rotates = true
 	track_path.add_child(train_follow)
 
 	coach1_follow = PathFollow3D.new()
 	coach1_follow.loop = true
-	coach1_follow.rotates = true
 	track_path.add_child(coach1_follow)
 
 	coach2_follow = PathFollow3D.new()
 	coach2_follow.loop = true
-	coach2_follow.rotates = true
 	track_path.add_child(coach2_follow)
 
 	# Locomotive
@@ -646,9 +643,9 @@ func _build_locomotive_body(parent: Node3D) -> void:
 	for side in [-1.0, 1.0]:
 		for i in range(4):
 			var win = MeshInstance3D.new()
-			var wm = BoxMesh.new()
-			wm.size = Vector3(0.04, 0.45, 0.72)
-			win.mesh = wm
+			var win_mesh = BoxMesh.new()
+			win_mesh.size = Vector3(0.04, 0.45, 0.72)
+			win.mesh = win_mesh
 			win.position = Vector3(side * 1.11, 1.45, -1.6 + i * 0.95)
 			win.material_override = glass_mat
 			parent.add_child(win)
@@ -657,11 +654,11 @@ func _build_locomotive_body(parent: Node3D) -> void:
 	for side in [-1.0, 1.0]:
 		for z in [-2.1, -1.1, 1.1, 2.1]:
 			var wheel = MeshInstance3D.new()
-			var wm = CylinderMesh.new()
-			wm.top_radius = 0.42
-			wm.bottom_radius = 0.42
-			wm.height = 0.18
-			wheel.mesh = wm
+			var wheel_mesh = CylinderMesh.new()
+			wheel_mesh.top_radius = 0.42
+			wheel_mesh.bottom_radius = 0.42
+			wheel_mesh.height = 0.18
+			wheel.mesh = wheel_mesh
 			wheel.rotation_degrees.z = 90
 			wheel.position = Vector3(side * 1.08, 0.42, z)
 			wheel.material_override = dark_mat
@@ -722,9 +719,9 @@ func _build_coach_body(parent: Node3D, col: Color, is_rear: bool = false) -> voi
 	for side in [-1.0, 1.0]:
 		for i in range(5):
 			var win = MeshInstance3D.new()
-			var wm = BoxMesh.new()
-			wm.size = Vector3(0.04, 0.45, 0.68)
-			win.mesh = wm
+			var win_mesh = BoxMesh.new()
+			win_mesh.size = Vector3(0.04, 0.45, 0.68)
+			win.mesh = win_mesh
 			win.position = Vector3(side * 1.09, 1.45, -1.8 + i * 0.9)
 			win.material_override = glass_mat
 			parent.add_child(win)
@@ -733,11 +730,11 @@ func _build_coach_body(parent: Node3D, col: Color, is_rear: bool = false) -> voi
 	for side in [-1.0, 1.0]:
 		for z in [-1.8, -0.9, 0.9, 1.8]:
 			var wheel = MeshInstance3D.new()
-			var wm = CylinderMesh.new()
-			wm.top_radius = 0.42
-			wm.bottom_radius = 0.42
-			wm.height = 0.18
-			wheel.mesh = wm
+			var wheel_mesh = CylinderMesh.new()
+			wheel_mesh.top_radius = 0.42
+			wheel_mesh.bottom_radius = 0.42
+			wheel_mesh.height = 0.18
+			wheel.mesh = wheel_mesh
 			wheel.rotation_degrees.z = 90
 			wheel.position = Vector3(side * 1.08, 0.42, z)
 			wheel.material_override = dark_mat
@@ -802,11 +799,11 @@ func _build_elephant() -> void:
 	var tusk_mat = _material(Color("f2ebd9"), 0.3)
 	for side in [-0.45, 0.45]:
 		var tusk = MeshInstance3D.new()
-		var tm = CylinderMesh.new()
-		tm.top_radius = 0.04
-		tm.bottom_radius = 0.11
-		tm.height = 0.75
-		tusk.mesh = tm
+		var tusk_mesh = CylinderMesh.new()
+		tusk_mesh.top_radius = 0.04
+		tusk_mesh.bottom_radius = 0.11
+		tusk_mesh.height = 0.75
+		tusk.mesh = tusk_mesh
 		tusk.position = Vector3(side, -0.35, -0.65)
 		tusk.rotation_degrees = Vector3(-45, side * 15, 0)
 		tusk.material_override = tusk_mat
@@ -829,10 +826,10 @@ func _build_elephant() -> void:
 
 	# Pulsing Ground Danger Zone Ring
 	danger_ring = MeshInstance3D.new()
-	var tm = TorusMesh.new()
-	tm.inner_radius = 2.4
-	tm.outer_radius = 2.7
-	danger_ring.mesh = tm
+	var ring_torus = TorusMesh.new()
+	ring_torus.inner_radius = 2.4
+	ring_torus.outer_radius = 2.7
+	danger_ring.mesh = ring_torus
 	danger_ring.position = Vector3(-2.8, 0.05, -7.2)
 	danger_ring.rotation_degrees.x = 90
 	var ring_mat = _material(Color("ff2233"), 0.2)
