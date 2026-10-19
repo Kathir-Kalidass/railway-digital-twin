@@ -1,237 +1,320 @@
-# Stage C — Godot Digital Twin Design
+# Stage C — Godot Digital Twin Design (Enhanced)
 
 Date: 2026-10-19  
 Status: proposed  
 Parent design: [`2026-10-18-railway-digital-twin-enhancement-design.md`](./2026-10-18-railway-digital-twin-enhancement-design.md)  
-Related designs: [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md)
+Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19-stage-a2-block-signalling-design.md), [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md)
 
 > **Safety boundary:** This is an educational digital-twin simulation. No
-> visual, MQTT message, signal, or stopping-distance estimate is certified
-> railway equipment. Do not connect it to live signalling, infrastructure,
-> or rolling stock.
+> visual, MQTT message, signal aspect, or stopping-distance estimate is
+> certified railway equipment. Train motion, block signalling, and braking are
+> illustrative simulations only. Do not connect it to live signalling,
+> infrastructure, or rolling stock.
 
 ## 1. Purpose and outcome
 
-Replace the Godot prototype's HTTP telemetry path with an authenticated MQTT
-client and deliver a procedural, two-zone railway scene that follows the
-backend's authoritative state. Godot represents the system visually and
-publishes simulated sensor/device observations; it is not a second control
-plane.
+Deliver a visually rich, real-time Godot 4 digital twin that (a) replaces the
+prototype's unauthenticated HTTP path with an authenticated MQTT client, and
+(b) renders the **Stage A2 authoritative multi-train, block-signalling state**
+as a realistic double-track scene with imported hero assets, advanced
+animation, weather/atmosphere, and cinematic scenarios.
 
-Stage C is complete when the project loads without script/resource errors,
-the two-zone scene and operating states are visible, telemetry updates the
-intended backend zone, broker permissions pass, and reconnect behavior
-reconciles from backend state without issuing synthetic clears or resets.
+Godot represents the system visually and publishes simulated sensor
+observations. It is **not a second control plane**: it never publishes trains,
+occupancy, state, signals, commands, events, or alerts, and never calls a REST
+control endpoint.
+
+Stage C is complete when the project loads without script/resource errors at
+the target renderer via the installed Godot 4.7 binary, the double-track scene
+renders authoritative trains/blocks/signals, permitted telemetry publishes to
+the correct zone, broker ACLs pass, reconnect reconciles from retained state
+without synthetic clears/resets, and the scenario director runs the safety and
+ops scenarios and the cinematic reel on the Windows GPU demo target.
 
 ## 2. Scope and authority
 
 ### In scope
 
-- Pin and vendor a Godot 4-compatible MQTT addon and its license.
-- Introduce a bridge and state model between the addon and scene components.
-- Build the two-zone procedural track, train, wildlife, signals, HUD, and
-  cameras, prioritizing core animation before environmental polish.
-- Publish bounded-rate train occupancy/speed and wildlife observations.
-- Subscribe to backend state, zone signals, command updates, and speed target
-  updates.
-- Show broker status, synchronization status, last-state age, and stale/offline
-  state.
+- Vendor a pinned, Godot-4-compatible **MQTT client addon** and its license.
+- **Forward+** rendering as the demo renderer, with a `gl_compatibility`
+  fallback preset; quality tiers (High/Medium/Low).
+- **Hybrid assets**: procedural deterministic world **plus curated,
+  license-verified imported hero assets** (rigged rolling stock, elephant,
+  deer) with skeletal **AnimationTree** blends, IK foot placement, and root
+  motion.
+- A **double-track ring** with blocks, a station with crossovers, tunnel,
+  bridge/river, level crossing, and per-block signals, matching Stage A2.
+- **Multi-train rendering** driven solely by authoritative backend state
+  (interpolated, never authoritative).
+- A **scenario director** with authored safety/ops scenarios and a scripted
+  cinematic reel.
+- Atmosphere: day/night cycle, clear/fog/rain weather, volumetric fog, PBR
+  materials, post-processing.
+- HUD: block/train/status panels, sync/stale/age indicators, sim disclaimer.
 
 ### Out of scope
 
-- Godot must not call `/api/control` or `/api/speed` and must not act as an
-  operator console.
-- It must not publish `railway/state`, `railway/events`, `railway/alerts`,
-  `railway/commands/*`, or `railway/zoneN/signal`.
-- It must not reset backend state or publish a hazard clear solely from a
-  local key press.
-- No imported/copyrighted 3D assets, photorealism requirement, or claim of
-  certified train dynamics.
+- Godot must not publish `railway/state`, `railway/events`, `railway/alerts`,
+  `railway/commands/*`, `railway/signal/*`, `railway/zoneN/signal`, or
+  `railway/zoneN/train`.
+- Godot must not call `/api/control`, `/api/speed`, or the removed `/api/event`.
+- No claim of certified train dynamics, certified braking, or photorealistic
+  accuracy.
+- No production TLS/provisioning (dev uses plaintext TCP; documented as such).
 
 ### Authority rules
 
-- Backend state and retained zone signals are authoritative. Scene code must
-  not derive or publish a more permissive signal aspect.
+- Backend state, block occupancy, and retained signals are authoritative.
+  Scene code must never derive or publish a more permissive aspect.
+- Trains are authoritative in the backend (Stage A2); Godot interpolates
+  positions between state updates for smoothness only.
 - The dashboard issues all user controls through authenticated REST.
-- Godot local actions are simulator sensor inputs only. They publish
-  observations on explicitly permitted telemetry topics and do not bypass
-  backend validation or audit for user commands.
-- Train motion and braking are visual simulation. Local prediction is allowed
-  between updates, but must reconcile to backend state and be labelled as
-  simulated.
+- Godot local actions are **simulator sensor inputs only** (wildlife/fault
+  observations) on explicitly permitted telemetry topics; they never bypass
+  backend validation/audit for user commands.
 
-## 3. MQTT contract and lifecycle
+## 3. MQTT client and lifecycle
 
-### 3.1 Topics
+### 3.1 Addon
 
-Use the least-privilege ACL assignments in the parent design; do not add
-`railway/#` or other broad permissions.
+- Vendor **`goatchurchprime/godot-mqtt`** (MIT) under `godot/addons/mqtt/`
+  with its `LICENSE` and a pinned commit recorded in
+  `godot/addons/mqtt/VENDOR.md` (source URL, commit, license).
+- Rationale: MIT, pure GDScript (~556 lines), no per-OS binaries (identical on
+  Windows demo and WSL/headless CI), TCP + username/password + QoS 0/1 +
+  retained + LWT, ships a headless test suite.
+- Known gaps handled in-code: **no built-in reconnect/backoff** (implemented
+  in `mqtt_bridge.gd`), **TLS uncertain** (not used; plaintext TCP).
+
+### 3.2 Topics
 
 | Topic | Direction | Payload/behavior |
 |---|---|---|
-| `railway/zoneN/train` | Godot → backend | `{ trainPresent: boolean, speedKmh: number, timestamp: string, source: "godot" }`; non-retained. |
-| `railway/zoneN/wildlife` | Godot → backend | `{ wildlifeDetected: boolean, timestamp: string, source: "godot" }`; non-retained. |
-| `railway/state` | backend → Godot | Retained aggregate snapshot; authoritative startup/reconnect snapshot. |
-| `railway/zoneN/signal` | backend → Godot | Retained `{ zone, signal, timestamp }`, signal is `GREEN`, `YELLOW`, or `RED`. |
-| `railway/commands/zoneN` | backend → Godot | Validated command envelope from the parent topic contract. |
-| `railway/speed/zoneN` | backend → Godot | `{ zone, speedKmh, timestamp }`; speed is finite and in `0..80`. |
+| `railway/state` | backend → Godot | Retained expanded snapshot (Stage A2 §6); authoritative. |
+| `railway/signal/{blockId}` | backend → Godot | Retained `{ block, line, zone, signal, timestamp }`. |
+| `railway/zoneN/signal` | backend → Godot | Retained zone-level layered aspect (back-compat). |
+| `railway/commands/zoneN` | backend → Godot | Validated command envelope (parent contract). |
+| `railway/speed/zoneN` | backend → Godot | `{ zone, speedKmh, timestamp }`, `0..80`. |
+| `railway/zoneN/wildlife` | Godot → backend | **Only write** for Godot: `{ wildlifeDetected, timestamp, source: "godot" }`; non-retained. |
 
-`zoneN` is exactly `zone1` or `zone2`. Do not retain simulated telemetry or
-commands. Validate topic-zone consistency, payload shape, enum values,
-timestamps, and finite numeric speed before applying messages.
+`zoneN` ∈ {`zone1`,`zone2`}. Godot **does not** publish `railway/zoneN/train`
+(removed in Stage A2). Validate topic-zone consistency, payload shape, enum
+values, timestamps, and finite numeric speed before applying.
 
-### 3.2 Startup, synchronization, and recovery
+### 3.3 Startup, synchronization, recovery
 
-- Start in `SYNCING`; local defaults must not be presented as server-confirmed
-  state.
-- Subscribe after an authenticated connection and apply a valid retained
-  `railway/state` snapshot atomically. Validate both zones, signal and status
-  enums, speed bounds, and `updatedAt`.
-- Retain last-known state on disconnect, mark it stale, and show an explicit
-  offline indicator and age. Do not publish a reset, recovery, or synthetic
-  sensor-clear message on reconnect.
-- Use bounded reconnect backoff, capped retry interval, a unique client ID,
-  one MQTT instance, and explicit unsubscribe/client shutdown.
-- After reconnect, resubscribe and reconcile from retained state/signals
-  before publishing fresh samples of current simulator conditions. Never
-  replay queued telemetry or user commands.
-- Distinguish configuration errors, broker authentication rejection,
-  connection loss, malformed payloads, and successful synchronization in the
-  HUD/debug output. Logs must not include credentials.
+- Start in `SYNCING`; never present local defaults as server-confirmed.
+- Subscribe after authenticated connect; apply a valid retained `railway/state`
+  snapshot atomically (validate lines/blocks/trains/zones/signals/enums and
+  `updatedAt`).
+- On disconnect: retain last-known state, mark stale, show offline + age; never
+  publish a reset, recovery, or synthetic clear.
+- Reconnect with bounded backoff + jitter, capped interval, unique client id,
+  one MQTT instance, explicit unsubscribe/shutdown.
+- After reconnect: resubscribe and reconcile from retained state/signals
+  **before** publishing fresh wildlife observations. Never replay queued
+  telemetry.
+- Distinguish config errors, broker auth rejection, connection loss, malformed
+  payloads, and successful sync in HUD/debug. Logs never include credentials.
 
-## 4. Scene architecture
+## 4. Rendering and quality
 
-Refactor `godot/main.gd` into a composition root. The MQTT addon is accessed
-only through the bridge; scene nodes receive typed data/signals and do not
-publish or subscribe directly.
+- **Renderer:** `Forward+` (Vulkan) as the demo renderer; ship a
+  `gl_compatibility` preset as fallback. Headless/CI uses the dummy driver for
+  load/parse/contract checks only.
+- **Quality tiers** (config-driven, runtime-switchable):
+  - **High:** SSAO, SSIL, SSR, global illumination, volumetric fog, TAA,
+    soft/PCF shadows, glow/bloom, depth of field (cinematic), AgX or ACES
+    tonemap, 2× MSAA, shadow-cascades.
+  - **Medium:** SSAO + shadows + glow + volumetric fog; no SSR/GI; no DOF.
+  - **Low:** no GI/SSR/volumetric; simplified shadows; reduced draw distance.
+- Post-processing grades per time-of-day and weather.
+
+## 5. Asset strategy (hybrid)
+
+- **Hero assets (imported, rigged):** locomotive + coach consist, elephant,
+  deer. Skeletal rigs with `AnimationPlayer` + `AnimationTree` state machines
+  (idle/walk/run/alarm/flee), IK foot placement on terrain, root motion.
+- **Environment:** deterministic procedural track/terrain/vegetation (upgraded
+  with PBR materials, `MultiMeshInstance3D` batching) + imported HDRI or
+  dynamic sky; imported rock/foliage meshes where they raise fidelity.
+- **Licensing:** only CC0/CC-BY (or equally permissive) assets. Every asset is
+  recorded in `godot/assets/CREDITS.md` (name, author, source URL, license,
+  modifications). No copyrighted assets. Asset selection is finalized and
+  license-verified during implementation planning.
+- **Asset-optional robustness:** if a hero asset is missing, a procedural
+  placeholder is substituted so the project **always loads headlessly**; asset
+  presence is never a hard build dependency for CI.
+- **Determinism:** procedural world uses a fixed seed from config.
+
+## 6. Scene architecture
+
+Refactor `godot/main.gd` into a thin composition root. The MQTT addon is
+accessed only through the bridge; scene nodes receive typed data/signals and
+never publish/subscribe directly.
 
 ```text
 godot/
-├── addons/mqtt/                 # pinned addon source and license
+├── addons/mqtt/                 # vendored addon + LICENSE + VENDOR.md
+├── assets/                      # imported hero assets + CREDITS.md
 ├── config.cfg(.sample)          # local config; real config ignored
 ├── main.tscn
-├── main.gd                      # composition and lifecycle
+├── main.gd                      # composition root: build, wire, lifecycle
 └── scripts/
-    ├── mqtt_bridge.gd           # connect, subscribe, validate, publish, close
-    ├── twin_state.gd            # validated snapshot and freshness
-    ├── telemetry_publisher.gd   # bounded-rate train/wildlife observations
-    ├── world_builder.gd         # deterministic procedural world
-    ├── train_controller.gd      # path following and visual speed profile
-    ├── wildlife_controller.gd   # scenario and movement animation
-    ├── signal_renderer.gd       # backend aspect rendering only
-    ├── crossing_controller.gd   # barrier and warning visual effects
-    └── camera_director.gd       # overview, chase, cab, crossing views
+    ├── mqtt_bridge.gd           # connect/auth/subscribe/validate/publish/reconnect
+    ├── twin_state.gd            # validated authoritative snapshot + freshness
+    ├── world_builder.gd         # deterministic procedural world/terrain/vegetation
+    ├── track_builder.gd         # double-track ring, blocks, station, crossovers
+    ├── train_controller.gd      # multi-train interpolation + rolling stock
+    ├── wildlife_controller.gd   # skeletal actors, AnimationTree, scenarios
+    ├── signal_renderer.gd       # per-block/zone aspect rendering (backend only)
+    ├── crossing_controller.gd   # barrier + flashers
+    ├── camera_director.gd       # overview/chase/cab/crossing/station + cinematic paths
+    ├── scenario_director.gd     # data-driven scenario playback
+    └── hud.gd                   # block/train/status panels
 ```
 
-The state model is the only source for signal rendering and the state HUD.
-The composition root owns construction, signal wiring, and cleanup.
+`twin_state.gd` is the only source for signal rendering and the state HUD. The
+composition root owns construction, signal wiring, and cleanup.
 
-## 5. World, animation, and user experience
+## 7. World and topology
 
-### 5.1 Delivery priority
+- **Double-track ring**: `UP` and `DOWN` lines as `Path3D` loops, each
+  subdivided into ordered **block sections** matching Stage A2 block ids
+  (`UP-B1`, `DOWN-B1`, …). Block boundaries render as insulated joints/markers.
+- **Station** with platform blocks and a **crossover pair** (switch geometry)
+  where meets/overtakes occur.
+- **Feature set**: tunnel portal/interior on one line, bridge over a river,
+  level crossing with boom barrier + flashers, three-aspect per-block signals,
+  trackside markers, zone-boundary gantries, forest with PBR vegetation.
+- **Wildlife corridors** crossing the track (elephant + deer entry points).
+- Track-to-block and block-to-zone mapping is validated against `railway/state`
+  at load; mismatches are surfaced, not silently ignored.
+- Coach/bogie offsets stay behind the locomotive on curves; loop wrap has no
+  visible teleportation.
 
-1. Two labelled zones, curved track, two-track geometry with documented
-   track-to-zone mapping, multi-car train, wildlife crossing, three-aspect
-   signals, and camera switching.
-2. Zone boundary, crossing barrier/flashers, bridge and river, tunnel
-   portal/interior, trackside markers, trees/terrain, and occupancy indicators.
-3. Day/night cycle, weather/fog/dust, wheel motion, headlights/brake lights,
-   steam, and spatial audio where performance permits.
+## 8. Trains and animation
 
-Use deterministic procedural generation for a fixed seed. Use Godot-native
-curve/path following (for example `Path3D`/`PathFollow3D`); coach offsets must
-stay behind the locomotive on curves and handle loop wrap without visible
-teleportation. Batch repeated meshes or use `MultiMeshInstance3D` where
-needed; cap particles and environment detail to preserve responsiveness.
+- **Multi-train rendering**: iterate `state.trains[]`; create/retire visual
+  consists by id. Interpolate `block`+`offsetM` into world transforms between
+  updates; label as simulated.
+- **Rolling stock**: articulated bogies, couplers, brake sparks on deceleration,
+  exhaust/steam, head/tail lights, speed-synced wheel rotation, suspension bob.
+- **Speed/braking display**: current vs target speed, current zone/block,
+  illustrative stopping-distance estimate
+  (`distanceM = (speedKmh/3.6)^2 / (2*decelMps2)`), and the sim disclaimer.
+  Published/displayed speed clamped to `0..80`.
 
-### 5.2 Train and braking visualization
+## 9. Wildlife and signals
 
-Follow backend target-speed updates with a smooth visual acceleration and
-deceleration profile. Display current simulated speed, target speed, current
-zone, an illustrative stopping-distance estimate, and the simulation
-disclaimer. Use the parent design's example deceleration of `1.2 m/s²`:
+- Wildlife uses skeletal rigs with `AnimationTree` states: `idle`, `graze`,
+  `approach`, `crossing`, `alarm`, `flee`, `stopped`; IK foot placement; herds
+  via instancing. Enter/clear simulation inputs drive permitted telemetry; the
+  backend determines hazard and authoritative aspects.
+- Signals render **only** from backend state or retained signal messages
+  (`railway/state` blocks, `railway/signal/{blockId}`, `railway/zoneN/signal`).
+  The barrier animates restrictively for a backend-indicated hazard/fault;
+  it never implies independent safety capability.
 
-`distanceM = (speedKmh / 3.6)^2 / (2 * decelerationMps2)`
+## 10. Scenarios and cinematic director
 
-Clamp displayed/published speed to `0..80` km/h. A hazard, fault, or
-communication loss must have a visible restrictive simulated response; no
-visual response is a certified safety function.
+- `scenario_director.gd` plays **data-driven scenarios** (`Resource` or JSON):
+  each scenario is a timed timeline of camera shots, time-of-day/weather
+  presets, audio cues, and Godot-local observation triggers.
+- **Scenario set:**
+  - *Safety:* wildlife near-miss at dusk; sensor fault + restore;
+    comm-loss + reconnect; reset/recovery.
+  - *Ops:* two-train meet/pass at the station; block-signal progression;
+    tunnel/bridge traverse; emergency braking (brake lights/sparks).
+  - *Cinematic reel:* a scripted montage with director camera, DOF, and sound.
+- **Authority caveat:** scenarios may trigger **Godot-local observations only**
+  (wildlife/fault). Backend-authoritative actions (reset, speed, clear) are
+  driven from the dashboard or the Stage E demo script, never from Godot.
+- Audio: spatial ambience, horn, crossing bell, wheel/rail, wildlife — capped
+  for performance; optional mute.
 
-### 5.3 Wildlife and signals
+## 11. Local controls
 
-Wildlife supports `idle`, `approaching`, `crossing/on-track`, `clearing`, and
-`stopped` animation states. Enter/clear simulation inputs drive telemetry;
-the backend determines whether the zone is hazardous and which signal aspect
-is authoritative. Render signals only from backend state or retained signal
-messages. The barrier animates restrictively for a backend-indicated hazard
-or fault and must not imply independent safety capability.
-
-### 5.4 Local controls
-
-These inputs are for simulation scenarios only:
-
-| Input | Effect |
+| Input | Effect (simulation scenarios only) |
 |---|---|
-| Space | Toggle simulated wildlife observation in Zone 1. |
-| `2` | Toggle simulated wildlife observation in Zone 2. |
-| `F` | Toggle Zone 1 sensor-fault observation; expose an equivalent Zone 2 control in the UI. |
-| Up/Down | Adjust a local-only target when no backend target is available; otherwise direct the operator to the dashboard. |
-| `C` | Cycle overview, chase, driver-cab, and crossing cameras. |
-| `N` | Toggle automatic day/night or a day/night preset. |
+| Space | Toggle simulated **wildlife** observation in Zone 1 (only permitted write topic). |
+| `2` | Toggle simulated **wildlife** observation in Zone 2 (only permitted write topic). |
+| `C` | Cycle overview/chase/cab/crossing/station cameras. |
+| `N` | Toggle day/night preset or auto cycle. |
+| `W` | Cycle weather (clear/fog/rain). |
+| `P` | Play/advance scenario; `Esc` stops playback. |
 
-There is no local `R` reset action. Reset, hazard clear, and speed control
-come from the authenticated dashboard; the accepted backend state/target is
-then reflected in Godot.
+There is **no** local reset, speed, or sensor-fault control in Godot: the
+permitted write ACL for Godot is `railway/zoneN/wildlife` only. Sensor-fault
+scenarios are driven by ESP32 telemetry or by the dashboard
+(`POST /api/control` with `SENSOR_FAULT` / `SENSOR_RESTORED`); Godot only
+renders the resulting authoritative state. Reset, hazard clear, and speed also
+come from the authenticated dashboard; Godot reflects the accepted
+state/target.
 
-## 6. Telemetry and configuration
+## 12. Configuration
 
-Publish train samples on transitions and at a bounded heartbeat no more often
-than 2 Hz. Publish wildlife only when the value changes. Include timestamp and
-source; send finite values and only supported zones. Do not publish while
-disconnected. After reconnect, publish a fresh current sample only after
-state reconciliation.
-
-`godot/config.cfg` is local and ignored. `config.cfg.sample` contains
-placeholders and documents:
+`godot/config.cfg` is local and ignored; `config.cfg.sample` documents:
 
 | Setting | Rule |
 |---|---|
-| MQTT host and port | Must be reachable from Godot; host processes use a reachable host address, not container-only DNS. |
-| Username/password | Use the Godot broker identity; never log or commit its password. |
-| Client ID | Generate unique ID per running instance. |
-| Zone mapping | Exactly `zone1` and `zone2`; validate at load. |
-| Publish interval | At most 2 Hz for train heartbeat, with code-side cap. |
-| Speed/deceleration | `0..80` km/h and simulation-only `1.2 m/s²` example. |
+| `[mqtt] host, port` | Reachable broker; host processes use a reachable address, not container-only DNS. |
+| `[mqtt] username, password` | Godot broker identity; never log or commit the password. |
+| `[mqtt] client_id_prefix` | Unique id generated per running instance. |
+| `[simulation] zones` | Exactly `zone1`,`zone2`; validated at load. |
+| `[simulation] quality` | `high`\|`medium`\|`low`. |
+| `[simulation] scenario` | Optional startup scenario id. |
+| `[simulation] day_night, weather` | Initial atmosphere preset. |
+| `[simulation] max_publish_hz` | Wildlife publish cap (≤2 Hz heartbeat). |
 
-## 7. Verification and acceptance
+The old `[network] api_base` key is removed (HTTP path retired).
+
+## 13. Performance
+
+- **Target:** 60 FPS @ 1080p on High on a mid-range GPU; 30 FPS floor on Low.
+- **Budget:** batch repeated meshes (`MultiMeshInstance3D`), cap particles and
+  shadow casters, use LOD/visibility ranges for vegetation, limit volumetric
+  fog resolution, and keep per-frame allocation low.
+- Record the tested machine/resolution in delivery notes; degrade gracefully to
+  lower tiers rather than dropping frames.
+
+## 14. Verification and acceptance
 
 ### Automated checks
 
-- Headless Godot project load/parse check with the installed Godot 4 version,
-  for example `godot --headless --editor --path godot --quit`.
-- A repeatable script-level or headless contract harness verifies snapshot
-  validation, telemetry validation, speed clamping, zone mapping, and
-  reconnect behavior.
-- Authenticated broker tests prove Godot can write only the four permitted
-  train/wildlife telemetry topics and cannot write state, commands, signals,
-  events, or alerts.
-- Backend integration tests prove Godot telemetry updates only the intended
-  zone and cannot change signal or command authority.
+- **Headless load/parse:** `godot --headless --editor --path godot --quit`
+  with the installed Godot 4.7 binary (WSL/CI) — no script/resource errors.
+- **Headless script harness:** snapshot validation, telemetry validation,
+  speed clamping, zone/block mapping, and reconnect state machine.
+- **Broker ACL tests:** Godot can write only `railway/zoneN/wildlife`, cannot
+  write state/commands/signals/train/events/alerts, and can read permitted
+  topics including `railway/signal/+`.
+- **Backend integration:** Godot wildlife observations update only the intended
+  zone and cannot change signal/train authority.
 
-### Manual checklist
+### Manual checklist (Windows GPU demo target)
 
-1. Start stack and Godot; verify `SYNCING` then live status after retained
-   state is received.
-2. Compare both zone states/signals with dashboard/backend.
-3. Toggle wildlife in each zone and verify zone-isolated telemetry and
-   dashboard/backend updates.
-4. Issue hazard, clear, restore, reset, and speed actions from the dashboard;
-   verify Godot follows accepted state and target updates.
-5. Stop/restart the broker; verify stale/offline display, no false reset,
-   reconnect, and retained-state reconciliation.
-6. Confirm train/coaches, wheels, cameras, crossing effects, and day/night
-   controls operate without runtime errors.
+1. Start stack + Godot; verify `SYNCING` → live after retained state.
+2. Verify double track, blocks, station/crossovers, tunnel, bridge, crossing.
+3. Compare trains/blocks/aspects with dashboard/backend.
+4. Run safety scenarios; verify zone-isolated telemetry and braking.
+5. Run ops scenarios; verify meets, block progression, emergency braking.
+6. Run the cinematic reel; verify camera/DOF/audio and performance tier.
+7. Stop/restart broker; verify stale/offline, no false reset, reconnect, and
+   retained-state reconciliation.
+8. Toggle weather/day-night; verify no runtime errors and tier knock-down.
 
-Record unavailable Godot/hardware checks as not run; do not report them as
-passed. Stage C acceptance requires the project load, ACL and backend contract
-tests, and manual visual/reconnect checklist to pass.
+Record unavailable checks as *not run*; never report an unexecuted Godot/hardware
+check as passed.
+
+## 15. Risks and mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Godot 4.7 + addon compatibility unproven | Pure-GDScript addon (low risk); pin commit; headless load test in CI. |
+| Addon lacks reconnect | Implement bounded backoff + resubscribe in `mqtt_bridge.gd`. |
+| Asset licensing/sourcing blocks build | CC0/CC-BY only, `CREDITS.md`, asset-optional procedural fallback. |
+| WSL cannot render Forward+ beautifully | Beauty is Windows-only; WSL does headless correctness/contract checks. |
+| Visual detail hurts performance | Quality tiers, batching, caps, tier auto-knockdown; record tested spec. |
+| Godot drifts toward a control plane | Enforce ACL (no train/signal/command/state writes) and code review. |
+| Scenario implies safety capability | Persistent sim disclaimer in HUD, assets, docs. |

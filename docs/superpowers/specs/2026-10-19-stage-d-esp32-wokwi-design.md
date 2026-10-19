@@ -3,7 +3,7 @@
 Date: 2026-10-19  
 Status: proposed  
 Parent design: [`2026-10-18-railway-digital-twin-enhancement-design.md`](./2026-10-18-railway-digital-twin-enhancement-design.md)  
-Related designs: [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-c-godot-digital-twin-design.md`](./2026-10-19-stage-c-godot-digital-twin-design.md)
+Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19-stage-a2-block-signalling-design.md), [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-c-godot-digital-twin-design.md`](./2026-10-19-stage-c-godot-digital-twin-design.md), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md)
 
 > **Safety boundary:** The ESP32 and Wokwi project are an educational
 > controller demonstration. LEDs and buzzer are not railway signalling or
@@ -37,6 +37,15 @@ implicitly supported by reusing one credential.
   but cannot publish commands or override an active local fault/wildlife
   input.
 - The device must not choose its zone based on an incoming MQTT payload.
+
+Stage A2 (multi-train, block signalling) does **not** change the device
+contract: the ESP32 consumes only its configured **zone**-level state/signal
+(read from `railway/state` or `railway/zoneN/signal`) and never per-block
+signalling (`railway/signal/{blockId}`). Its telemetry continues to flow
+through normal ingestion, now normalized to `state.setSensor(zone, healthy)`
+after the A2 split of `applyTelemetry` (§6). The device remains a single
+permit that publishes `railway/telemetry/esp32` and reads
+`railway/commands/esp32`; A2 added no permissions for this identity.
 
 ## 3. MQTT contracts
 
@@ -176,7 +185,10 @@ Extend `backend/src/ingest.js` (or a narrowly scoped telemetry adapter) to
 normalize the envelope and validate it before state mutation. Verify device
 identity and configured zone; reject malformed, stale, duplicate, and
 out-of-zone updates with repository-standard logging/event handling. Do not
-silently apply a missing sensor value as healthy.
+silently apply a missing sensor value as healthy. After Stage A2, an accepted
+telemetry sample must call the narrow setter `state.setSensor(zone, healthy)`
+(and `state.setWildlife` for wildlife observations), **not** the removed merged
+`applyTelemetry`; ingestion must never mutate train/block state.
 
 For accepted REST controls, forward to `railway/commands/esp32` only when
 the configured device zone matches the action zone. Publish only after the
@@ -196,8 +208,10 @@ forwarded.
 - Broker ACL tests prove allowed device publish/subscribe and denied
   attempts to publish commands/state/signals or access other clients' topics.
 - Backend tests cover valid/malformed/stale telemetry, zone isolation,
-  state updates, expiry/clock behavior, and command forwarding only after an
-  accepted same-zone REST action.
+  state updates (`setSensor`/`setWildlife`), expiry/clock behavior, and command
+  forwarding only after an accepted same-zone REST action.
+- A2 regression: a telemetry sample changes only the configured zone's sensor/
+  wildlife state and never any `trains[]`/`blocks[]` occupancy or aspect.
 - Rejection-path tests assert no device command is forwarded for invalid,
   unauthorized, duplicate, failed-transition, or other-zone requests.
 

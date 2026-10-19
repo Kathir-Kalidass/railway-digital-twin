@@ -3,7 +3,7 @@
 Date: 2026-10-19  
 Status: proposed  
 Parent design: [`2026-10-18-railway-digital-twin-enhancement-design.md`](./2026-10-18-railway-digital-twin-enhancement-design.md)  
-Related designs: [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-c-godot-digital-twin-design.md`](./2026-10-19-stage-c-godot-digital-twin-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md)
+Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19-stage-a2-block-signalling-design.md), [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-c-godot-digital-twin-design.md`](./2026-10-19-stage-c-godot-digital-twin-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md)
 
 > **Safety boundary:** The complete stack is an educational simulation, not
 > railway safety equipment. Do not connect it to live signalling,
@@ -25,7 +25,9 @@ committed.
 
 - Dashboard operators issue commands through authenticated REST only.
 - The backend validates, authorizes, applies, audits, and publishes accepted
-  commands; it owns state, retained snapshots, and signal aspects.
+  commands; it owns state, retained snapshots, **multi-train simulation, block
+  occupancy, and per-block/per-zone signal aspects** (Stage A2). Clients render
+  this authority and never derive a more permissive aspect.
 - Dashboard MQTT credentials are read-only.
 - Godot and ESP32 publish only their assigned telemetry and consume
   backend-owned state/commands. Neither device is an alternate command
@@ -97,22 +99,31 @@ The demo must be deterministic enough to repeat and must explain every state
 change:
 
 1. Start from normal state; show both zones, green signals, healthy sensors,
-   and broker/backend/device connection indicators.
-2. Trigger wildlife in Zone 1 through Godot or ESP32 telemetry. Verify
+   broker/backend/device connection indicators, and the **double-track loop
+   with blocks and a station**.
+2. **Multi-train operations (A2):** show ≥2 trains circulating on `UP`/`DOWN`
+   lines, a meet/pass at the station (crossover), and per-block signal
+   progression (`GREEN`→`YELLOW`→`RED` guarding the block ahead of a train).
+3. Trigger wildlife in Zone 1 through Godot or ESP32 telemetry. Verify
    backend state, applicable events/alerts, dashboard update, simulated
-   braking, and restrictive Zone 1 signal.
-3. Verify Zone 2 remains isolated and displays only the backend-calculated
+   braking, and restrictive Zone 1 blocks/signal.
+4. Verify Zone 2 remains isolated and displays only the backend-calculated
    aspect (including caution when applicable).
-4. Clear the hazard; show recovery remains required; issue authorized
+5. Clear the hazard; show recovery remains required; issue authorized
    dashboard reset and verify normal state.
-5. Trigger sensor fault; verify restrictive indication and reset rejection.
+6. Trigger sensor fault; verify restrictive indication and reset rejection.
    Restore the sensor and reset through the dashboard.
-6. Change a zone target speed in the dashboard and show Godot's target,
-   current simulated speed, and illustrative stopping-distance estimate.
-7. Disconnect/reconnect the broker; show offline/stale status, no stale
-   command replay, and retained-state reconciliation.
-8. Demonstrate roles: viewer cannot control or read admin audit; operator can
+7. Change a zone (or per-train) target speed in the dashboard and show Godot's
+   target, current simulated speed, and illustrative stopping-distance
+   estimate.
+8. Disconnect/reconnect the broker; show offline/stale status, no stale
+   command replay, and retained-state reconciliation (trains resume without
+   visible teleportation).
+9. Demonstrate roles: viewer cannot control or read admin audit; operator can
    control but cannot read admin audit; admin can read audit.
+10. Run the Godot safety and ops scenarios and the cinematic reel (Stage C2),
+    confirming they trigger only Godot-local wildlife observations while all
+    authority-changing actions come from the dashboard.
 
 Harden `scripts/demo-scenarios.sh`: use strict HTTP status and response
 validation, unique request IDs, actionable diagnostics, and safe cleanup in a
@@ -125,9 +136,10 @@ provide a non-destructive mode where feasible.
 | Gate | Required evidence |
 |---|---|
 | Backend regression | `cd backend && npm test`; auth, RBAC, replay, audit, state, MQTT, ACL, and ingestion tests pass. |
-| Dashboard | `cd web && npm run build`; verify Stage B role-gating, live feed, health, and control behavior. |
-| Broker | Fresh setup rejects anonymous connections; all client ACL allow/deny cases pass. |
-| Godot | Headless project load plus Stage C visual, telemetry, and reconnect checklist. |
+| Block signalling (S0/A2) | Occupancy/aspect derivation, sim determinism, layered zone signals, expanded state shape, `/api/speed` per-train, and `/api/event` returns `404`. |
+| Dashboard | `cd web && npm run build`; verify Stage B role-gating, live feed, health, per-train/block views, and control behavior. |
+| Broker | Fresh setup rejects anonymous connections; all client ACL allow/deny cases pass (incl. Godot denied `railway/zoneN/train` write and allowed `railway/signal/+` read). |
+| Godot | Headless project load plus Stage C1 correctness and C2 visual/animation/telemetry/reconnect checklist. |
 | ESP32 | PlatformIO compile plus Stage D contract tests and Wokwi/device checklist. |
 | Integrated system | Clean startup, readiness, full demo, broker reconnect, and shutdown verified. |
 | Documentation | A second operator follows setup and recovery steps using only committed docs and local secret samples. |
@@ -149,8 +161,12 @@ Before final acceptance:
   prerequisites, and produce actionable errors.
 - Ensure project paths are repository-relative and no developer-specific
   absolute path is required.
-- Update architecture/data-flow diagrams to show backend command authority
-  and dashboard read-only MQTT.
+- Verify `godot/assets/CREDITS.md` accounts for **every** imported asset
+  (model, texture, HDRI, audio) with license name + URL, and that no asset with
+  an unclear or non-permissive license is tracked. Flag large media before
+  committing and prefer repo-size-appropriate sources.
+- Update architecture/data-flow diagrams to show backend command authority,
+  multi-train/block signalling, and dashboard read-only MQTT.
 - Link Stage A, B, C, D, and E specifications and demo instructions from
   the README.
 
@@ -163,7 +179,8 @@ Before final acceptance:
 | Wokwi cannot reach local broker | Test early; document a reachable authenticated broker; do not enable anonymous access. |
 | Local credentials reach version control | Use ignored secret files, placeholder-only samples, and a tracked-file review before delivery. |
 | Demo is mistaken for safety equipment | Keep the disclaimer in README, Godot HUD, firmware, and design documentation; avoid operational claims. |
-| Visual detail reduces performance | Prioritize core scene, batch repeated meshes, cap particles, and record the tested machine/resolution. |
+| Visual detail reduces performance | Prioritize core scene, batch repeated meshes, cap particles, auto tier-knockdown, and record the tested machine/resolution. |
+| Hero/ambient asset licensing or availability blocks delivery | CC0/CC-BY only, `CREDITS.md` manifest, asset-optional procedural fallback so CI and headless checks never depend on assets. |
 | Local development defaults are used externally | Mark defaults dev-only; state that external deployment requires separate TLS/WSS, secret provisioning, and rotation work. |
 
 ## 9. Acceptance
@@ -173,8 +190,10 @@ Stage E passes when:
 - A fresh operator can configure and start the stack using documented steps.
 - All applicable verification gates pass with evidence and unavailable manual
   checks clearly identified.
-- The complete role, hazard, recovery, speed, and reconnect demo is
-  repeatable.
+- The complete multi-train/block-signalling, role, hazard, recovery, speed,
+  and reconnect demo is repeatable.
+- Every imported asset is license-verified and recorded, or replaced by an
+  asset-optional procedural fallback.
 - All client permissions remain least-privilege and no anonymous access is
   required.
 - No real secrets or unintended local state are tracked.
