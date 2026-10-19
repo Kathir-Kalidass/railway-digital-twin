@@ -96,10 +96,12 @@ approved hybrid contract:
   **overrides the local target speed** (slow or controlled stop); on `clear`, it
   resumes. The backend never has to know LTS internals — it only publishes
   hazard/speed, and Godot obeys.
-- **Godot publishes permitted observation telemetry** (train speed/position/zone
-  and wildlife observations) so the backend's safety model can see train
-  presence/speed. This is a **sensor observation**, ingested exactly like
-  wildlife/ESP32 telemetry — it can never relax a backend safety decision.
+- **Godot publishes permitted observation telemetry**: wildlife observations
+  (feeds the backend hazard model, like the ESP32 node) and, optionally, train
+  speed/position for ops/monitoring. The wildlife safety loop itself is
+  **backend-self-contained** and needs no train telemetry in the backend; any
+  train observation is a sensor observation and can never relax a backend
+  safety decision.
 - The dashboard issues all user controls through authenticated REST.
 
 ## 3. Libre-TrainSim port (Godot 3 → 4)
@@ -156,8 +158,13 @@ It has **no auto-reconnect** — the overlay implements exponential backoff.
 | Topic | Payload | QoS/retained |
 |---|---|---|
 | `railway/zoneN/wildlife` | `{zone, wildlifeDetected, species, count, timestamp}` | QoS 0 |
-| `railway/trains/{id}` | `{trainId, zone, speedKmh, trackPositionM, status, timestamp}` | QoS 0 |
-| `railway/events` *(read-only use)* | never published by Godot | — |
+| `railway/trains/{id}` *(ops/monitoring only)* | `{trainId, zone, speedKmh, trackPositionM, status, timestamp}` | QoS 0 |
+
+Godot **never** publishes `railway/state`, `railway/events`, `railway/alerts`,
+`railway/commands/*`, `railway/zoneN/signal`, or `railway/signal/*` (§2). The
+train-observation topic is **optional** and for ops/monitoring only — the safety
+loop (§6, §9) does **not** depend on the backend ingesting it, so Stage C needs
+**no backend change** to deliver the wildlife safety demo.
 
 **Godot subscribes (consumes authoritative state):**
 
@@ -178,7 +185,7 @@ a clear or reset from a stale snapshot.
 backend (authoritative: hazard, speed limit, zone signal)
    └─ publishes railway/speed/zoneN , railway/commands/zoneN , railway/state
         └─> Godot overlay (safety reaction)
-              ├─ reads:  railway/trains/{id} local motion  (LTS)
+              ├─ reads:  LTS local motion  (LTSTrain.get_speed_kmh / get_track_position_m)
               └─ writes: LTSTrain.set_target_speed_kmh()   (override)
 ```
 
@@ -188,9 +195,10 @@ backend (authoritative: hazard, speed limit, zone signal)
 - **Stop:** target speed → 0, controlled braking to a stand before the hazardous
   section; boom barrier lowers.
 - **Resume:** on `clear`/reset, target speed restores to the zone limit.
-- Godot publishes its actual speed/position each tick so the backend's safety
-  model reflects train presence (observation only — never authoritative for
-  safety).
+- The safety loop is **self-contained** (wildlife/sensors → backend hazard →
+  command → Godot obeys). Godot may also publish `railway/trains/{id}` so the
+  backend/ops view can see the train, but this is optional and can never relax a
+  backend safety decision.
 
 ## 7. Environment and world
 
@@ -227,10 +235,13 @@ Reuse the existing backend hazard model; the overlay enforces the reaction:
 
 | State | Trigger | Backend | Godot reaction |
 |---|---|---|---|
-| Clear | no animal in any band | zone `NORMAL`, speed limit normal | resume to limit |
-| Warn | animal near track / ESP32 detects proximity | zone restrictive-ish, caution speed | flashers + buzzer, target → caution |
+| Clear | no animal in any band | zone clear, normal speed limit | resume to limit |
+| Warn | animal near track / ESP32 detects proximity | zone restrictive (yellow/slow aspect), caution speed limit | flashers + buzzer, target → caution |
 | Stop | animal on track / sensor reports danger | zone `HAZARD`, speed 0 | controlled brake to stand, barrier lowers |
 | Fault | ESP32 sensor unhealthy | zone `SENSOR_FAULT` | treat as restrictive; alert |
+
+Exact aspect/state names come from the existing backend hazard model (Stage A);
+this spec only fixes the graded behaviour and the Godot reaction per state.
 
 The safety decision is **backend**; the overlay renders and enforces it. This does
 **not** depend on the paused Stage A2 block-signalling (it uses zone hazards). If
@@ -262,6 +273,14 @@ Extend `2026-10-19-stage-d-esp32-wokwi-design.md`. The device is a **sensor node
 Behaviour: publish telemetry on a fixed cadence; drive LEDs/buzzer/servo per the
 latest received command using the existing freshness/staleness rules; never
 mutate train state. Secrets stay in an ignored header with an example.
+
+**Backend coupling:** the ESP32 path is **optional** for the wildlife safety
+demo — the primary detection path is Godot's wildlife system publishing
+`railway/zoneN/wildlife`, which the backend already ingests (no backend change).
+If the new sensor fields (`distanceM`/`motion`/`vibration`) are to reach the
+backend hazard model, its ESP32 telemetry validation must tolerate them; that
+ingest code is currently owned by the concurrent actor, so **coordinate before
+touching it**.
 
 **Connectivity note:** Wokwi's ESP32 reaches the network via Wokwi's gateway and
 can only contact endpoints reachable from the internet. A local Dockerised
@@ -325,3 +344,4 @@ Extend `2026-10-19-stage-e-integrated-delivery-design.md`:
 | Local motion vs. backend safety diverge | Single override entry point (`set_target_speed_kmh`); backend authoritative for safety; reconciliation on reconnect |
 | Wildlife animation fidelity | Skeletal rigs + AnimationTree; procedural fallback if rigs unavailable |
 | Paused Stage A2 (concurrent-writer collision) | Safety uses zone hazards, not blocks; A2 signals optional and additive |
+| Concurrent actor on `master` (owns `esp32/**`, backend ingest, `README.md`) | Stage C core work is confined to `godot/` (untouched so far); keep the safety loop backend-self-contained (no backend change needed); coordinate before touching `esp32/**` for the Stage D extension |
