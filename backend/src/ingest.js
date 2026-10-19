@@ -1,4 +1,35 @@
 export function makeIngest({ state, bus, config }) {
+  const seenTelemetryIds = new Set();
+  const maxSeenTelemetryIds = 256;
+  const telemetryMaxAgeMs = 5 * 60 * 1000;
+
+  function rejectTelemetry(reason) {
+    state.markEvent('INVALID_TELEMETRY');
+    bus.event({ type: 'INVALID_TELEMETRY', source: 'esp32', reason });
+  }
+
+  function rememberTelemetry(requestId) {
+    seenTelemetryIds.add(requestId);
+    if (seenTelemetryIds.size > maxSeenTelemetryIds) {
+      seenTelemetryIds.delete(seenTelemetryIds.values().next().value);
+    }
+  }
+
+  function validEnvelope(message) {
+    const expectedZone = config.esp32Zone || config.zones[0];
+    const payload = message?.payload;
+    const timestamp = Date.parse(message?.timestamp);
+    if (!message || message.event !== 'DEVICE_TELEMETRY' || message.source !== 'esp32') return 'invalid envelope';
+    if (message.zone !== expectedZone || !config.zones.includes(message.zone)) return 'invalid device zone';
+    if (typeof message.request_id !== 'string' || !message.request_id) return 'request_id required';
+    if (message.clockValid !== true || Number.isNaN(timestamp) || Math.abs(Date.now() - timestamp) > telemetryMaxAgeMs) return 'stale or clock-invalid timestamp';
+    if (!payload || payload.device !== 'esp32' || typeof payload.sensorHealthy !== 'boolean') return 'invalid payload';
+    if (Object.hasOwn(payload, 'wildlifeDetected') && typeof payload.wildlifeDetected !== 'boolean') return 'invalid wildlife value';
+    if (Object.hasOwn(payload, 'uptimeMs') && (!Number.isFinite(payload.uptimeMs) || payload.uptimeMs < 0)) return 'invalid uptime';
+    if (seenTelemetryIds.has(message.request_id)) return 'duplicate request_id';
+    return null;
+  }
+
   function handle(topic, message = {}) {
     const zoneMatch = topic.match(/^railway\/(zone\d+)\/(train|wildlife)$/);
     if (zoneMatch) {
@@ -10,8 +41,33 @@ export function makeIngest({ state, bus, config }) {
       return;
     }
     if (topic === 'railway/telemetry/esp32') {
-      const targets = message.zone && config.zones.includes(message.zone) ? [message.zone] : config.zones;
-      for (const zone of targets) state.applyTelemetry(zone, { sensorHealthy: message.sensorHealthy });
+      if (message.event === 'DEVICE_TELEMETRY') {
+        const invalid = validEnvelope(message);
+        if (invalid) {
+          rejectTelemetry(invalid);
+          return;
+        }
+        state.setSensor(message.zone, message.payload.sensorHealthy);
+        if (typeof message.payload.wildlifeDetected === 'boolean') {
+          state.setWildlife(message.zone, message.payload.wildlifeDetected);
+        }
+        rememberTelemetry(message.request_id);
+        if (message.payload.sensorHealthy === false) {
+          bus.alert({ source: 'esp32', severity: 'HIGH', message: 'ESP32 reports sensor fault', timestamp: new Date().toISOString() });
+        }
+        bus.snapshot();
+        return;
+      }
+
+      // Temporary migration path for the previously emitted flat payload.
+      const expectedZone = config.esp32Zone || config.zones[0];
+      const zone = message.zone || expectedZone;
+      if (message.device !== 'esp32' || zone !== expectedZone || typeof message.sensorHealthy !== 'boolean') {
+        rejectTelemetry('invalid legacy telemetry');
+        return;
+      }
+      state.setSensor(zone, message.sensorHealthy);
+      if (typeof message.wildlifeDetected === 'boolean') state.setWildlife(zone, message.wildlifeDetected);
       if (message.sensorHealthy === false) {
         bus.alert({ source: 'esp32', severity: 'HIGH', message: 'ESP32 reports sensor fault', timestamp: new Date().toISOString() });
       }

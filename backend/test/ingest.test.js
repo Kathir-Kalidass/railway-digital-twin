@@ -31,6 +31,43 @@ test('esp32 telemetry marks device and forces fault when unhealthy', () => {
   assert.ok(mqtt.published.some((m) => m.t === 'railway/security/events' || m.t === 'railway/alerts' || m.t === 'railway/state'));
 });
 
+function envelope(payload, overrides = {}) {
+  return {
+    request_id: 'esp32-boot-1-1', zone: 'zone1', event: 'DEVICE_TELEMETRY',
+    timestamp: new Date().toISOString(), clockValid: true, source: 'esp32',
+    payload: { device: 'esp32', sensorHealthy: true, wildlifeDetected: false, uptimeMs: 10, ...payload },
+    ...overrides,
+  };
+}
+
+test('esp32 envelope sets sensor through the narrow setter', () => {
+  const { state, ingest } = setup();
+  ingest.handle('railway/telemetry/esp32', envelope({ sensorHealthy: false }));
+  assert.equal(state.snapshot().zones.zone1.sensorHealthy, false);
+});
+
+test('esp32 out-of-zone and clock-invalid envelopes are rejected without mutation', () => {
+  const { state, ingest } = setup();
+  const initial = state.snapshot();
+  ingest.handle('railway/telemetry/esp32', envelope({ sensorHealthy: false }, { zone: 'zone2' }));
+  assert.equal(state.snapshot().lastEvent, 'INVALID_TELEMETRY');
+  assert.equal(state.snapshot().zones.zone1.sensorHealthy, initial.zones.zone1.sensorHealthy);
+  ingest.handle('railway/telemetry/esp32', envelope({ sensorHealthy: false }, {
+    request_id: 'esp32-boot-1-2', timestamp: null, clockValid: false,
+  }));
+  assert.equal(state.snapshot().lastEvent, 'INVALID_TELEMETRY');
+});
+
+test('esp32 telemetry never mutates train state and rejects replay', () => {
+  const { state, ingest } = setup();
+  const before = JSON.stringify(state.snapshot().train);
+  const message = envelope({ sensorHealthy: false });
+  ingest.handle('railway/telemetry/esp32', message);
+  assert.equal(JSON.stringify(state.snapshot().train), before);
+  ingest.handle('railway/telemetry/esp32', message);
+  assert.equal(state.snapshot().lastEvent, 'INVALID_TELEMETRY');
+});
+
 test('disconnect sets COMM_LOST and reconnect reconciles', () => {
   const { state, ingest, mqtt } = setup();
   ingest.onBrokerConnected(true);

@@ -8,6 +8,8 @@ export const config = {
   bcryptRounds: Number(process.env.BCRYPT_ROUNDS || 12),
   dbPath: process.env.DB_PATH || './data/railway.db',
   zones: ['zone1', 'zone2'],
+  // One Stage D controller is explicitly assigned to this zone.
+  esp32Zone: process.env.ESP32_ZONE || 'zone1',
   topology: {
     lines: ['UP', 'DOWN'],
     blocksPerLine: 5,
@@ -39,6 +41,7 @@ export const config = {
 export function validateConfig(c) {
   const errors = [];
   const zones = new Set(c.zones);
+  if (!zones.has(c.esp32Zone)) errors.push('esp32Zone unknown zone');
   for (const [i, z] of c.topology.zoneByIndex.entries()) if (!zones.has(z)) errors.push(`zoneByIndex[${i}] unknown zone ${z}`);
   for (const t of c.trains) {
     if (!c.topology.lines.includes(t.line)) errors.push(`train ${t.id} unknown line ${t.line}`);

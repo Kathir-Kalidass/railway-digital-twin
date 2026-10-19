@@ -95,9 +95,32 @@ export function makeState({ config }) {
     if (typeof msg.sensorHealthy === 'boolean') z.sensorHealthy = msg.sensorHealthy;
   }
 
+  // Device telemetry is deliberately narrow: it cannot alter train telemetry
+  // or block occupancy/aspects through the general compatibility adapter.
+  function setSensor(zone, healthy) {
+    const z = zones[zone];
+    if (!z || typeof healthy !== 'boolean') return false;
+    z.sensorHealthy = healthy;
+    return true;
+  }
+
+  function setWildlife(zone, detected) {
+    const z = zones[zone];
+    if (!z || typeof detected !== 'boolean') return false;
+    z.wildlifeDetected = detected;
+    return true;
+  }
+
+  function markEvent(event) {
+    lastEvent = String(event);
+  }
+
   function setBrokerConnected(value) {
     comm.mqttConnected = Boolean(value);
   }
 
-  return { snapshot, applyCommand, applySpeed, applyTelemetry, setBrokerConnected };
+  return {
+    snapshot, applyCommand, applySpeed, applyTelemetry,
+    setSensor, setWildlife, markEvent, setBrokerConnected,
+  };
 }

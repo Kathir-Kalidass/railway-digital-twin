@@ -14,14 +14,15 @@ export function fakeMqtt() {
 }
 
 export function buildDeps(overrides = {}) {
+  const resolvedConfig = overrides.config || config;
   const db = overrides.db || openDb(':memory:');
-  const auth = makeAuth({ db, config });
+  const auth = makeAuth({ db, config: resolvedConfig });
   auth.seedUsers();
-  const state = makeState({ config });
+  const state = makeState({ config: resolvedConfig });
   const events = makeEvents();
   const mqtt = overrides.mqtt || fakeMqtt();
   const bus = makeBus({ mqtt, state, events });
-  return { config, db, audit: makeAudit(db), replay: makeReplay(db), auth, state, bus, events, mqtt, ...overrides };
+  return { config: resolvedConfig, db, audit: makeAudit(db), replay: makeReplay(db), auth, state, bus, events, mqtt, ...overrides };
 }
 
 export async function withServer(deps, fn) {
