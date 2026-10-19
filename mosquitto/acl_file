@@ -1,0 +1,38 @@
+user godot
+topic write railway/zone1/train
+topic write railway/zone1/wildlife
+topic write railway/zone2/train
+topic write railway/zone2/wildlife
+topic read railway/commands/zone1
+topic read railway/commands/zone2
+topic read railway/speed/zone1
+topic read railway/speed/zone2
+topic read railway/zone1/signal
+topic read railway/zone2/signal
+
+user esp32
+topic write railway/telemetry/esp32
+topic read railway/commands/esp32
+
+user backend
+topic write railway/state
+topic write railway/events
+topic write railway/alerts
+topic write railway/zone1/signal
+topic write railway/zone2/signal
+topic write railway/commands/zone1
+topic write railway/commands/zone2
+topic write railway/commands/esp32
+topic write railway/speed/zone1
+topic write railway/speed/zone2
+topic write railway/security/events
+topic read railway/zone1/train
+topic read railway/zone1/wildlife
+topic read railway/zone2/train
+topic read railway/zone2/wildlife
+topic read railway/telemetry/esp32
+
+user dashboard
+topic read railway/state
+topic read railway/events
+topic read railway/alerts
