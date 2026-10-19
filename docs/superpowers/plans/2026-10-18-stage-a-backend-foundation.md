@@ -1038,8 +1038,10 @@ test('godot cannot publish aggregate state', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `bash scripts/test-backend.sh`
-Expected: FAIL — with the current anonymous broker config, the dashboard's publish is delivered to the observer, so `assert.equal(seen.length, 0)` fails.
+The authenticated config and harness scripts are written in Step 3, so run the test file directly:
+
+Run: `cd backend && node --test test/broker_acl.test.js`
+Expected: FAIL — with the current anonymous broker config, the dashboard's publish is delivered to the observer, so `assert.equal(seen.length, 0)` fails (a connection error also counts as a failure here).
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -1208,11 +1210,14 @@ test('snapshot publishes retained state and per-zone signals', () => {
 
 test('events are recorded and published newest-first', () => {
   const mqtt = fakeMqtt();
-  const bus = makeBus({ mqtt, state: makeState({ config: { zones: ['zone1', 'zone2'] } }), events: makeEvents() });
+  const events = makeEvents();
+  const bus = makeBus({ mqtt, state: makeState({ config: { zones: ['zone1', 'zone2'] } }), events });
   bus.event({ type: 'A' });
   bus.event({ type: 'B' });
-  assert.equal(bus.list?.length, undefined); // bus has no list; check publish
   assert.equal(mqtt.published.filter((m) => m.t === 'railway/events').length, 2);
+  const listed = events.list();
+  assert.equal(listed.length, 2);
+  assert.equal(listed[0].type, 'B');
 });
 ```
 

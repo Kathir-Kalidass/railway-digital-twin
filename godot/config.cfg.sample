@@ -1,0 +1,10 @@
+[network]
+# Set the address of the backend.
+# If running Godot on Windows and backend in WSL2 or local machine, use 127.0.0.1
+# If backend is on another LAN computer, enter that machine's LAN IP (e.g., http://192.168.1.50:3001)
+api_base="http://127.0.0.1:3001"
+
+[simulation]
+zone="zone1"
+default_speed=48.0
+auto_day_night=false
