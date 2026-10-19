@@ -49,3 +49,52 @@ test('godot cannot publish aggregate state', async () => {
   assert.equal(seen.length, 0);
   godot.end(true); observer.end(true);
 });
+
+test('esp32 can publish only its telemetry and read only its command topic', async () => {
+  const telemetryObserver = connectAs('backend');
+  await waitFor(() => telemetryObserver.connected);
+  await new Promise((resolve) => telemetryObserver.subscribe('railway/telemetry/esp32', resolve));
+  const receivedTelemetry = [];
+  telemetryObserver.on('message', (topic, payload) => receivedTelemetry.push([topic, payload.toString()]));
+
+  const esp32 = connectAs('esp32');
+  await waitFor(() => esp32.connected);
+  esp32.publish('railway/telemetry/esp32', JSON.stringify({ device: 'esp32', sensorHealthy: true }));
+  await waitFor(() => receivedTelemetry.some(([topic]) => topic === 'railway/telemetry/esp32'));
+
+  await new Promise((resolve) => esp32.subscribe('railway/commands/esp32', resolve));
+  const receivedCommands = [];
+  esp32.on('message', (topic, payload) => receivedCommands.push([topic, payload.toString()]));
+  const backend = connectAs('backend');
+  await waitFor(() => backend.connected);
+  backend.publish('railway/commands/esp32', JSON.stringify({ request_id: 'acl-ok', zone: 'zone1' }));
+  await waitFor(() => receivedCommands.some(([topic]) => topic === 'railway/commands/esp32'));
+
+  esp32.end(true); backend.end(true); telemetryObserver.end(true);
+});
+
+test('esp32 cannot publish command, state, or signal topics', async () => {
+  const commandObserver = connectAs('esp32');
+  const stateObserver = connectAs('dashboard');
+  const signalObserver = connectAs('godot');
+  await Promise.all([waitFor(() => commandObserver.connected), waitFor(() => stateObserver.connected), waitFor(() => signalObserver.connected)]);
+  await Promise.all([
+    new Promise((resolve) => commandObserver.subscribe('railway/commands/esp32', resolve)),
+    new Promise((resolve) => stateObserver.subscribe('railway/state', resolve)),
+    new Promise((resolve) => signalObserver.subscribe('railway/zone1/signal', resolve)),
+  ]);
+  const received = [];
+  for (const client of [commandObserver, stateObserver, signalObserver]) {
+    client.on('message', (topic, payload) => {
+      if (payload.toString().includes('esp32-acl-denied')) received.push(topic);
+    });
+  }
+  const publisher = connectAs('esp32');
+  await waitFor(() => publisher.connected);
+  publisher.publish('railway/commands/esp32', JSON.stringify({ marker: 'esp32-acl-denied' }));
+  publisher.publish('railway/state', JSON.stringify({ marker: 'esp32-acl-denied' }));
+  publisher.publish('railway/zone1/signal', JSON.stringify({ marker: 'esp32-acl-denied' }));
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.deepEqual(received, []);
+  publisher.end(true); commandObserver.end(true); stateObserver.end(true); signalObserver.end(true);
+});
