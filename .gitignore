@@ -2,10 +2,13 @@ node_modules/
 dist/
 .godot/
 .env
+.env.*
+!.env.sample
 .DS_Store
 data/
 backend/data/
 backend/.env
-backend/.env.test
+backend/.env.*
+!backend/.env.sample
 mosquitto/password_file
 esp32/secrets.h
