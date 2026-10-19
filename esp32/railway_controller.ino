@@ -5,13 +5,7 @@
 */
 #include <WiFi.h>
 #include <PubSubClient.h>
-
-const char* WIFI_SSID = "Wokwi-GUEST"; // Wokwi default; replace for physical hardware
-const char* WIFI_PASSWORD = "";
-const char* MQTT_HOST = "192.168.1.10"; // Replace with reachable broker IP; never use localhost on ESP32
-const uint16_t MQTT_PORT = 1883;
-const char* MQTT_USER = "esp32";
-const char* MQTT_PASS = "esp32-dev-pass";
+#include "secrets.h"
 
 const char* TOPIC_COMMANDS = "railway/commands/esp32";
 const char* TOPIC_TELEMETRY = "railway/telemetry/esp32";
