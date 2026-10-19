@@ -12,6 +12,15 @@ services:
     environment:
       PORT: 3001
       MQTT_URL: mqtt://mqtt:1883
+      MQTT_BACKEND_USER: backend
+      MQTT_BACKEND_PASS: ${MQTT_BACKEND_PASS:-backend-dev-pass}
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-change-me}
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:-viewer-dev-pass}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-operator-dev-pass}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-dev-pass}
+      DB_PATH: /app/data/railway.db
+    volumes:
+      - backend-data:/app/data
     ports:
       - "3001:3001"
     depends_on:
@@ -24,3 +33,6 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+
+volumes:
+  backend-data:
