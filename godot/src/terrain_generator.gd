@@ -31,5 +31,8 @@ func generate() -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = ArrayMesh.new()
 	mi.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, data)
-	mi.material_override = StandardMaterial3D.new()
+	var ground_material := StandardMaterial3D.new()
+	ground_material.albedo_color = Color(0.18, 0.31, 0.16)
+	ground_material.roughness = 0.96
+	mi.material_override = ground_material
 	add_child(mi)

@@ -18,6 +18,11 @@ func _initialize() -> void:
 	a.ok(track.get_track_info_at(100.0)["position"] != Vector3.ZERO, "LTS rail geometry returns a track position")
 	a.ok(world.get_node("Track/Rails").multimesh.instance_count > 100, "procedural rail mesh is built")
 	a.ok(world.get_node_or_null("FollowCamera") is Camera3D, "follow camera is present")
+	a.ok(world.get_node("WorldEnvironment").environment.ambient_light_energy > 0.0, "world has visible ambient lighting")
+	var locomotive := train.get_node("Locomotive") as Node3D
+	var camera := world.get_node("FollowCamera") as Camera3D
+	var camera_to_train := (locomotive.global_position - camera.global_position).normalized()
+	a.ok((-camera.global_basis.z).dot(camera_to_train) > 0.99, "follow camera is aimed at the locomotive")
 	a.ok(world.get_node("TrainReconciler") is TrainReconciler, "safety controller is part of the LTS scene")
 	a.ok(world.get_node("WorldWildlife/WildlifePublisher") is WildlifePublisher, "wildlife publisher is part of the LTS scene")
 	var detection_band := world.get_node("WorldWildlife/DetectionBand") as DetectionBand
