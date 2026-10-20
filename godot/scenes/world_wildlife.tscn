@@ -47,6 +47,8 @@ script = ExtResource("8")
 
 [node name="Atmosphere" type="Node" parent="."]
 script = ExtResource("9")
+env_path = NodePath("../../WorldEnvironment")
+sun_path = NodePath("../../Sunlight")
 
 [node name="CameraDirector" type="Node" parent="."]
 script = ExtResource("10")

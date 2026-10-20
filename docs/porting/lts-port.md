@@ -43,7 +43,7 @@ be required for parse tests or core operation.
 
 `bash godot/tests/run_tests.sh` imports the Godot project and runs the parse,
 port-helper, LTS scene/motion, MQTT reconnect, backend-schema reconciliation,
-and wildlife publishing tests. A live bridge smoke check also connected to the
+wildlife publishing, end-to-end safety, and camera/day-night tests. A live bridge smoke check also connected to the
 local broker and published a wildlife payload.
 
 `godot/scenes/lts_minimal.tscn` is the project startup scene; the former

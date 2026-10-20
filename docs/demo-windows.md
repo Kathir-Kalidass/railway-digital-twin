@@ -26,6 +26,8 @@ Educational simulation only; not certified railway equipment.
 |---|---|---|---|
 | a | Curved track renders and the train follows it without derailing | | |
 | b | Train wheels rotate; follow camera stays stable | | |
+| b2 | Press `C` to cycle follow → cab → drone cameras | | |
+| b3 | Press `N` to toggle day/night lighting | | |
 | c | Cab camera can be selected and looks forward along the track | | |
 | d | Wildlife spawns near the underpass and prefers crossing there | | |
 | e | At least one animal crosses the track and triggers a detection | | |

@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://lts_minimal"]
+[gd_scene load_steps=9 format=3 uid="uid://lts_minimal"]
 
 [ext_resource type="Script" path="res://src/lts_world.gd" id="1"]
 [ext_resource type="Script" path="res://src/ltstrack.gd" id="2"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://src/mqtt_bridge.gd" id="4"]
 [ext_resource type="Script" path="res://src/train_reconciler.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/world_wildlife.tscn" id="6"]
+[ext_resource type="Script" path="res://src/camera_director.gd" id="7"]
 
 [node name="World" type="Node3D"]
 script = ExtResource("1")
@@ -33,3 +34,8 @@ bridge_path = NodePath("../MQTTBridge")
 zone = "zone1"
 
 [node name="WorldWildlife" parent="." instance=ExtResource("6")]
+
+[node name="CameraDirector" type="Node" parent="."]
+script = ExtResource("7")
+train_path = NodePath("../Train")
+follow_camera_path = NodePath("../FollowCamera")

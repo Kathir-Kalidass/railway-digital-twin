@@ -16,9 +16,14 @@ under the name Wokwi provides:
 #define MQTT_PORT 1883
 ```
 
-`esp32/wokwi.toml` already points at the PlatformIO build output
-(`.pio/build/esp32dev/firmware.bin`). Build with `pio run -e esp32dev`, then
-press `F1 → Wokwi: Start Simulator`.
+Open the `esp32/` folder as the VS Code workspace so Wokwi finds
+`wokwi.toml` and `diagram.json`. `esp32/wokwi.toml` points at the PlatformIO
+build output (`.pio/build/esp32dev/firmware.bin`). Wokwi does not compile the
+sketch: build first with `pio run -e esp32dev` (the first build downloads the
+ESP32 toolchain), then press `F1 → Wokwi: Start Simulator`.
+
+If Wokwi reports `firmware binary .pio/build/esp32dev/firmware.bin not found`,
+the build has not completed; check `pio run -e esp32dev` output and retry.
 
 ## Option A: tunnel a local broker
 

@@ -32,6 +32,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var wildlife_behaviour := get_node_or_null("WorldWildlife/WildlifeBehaviour") as WildlifeBehaviour
 		if wildlife_behaviour:
 			wildlife_behaviour.trigger_crossing("deer")
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
+		var director := get_node_or_null("CameraDirector") as CameraDirector
+		if director:
+			director.cycle()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_N:
+		var atmosphere := get_node_or_null("WorldWildlife/Atmosphere") as Atmosphere
+		if atmosphere:
+			atmosphere.toggle()
 
 
 func _update_camera(weight: float) -> void:
