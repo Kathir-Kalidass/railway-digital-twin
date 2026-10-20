@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://lts_minimal_real"]
+[gd_scene load_steps=9 format=3 uid="uid://lts_minimal_real"]
 
 [ext_resource type="Script" path="res://src/lts_world.gd" id="1"]
 [ext_resource type="Script" path="res://src/ltstrack.gd" id="2"]
@@ -6,11 +6,16 @@
 [ext_resource type="Script" path="res://src/mqtt_bridge.gd" id="4"]
 [ext_resource type="Script" path="res://src/train_reconciler.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/world_wildlife.tscn" id="6"]
+[ext_resource type="Script" path="res://src/bridge_real.gd" id="7"]
+[ext_resource type="Script" path="res://src/environment_enhance.gd" id="8"]
 
 [node name="World" type="Node3D"]
 script = ExtResource("1")
 
 [node name="Buildings" type="Node3D" parent="."]
+
+[node name="EnvironmentEnhance" type="Node3D" parent="."]
+script = ExtResource("8")
 
 [node name="Track" type="Node3D" parent="."]
 script = ExtResource("2")
@@ -25,6 +30,9 @@ initial_position_m = 40.0
 
 [node name="FollowCamera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.866, 0.5, 0, -0.5, 0.866, 0, 5, 10)
+
+[node name="BridgeReal" type="Node3D" parent="."]
+script = ExtResource("7")
 
 [node name="MQTTBridge" type="Node" parent="."]
 script = ExtResource("4")
