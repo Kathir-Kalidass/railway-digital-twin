@@ -64,6 +64,10 @@ func connect_broker() -> void:
 		_schedule_reconnect()
 
 
+func is_broker_connected() -> bool:
+	return _connected
+
+
 func subscribe(topic: String, qos: int = 0) -> bool:
 	if topic.strip_edges().is_empty():
 		push_error("MQTT subscription topic must not be empty.")

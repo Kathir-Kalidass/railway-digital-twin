@@ -92,3 +92,19 @@ func _recompute() -> void:
 		target_speed = minf(target_speed, wildlife_reduced_speed_kmh)
 	if is_instance_valid(_train):
 		_train.set_target_speed_kmh(target_speed)
+
+
+func get_signal_aspect() -> String:
+	return _signal_aspect
+
+
+func is_wildlife_active() -> bool:
+	return _wildlife_active
+
+
+func is_sensor_healthy() -> bool:
+	return _sensor_healthy
+
+
+func get_current_limit_kmh() -> float:
+	return _current_limit_kmh

@@ -34,6 +34,7 @@ Educational simulation only; not certified railway equipment.
 | f | Safety sequence: warn → slow → stop with barrier down → clear → resume | | |
 | g | ESP32 servo, buzzer, LEDs, and OLED match backend state | | |
 | h | Dashboard shows the same signal, speed, and wildlife state | | |
+| h2 | In-scene HUD shows zone, signal, wildlife, sensor, MQTT, speed and camera | | |
 | i | Reset is rejected while the hazard or sensor fault is active | | |
 | j | Day/night cycle and cinematic reel render without artifacts | | |
 
