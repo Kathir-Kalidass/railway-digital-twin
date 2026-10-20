@@ -10,14 +10,17 @@ func _ready() -> void:
 	build()
 
 func build() -> void:
-	var rail := CSGBank.new()
-	rail.operation = CSGShape3D.OPERATION_UNION
-	var r1 := CSGBox3D.new()
-	r1.size = Vector3(0.07, 0.12, length)
-	r1.transform.origin.x = -gauge/2
-	var r2 := CSGBox3D.new()
-	r2.size = Vector3(0.07, 0.12, length)
-	r2.transform.origin.x = gauge/2
-	add_child(r1)
-	add_child(r2)
-	add_child(rail)
+	var rails := MultiMeshInstance3D.new()
+	var mm := MultiMesh.new()
+	mm.mesh = CylinderMesh.new()
+	mm.mesh.radius = 0.05
+	mm.mesh.height = 0.5
+	mm.instance_count = 400
+	rails.multimesh = mm
+	for i in range(400):
+		var d := i * length / 400.0
+		var angle := d / radius if radius > 0 else 0
+		var pos := Vector3(sin(angle)*radius, 0.25, cos(angle)*radius - radius)
+		var t := Transform3D(Basis(Vector3.UP, -angle), pos)
+		mm.set_instance_transform(i, t)
+	add_child(rails)
