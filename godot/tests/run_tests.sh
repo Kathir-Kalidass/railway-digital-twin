@@ -12,3 +12,4 @@ for t in "$ROOT"/tests/test_*.gd; do
   fi
 done
 exit $status
+"$GODOT" --headless --path "$ROOT" --script res://tests/test_lts_full_enhance.gd
