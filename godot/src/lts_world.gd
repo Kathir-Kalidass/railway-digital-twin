@@ -1,7 +1,7 @@
 extends Node3D
 
 @onready var track: LTSTrack = $Track
-@onready var train: LTSTrain = $Train
+@onready var train: Node3D = $Train
 @export var initial_target_speed_kmh := 54.0
 
 var follow_camera: Camera3D
@@ -39,8 +39,10 @@ func _update_camera(weight: float) -> void:
 	var forward: Vector3 = track_info["forward"]
 	var up: Vector3 = track_info["up"]
 	var side: Vector3 = track_info["side"]
-	var locomotive := train.get_node("Locomotive") as Node3D
-	var train_position := locomotive.global_position
+	var locomotive := train.get_node_or_null("Locomotive") as Node3D
+	var train_position := train.global_position
+	if locomotive:
+		train_position = locomotive.global_position
 	var target_position: Vector3 = train_position - forward * 30.0 + up * 11.0 + side * 12.0
 	follow_camera.global_position = follow_camera.global_position.lerp(target_position, weight)
 	follow_camera.look_at(train_position + up * 2.0, up)
@@ -48,12 +50,15 @@ func _update_camera(weight: float) -> void:
 
 func _configure_lighting() -> void:
 	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.39, 0.67, 0.82)
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.72, 0.79, 0.82)
+	environment.background_mode = Environment.BG_SKY
+	environment.sky = Sky.new()
+	environment.sky.sky_material = ProceduralSkyMaterial.new()
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	environment.ambient_light_energy = 0.8
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.fog_enabled = true
+	environment.fog_light_color = Color(0.78, 0.83, 0.88)
+	environment.fog_density = 0.0015
 	var world_environment := WorldEnvironment.new()
 	world_environment.name = "WorldEnvironment"
 	world_environment.environment = environment
@@ -63,5 +68,6 @@ func _configure_lighting() -> void:
 	sunlight.name = "Sunlight"
 	sunlight.rotation_degrees = Vector3(-48.0, -32.0, 0.0)
 	sunlight.light_energy = 1.5
+	sunlight.light_color = Color(1.0, 0.96, 0.9)
 	sunlight.shadow_enabled = true
 	add_child(sunlight)

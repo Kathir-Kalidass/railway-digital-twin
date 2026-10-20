@@ -28,6 +28,8 @@ func _initialize() -> void:
 	var detection_band := world.get_node("WorldWildlife/DetectionBand") as DetectionBand
 	a.ok(detection_band.get_child_count() > 0, "wildlife detector has a trigger volume")
 	a.ok(world.get_node("WorldWildlife/WildlifeUnderpass") is WildlifeUnderpass, "wildlife underpass is part of the scene")
+	var bridge := world.get_node("WorldWildlife/Bridge") as Bridge
+	a.ok(bridge.get_child_count() > 0, "bridge builds an LTS model or procedural fallback")
 	a.ok(train.get_node("Locomotive") != null, "locomotive model is built")
 	a.ok(train.get_node("PassengerCoach1") != null and train.get_node("PassengerCoach2") != null, "two passenger coaches are built")
 
