@@ -19,9 +19,13 @@ func report(species: String, count: int, on_track: bool) -> void:
 		"onTrack": on_track,
 		"timestamp": Time.get_unix_time_from_system(),
 	}
-	var key := JSON.stringify(payload)
-	if key == _last:
+	var observation_key := JSON.stringify({
+		"zone": zone,
+		"species": species,
+		"count": count,
+		"onTrack": on_track,
+	})
+	if observation_key == _last:
 		return
-	_last = key
-	if bridge and bridge.has_method("publish"):
-		bridge.publish("railway/%s/wildlife" % zone, payload)
+	if bridge and bridge.publish("railway/%s/wildlife" % zone, payload):
+		_last = observation_key

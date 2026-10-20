@@ -1,53 +1,52 @@
-[gd_scene load_steps=12 format=3 uid="uid://world_wildlife"]
+[gd_scene load_steps=11 format=3 uid="uid://world_wildlife"]
 
 [ext_resource type="Script" path="res://src/terrain_generator.gd" id="1"]
-[ext_resource type="Script" path="res://src/track_builder.gd" id="2"]
-[ext_resource type="Script" path="res://src/bridge.gd" id="3"]
-[ext_resource type="Script" path="res://src/wildlife_underpass.gd" id="4"]
-[ext_resource type="Script" path="res://src/wildlife_spawner.gd" id="5"]
-[ext_resource type="Script" path="res://src/wildlife_behaviour.gd" id="6"]
-[ext_resource type="Script" path="res://src/wildlife_publisher.gd" id="7"]
-[ext_resource type="Script" path="res://src/detection_band.gd" id="8"]
-[ext_resource type="Script" path="res://src/safety_signals.gd" id="9"]
-[ext_resource type="Script" path="res://src/atmosphere.gd" id="10"]
-[ext_resource type="Script" path="res://src/camera_director.gd" id="11"]
+[ext_resource type="Script" path="res://src/bridge.gd" id="2"]
+[ext_resource type="Script" path="res://src/wildlife_underpass.gd" id="3"]
+[ext_resource type="Script" path="res://src/wildlife_spawner.gd" id="4"]
+[ext_resource type="Script" path="res://src/wildlife_behaviour.gd" id="5"]
+[ext_resource type="Script" path="res://src/wildlife_publisher.gd" id="6"]
+[ext_resource type="Script" path="res://src/detection_band.gd" id="7"]
+[ext_resource type="Script" path="res://src/safety_signals.gd" id="8"]
+[ext_resource type="Script" path="res://src/atmosphere.gd" id="9"]
+[ext_resource type="Script" path="res://src/camera_director.gd" id="10"]
 
 [node name="WorldWildlife" type="Node3D"]
 
 [node name="TerrainGenerator" type="Node3D" parent="."]
 script = ExtResource("1")
 
-[node name="TrackBuilder" type="Node3D" parent="."]
+[node name="Bridge" type="Node3D" parent="."]
 script = ExtResource("2")
 
-[node name="Bridge" type="Node3D" parent="."]
+[node name="WildlifeUnderpass" type="Node3D" parent="."]
+position = Vector3(0, -4, -20)
 script = ExtResource("3")
 
-[node name="WildlifeUnderpass" type="Node3D" parent="."]
-script = ExtResource("4")
-
 [node name="WildlifeSpawner" type="Node3D" parent="."]
-script = ExtResource("5")
+script = ExtResource("4")
+underpass_path = NodePath("../WildlifeUnderpass")
 
 [node name="WildlifeBehaviour" type="Node" parent="."]
-script = ExtResource("6")
+script = ExtResource("5")
 spawner_path = NodePath("../WildlifeSpawner")
 underpass_path = NodePath("../WildlifeUnderpass")
 
 [node name="WildlifePublisher" type="Node" parent="."]
-script = ExtResource("7")
+script = ExtResource("6")
 zone = "zone1"
+bridge_path = NodePath("../../MQTTBridge")
 
 [node name="DetectionBand" type="Area3D" parent="."]
-script = ExtResource("8")
+script = ExtResource("7")
 publisher_path = NodePath("../WildlifePublisher")
 species = "deer"
 
 [node name="SafetySignals" type="Node3D" parent="."]
-script = ExtResource("9")
+script = ExtResource("8")
 
 [node name="Atmosphere" type="Node" parent="."]
-script = ExtResource("10")
+script = ExtResource("9")
 
 [node name="CameraDirector" type="Node" parent="."]
-script = ExtResource("11")
+script = ExtResource("10")

@@ -56,7 +56,7 @@ var attached_signals: Array = []
 func _ready() -> void:
 	update_parallel_rail_settings()
 	_update()
-	if not Root.Editor:
+	if not _is_lts_editor():
 		$Beginning.queue_free()
 		$Ending.queue_free()
 		$Arrows.queue_free()
@@ -106,7 +106,11 @@ func _exit_tree() -> void:
 
 
 func rename(new_name: String) -> void:
-	var _unused = Root.name_node_appropriate(self, new_name, get_parent())
+	var root_singleton := get_node_or_null("/root/Root")
+	if root_singleton == null:
+		push_error("The LTS Root autoload is required to rename a rail.")
+		return
+	var _unused = root_singleton.call("name_node_appropriate", self, new_name, get_parent())
 	for track_object in track_objects:
 		track_object.name = name + " " + track_object.description
 		track_object.attached_rail = name
@@ -182,7 +186,7 @@ func _update() -> void:
 		if that_overhead_line != null:
 			that_overhead_line.queue_free()
 
-	if Root.Editor and visible:
+	if _is_lts_editor() and visible:
 		$Ending.transform = get_local_transform_at_distance(length)
 		_generate_rail_collision()
 		_generate_direction_arrows()
@@ -489,7 +493,11 @@ func calculate_overhead_line_mesh() -> ArrayMesh:
 				pole_positions.remove_at(pole_positions.size()-1)
 			## Maybe here comes a break in. (If we only want to search for one trackobkject which begins with "pole"
 	pole_positions.append(length)
-	pole_positions = jEssentials.remove_duplicates(pole_positions)
+	var unique_pole_positions: Array = []
+	for pole_position in pole_positions:
+		if not unique_pole_positions.has(pole_position):
+			unique_pole_positions.append(pole_position)
+	pole_positions = unique_pole_positions
 	for i in range (pole_positions.size()-2):
 		var _unused = build_overhead_line_segment(pole_positions[i], pole_positions[i+1])
 
@@ -585,14 +593,14 @@ func update_is_switch_part() -> void:
 		if rail == self:
 			continue
 		# Check for beginning
-		if start_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(start_rot, rail.start_rot) < ROTATION_TOLERANCE:
+		if start_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and _angle_distance_rad(start_rot, rail.start_rot) < ROTATION_TOLERANCE:
 			found_rails_start.append(rail.name)
-		elif start_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(start_rot, rail.end_rot + PI) < ROTATION_TOLERANCE:
+		elif start_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and _angle_distance_rad(start_rot, rail.end_rot + PI) < ROTATION_TOLERANCE:
 			found_rails_start.append(rail.name)
 		#check for ending
-		if end_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(end_rot, rail.start_rot + PI) < ROTATION_TOLERANCE:
+		if end_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and _angle_distance_rad(end_rot, rail.start_rot + PI) < ROTATION_TOLERANCE:
 			found_rails_end.append(rail.name)
-		elif end_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(end_rot, rail.end_rot) < ROTATION_TOLERANCE:
+		elif end_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and _angle_distance_rad(end_rot, rail.end_rot) < ROTATION_TOLERANCE:
 			found_rails_end.append(rail.name)
 
 	if found_rails_start.size() > 0:
@@ -619,14 +627,14 @@ func update_connections() -> void:
 		if rail == self or start_pos.distance_to(rail.start_pos) > 1500:
 			continue
 		# Check for beginning
-		if start_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(start_rot, rail.start_rot + PI) < ROTATION_TOLERANCE:
+		if start_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and _angle_distance_rad(start_rot, rail.start_rot + PI) < ROTATION_TOLERANCE:
 			_connected_rails_at_beginning.append(rail)
-		elif start_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(start_rot, rail.end_rot) < ROTATION_TOLERANCE:
+		elif start_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and _angle_distance_rad(start_rot, rail.end_rot) < ROTATION_TOLERANCE:
 			_connected_rails_at_beginning.append(rail)
 		#check for ending
-		if end_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(end_rot, rail.start_rot) < ROTATION_TOLERANCE:
+		if end_pos.distance_to(rail.start_pos) < POSITION_TOLERANCE and _angle_distance_rad(end_rot, rail.start_rot) < ROTATION_TOLERANCE:
 			_connected_rails_at_ending.append(rail)
-		elif end_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and Math.angle_distance_rad(end_rot, rail.end_rot + PI) < ROTATION_TOLERANCE:
+		elif end_pos.distance_to(rail.end_pos) < POSITION_TOLERANCE and _angle_distance_rad(end_rot, rail.end_rot + PI) < ROTATION_TOLERANCE:
 			_connected_rails_at_ending.append(rail)
 
 
@@ -655,7 +663,7 @@ var _last_calculation_of_update_connection_arrows = 0
 func _update_connection_arrows_not_recursive():
 	if _last_calculation_of_update_connection_arrows == get_tree().get_frame():
 		return
-	if not Root.Editor:
+	if not _is_lts_editor():
 		return
 	if world == null:
 		# Hack (but what follows is so broken and hacky...)
@@ -672,3 +680,16 @@ func _update_connection_arrows_not_recursive():
 		$Ending/Ending.material_override = (load("res://Data/Misc/Rail_Ending_disconnected.tres") if ResourceLoader.exists("res://Data/Misc/Rail_Ending_disconnected.tres") else null) if ResourceLoader.exists("res://Data/Misc/Rail_Ending_disconnected.tres") else null
 
 	_last_calculation_of_update_connection_arrows = get_tree().get_frame()
+
+
+func _is_lts_editor() -> bool:
+	var root_singleton := get_node_or_null("/root/Root")
+	return root_singleton != null and bool(root_singleton.get("Editor"))
+
+
+func _angle_distance_rad(first: float, second: float) -> float:
+	var math_singleton := get_node_or_null("/root/Math")
+	if math_singleton == null:
+		push_error("The LTS Math autoload is required for rail connection calculations.")
+		return 0.0
+	return float(math_singleton.call("angle_distance_rad", first, second))

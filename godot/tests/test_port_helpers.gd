@@ -10,6 +10,10 @@ func _initialize() -> void:
 	a.eq(math.sort_signals({"name": ["late", "early"], "position": [20.0, 10.0]}, false), ["late", "early"], "sort reverse signals")
 	a.eq(math.time_to_string([9, 5, 2]), "09:05:02", "format time")
 
+	var input_script: GDScript = load("res://Data/Scripts/Singletons/input_helper.gd")
+	var input_helper = input_script.new()
+	a.eq(input_helper._get_xbox_button_name(JOY_BUTTON_A), "A", "Godot 4 controller button")
+	a.eq(input_helper._get_xbox_axis_name(JOY_AXIS_LEFT_X), "Left Stick Horizontal", "Godot 4 controller axis")
 
 	var root_script: GDScript = load("res://Data/Scripts/Singletons/Root.gd")
 	var root = root_script.new()
