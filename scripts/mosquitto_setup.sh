@@ -32,7 +32,7 @@ docker run --rm \
     mosquitto_passwd -b /work/password_file esp32 "$E"
     mosquitto_passwd -b /work/password_file backend "$B"
     mosquitto_passwd -b /work/password_file dashboard "$D"
-    chmod 600 /work/password_file
+    chmod 644 /work/password_file
   '
 
 echo "Wrote $ROOT/mosquitto/password_file"
