@@ -4,7 +4,7 @@
 
 **Goal:** Stand up a Godot 4.7 project that runs the ported Libre-TrainSim core (rail network + one moving train) and a twin overlay that talks MQTT to the backend, obeys safety/speed overrides, and publishes wildlife observations.
 
-**Architecture:** Two layers in the existing `godot/` project. A **pure-simulation LTS runtime** (`godot/addons/lts_runtime/`, ported from Libre-TrainSim's Godot 3 source) exposes a tiny train/track API and knows nothing about MQTT. A **twin overlay** (`godot/src/`) owns MQTT, reads LTS state, and writes only the train target speed (single control entry point).
+**Architecture:** Two layers in the existing `godot/` project. The **pure-simulation LTS runtime** is ported from Libre-TrainSim's Godot 3 source into `godot/Data/` and `godot/Resources/`; these project-root paths are required by the source's hard-coded `res://Data/...` and `res://Resources/...` references. It exposes a tiny train/track API and knows nothing about MQTT. A **twin overlay** (`godot/src/`) owns MQTT, reads LTS state, and writes only the train target speed (single control entry point).
 
 **Tech Stack:** Godot 4.7 (GDScript, headless testing via `--script`), MQTT (`goatchurchprime/godot-mqtt` addon, MIT), Mosquitto broker in Docker (`docker compose up -d mosquitto`).
 
@@ -13,9 +13,9 @@
 ## Global Constraints
 
 - Engine: Godot **4.7.2** stable at `/home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64` (WSL runs headless only). Let `GODOT=/home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64` stand for the whole plan.
-- Existing project root is `godot/` (Godot 4.7, `config_version=5`). Ported code goes in `godot/addons/lts_runtime/`; overlay code in `godot/src/`.
+- Existing project root is `godot/` (Godot 4.7, `config_version=5`). Ported LTS code goes in `godot/Data/` and `godot/Resources/`; overlay code in `godot/src/`. Do not move these directories under `addons/` unless all hard-coded resource paths are rewritten.
 - Licensing: the ported core is **GPL v3** — add `godot/LICENSE` and `godot/CREDITS.md`. Non-Godot components are not linked.
-- **Never commit** Libre-TrainSim assets or caches: no `Libre-TrainSim-master/**` binary assets, no `.godot/`, no `*.uid`, no `*.import`, no `*:Zone.Identifier`. Add ignore rules in Task 3.
+- **Never commit** the upstream checkout or its binary assets/caches: no `Libre-TrainSim-master/**`, no `.godot/`, no `*.uid`, no `*.import`, no `*:Zone.Identifier`. The 600MB upstream `Resources/` asset tree remains local and ignored; runtime/test paths must use procedural or optional-resource fallbacks so a clean checkout does not depend on it. Add ignore rules in Task 3.
 - MQTT addon `goatchurchprime/godot-mqtt` (MIT), **pinned commit**, vendored under `godot/addons/godot-mqtt/`.
 - **Do not modify** (concurrent actor owns these): `mosquitto/*`, `scripts/*`, `docker-compose.yml`, `backend/src/mqtt.js`, `backend/test/{broker_acl,mqtt}.test.js`, `esp32/**`, `README.md`, `.gitignore` (root). Overlay work is confined to `godot/`.
 - Brokers: dev TCP `127.0.0.1:1883`, user/pass creds `godot/godot-dev-pass`. Godot subscribes to `railway/state`, `railway/zoneN/signal`, `railway/speed/zoneN`, `railway/commands/zoneN`; publishes only `railway/zoneN/wildlife` and (optional) `railway/trains/{id}`.
@@ -31,7 +31,7 @@
 - `godot/tests/test_parse.gd` — loads all ported/overlay scripts and asserts none fail to parse.
 - `godot/tests/test_mqtt_bridge.gd` — connects to the Docker broker, round-trips a message, asserts backoff reconnect.
 - `godot/tests/test_train_controller.gd` — asserts target-speed override + resume.
-- `godot/addons/lts_runtime/` — the ported classes (`Math.gd`, `Root.gd`, `input_helper.gd`, `chunk.gd`, `Rail.gd`, `WorldObject.gd`, `Wagon.gd`, `camera_base.gd`, `chunk_manager.gd`, `Signal.gd`, `World.gd`) plus only the `Resources/` and `Data/Modules/` files they need.
+- `godot/Data/` and `godot/Resources/` — ported LTS classes and any small source-controlled text resources/scenes required by the runtime. Heavy binary assets remain excluded and must not be required at parse time.
 - `godot/src/mqtt_bridge.gd` — MQTT connect/reconnect (exponential backoff) + publish/subscribe.
 - `godot/src/twin_state.gd` — parses retained `railway/state`/signal JSON into a typed view.
 - `godot/src/train_controller.gd` — single control entry point: `apply_safety(state)` → `set_target_speed_kmh`.
@@ -88,7 +88,7 @@ extends SceneTree
 
 func _initialize() -> void:
 	var a := Assert.new()
-	var roots := ["res://addons/lts_runtime", "res://src"]
+	var roots := ["res://Data", "res://src", "res://addons"]
 	var checked := 0
 	for root in roots:
 		for path in _gd_files(root):
@@ -153,7 +153,7 @@ git commit -m "test(godot): headless test harness for the LTS port and overlay"
 **Files:**
 - Create: `godot/addons/godot-mqtt/` (vendored)
 - Create: `godot/addons/godot-mqtt/LICENSE`
-- Modify: `godot/project.godot` (enable plugin)
+- Create: `godot/addons/godot-mqtt/` (vendored script library; not an editor plugin)
 
 **Interfaces:**
 - Consumes: nothing.
@@ -175,14 +175,9 @@ printf 'goatchurchprime/godot-mqtt @ %s (MIT)\n' "$PIN" > godot/addons/godot-mqt
 test -f godot/addons/godot-mqtt/LICENSE || cp /tmp/opencode/godot-mqtt/LICENSE godot/addons/godot-mqtt/LICENSE 2>/dev/null || true
 ```
 
-- [ ] **Step 3: Enable the plugin in the project**
+- [ ] **Step 3: Verify the vendored script**
 
-In `godot/project.godot`, under `[editor_plugins]`, set (create the section if absent):
-
-```ini
-[editor_plugins]
-enabled=PackedStringArray("res://addons/godot-mqtt/plugin.cfg")
-```
+The upstream addon has no `plugin.cfg` and is loaded as a script library, so do not register it as an editor plugin. `MQTTClient` is exposed through `class_name` in `mqtt.gd`.
 
 - [ ] **Step 4: Verify it imports and the client class resolves**
 
@@ -197,7 +192,7 @@ Expected: no parse errors from `res://addons/godot-mqtt/**`; `PASS test_parse`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add godot/addons/godot-mqtt godot/project.godot
+git add godot/addons/godot-mqtt
 git commit -m "chore(godot): vendor pinned godot-mqtt addon (MIT)"
 ```
 
@@ -206,28 +201,30 @@ git commit -m "chore(godot): vendor pinned godot-mqtt addon (MIT)"
 ### Task 3: Import the LTS core subset + provenance log + ignore rules
 
 **Files:**
-- Create: `godot/addons/lts_runtime/**` (copied subset)
+- Create: `godot/Data/**` (copied/ported source subset)
 - Create: `docs/porting/lts-port.md`
 - Create: `godot/LICENSE`, `godot/CREDITS.md`
 - Create: `godot/.gitignore`
 
 **Interfaces:**
 - Consumes: Libre-TrainSim source at `Libre-TrainSim-master/src/`.
-- Produces: `res://addons/lts_runtime/Data/Scripts/{Math,Root,input_helper,chunk}.gd`, `.../{Rail,RailMap,Wagon,camera_base,chunk_manager,Signal,World,WorldObject}.gd`, and the `Resources/`, `Data/Modules/` files they need.
+- Produces: `res://Data/Scripts/{Math,Root,input_helper,chunk}.gd`, `.../{Rail,RailMap,Wagon,camera_base,chunk_manager,Signal,World,WorldObject}.gd`, and the required `Data/Modules/` files. Heavy `Resources/` dependencies must be optional or replaced by procedural fallbacks.
 
 - [ ] **Step 1: Copy the core subset (no editor/modding/translations/caches)**
 
 ```bash
 SRC=Libre-TrainSim-master/src
-DST=godot/addons/lts_runtime
+DST=godot
 mkdir -p "$DST"
 cp -r "$SRC/Data" "$DST/"
-cp -r "$SRC/Resources" "$DST/" 2>/dev/null || true
+# Do not copy the full upstream Resources tree (~600MB). Keep only selected,
+# redistributable text resources required by the runtime; use procedural
+# fallbacks for absent binary assets.
 cp "$SRC/LICENSE" "$DST/LICENSE" 2>/dev/null || cp Libre-TrainSim-master/LICENSE "$DST/LICENSE"
 # strip non-source cruft
 find "$DST" -name '.godot' -type d -prune -exec rm -rf {} +
 find "$DST" \( -name '*.uid' -o -name '*.import' -o -name '*:Zone.Identifier' \) -delete
-find "$DST/Data" -type d \( -name 'Editor' -o -name 'Translations' -o -name 'addons' -o -name 'Screens' -o -name 'UI' \) -prune -exec rm -rf {} +
+find "$DST/Data" -type d \( -name 'Editor' -o -name 'Translations' -o -name 'addons' -o -name 'Screens' \) -prune -exec rm -rf {} +
 ```
 
 - [ ] **Step 2: Add Godot-side ignore rules**
@@ -240,6 +237,7 @@ find "$DST/Data" -type d \( -name 'Editor' -o -name 'Translations' -o -name 'add
 *.import
 *:Zone.Identifier
 config.cfg
+Resources/
 ```
 
 - [ ] **Step 3: Write the license + credits**
@@ -265,7 +263,7 @@ Expected: FAIL with the remaining parse errors listed (baseline for Tasks 4–7)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add godot/addons/lts_runtime godot/.gitignore godot/LICENSE godot/CREDITS.md docs/porting/
+git add godot/Data godot/.gitignore godot/LICENSE godot/CREDITS.md docs/porting/
 git commit -m "feat(godot): import Libre-TrainSim core subset + GPL/credits/provenance"
 ```
 
@@ -274,7 +272,7 @@ git commit -m "feat(godot): import Libre-TrainSim core subset + GPL/credits/prov
 ### Task 4: Port the `Math` singleton (autoload)
 
 **Files:**
-- Modify: `godot/addons/lts_runtime/Data/Scripts/Singletons/Math.gd`
+- Modify: `godot/Data/Scripts/Singletons/Math.gd`
 - Modify: `docs/porting/lts-port.md`
 
 **Interfaces:**
@@ -288,7 +286,9 @@ Expected: errors of the form `No constructor of "String" matches the signature "
 
 - [ ] **Step 2: Apply the Godot-4 fixes**
 
-In `Math.gd`, replace every `String(<expr>)` with `str(<expr>)` and `Array.invert()` with `Array.reverse()`:
+In `Math.gd`, replace every `String(<expr>)` with `str(<expr>)`, use
+`Array.reverse()` instead of `Array.invert()`, and use `Array.remove_at(index)`
+instead of the removed `Array.remove(index)`:
 
 ```gdscript
 func time_to_string(time: Array) -> String:
@@ -317,7 +317,7 @@ Expected: no `Math.gd` errors remaining (PASS may still fail on other files — 
 Add a `Math.gd` row to `docs/porting/lts-port.md`.
 
 ```bash
-git add godot/addons/lts_runtime/Data/Scripts/Singletons/Math.gd docs/porting/lts-port.md
+git add godot/Data/Scripts/Singletons/Math.gd docs/porting/lts-port.md
 git commit -m "port(godot): Math singleton to Godot 4 (String()->str, invert()->reverse)"
 ```
 
@@ -326,7 +326,7 @@ git commit -m "port(godot): Math singleton to Godot 4 (String()->str, invert()->
 ### Task 5: Port the `Root` singleton (autoload)
 
 **Files:**
-- Modify: `godot/addons/lts_runtime/Data/Scripts/Singletons/Root.gd`
+- Modify: `godot/Data/Scripts/Singletons/Root.gd`
 - Modify: `docs/porting/lts-port.md`
 
 **Interfaces:**
@@ -374,7 +374,7 @@ func emit_world_origin_shifted(delta) -> void:
 Then update callers (grep for `world_origin_shifted(` and `.connect(`):
 
 ```bash
-grep -rn "world_origin_shifted" godot/addons/lts_runtime
+grep -rn "world_origin_shifted" godot/Data
 ```
 Replace `Root.connect("world_origin_shifted", Callable(self, "_on_world_origin_shifted"))` with `Root.world_origin_shifted.connect(_on_world_origin_shifted)`.
 
@@ -387,7 +387,7 @@ Replace `.plus_file(` with `.path_join(` throughout `Root.gd`.
 Run: `"$GODOT" --headless --path godot --script res://tests/test_parse.gd` — expect no `Root.gd` errors.
 
 ```bash
-git add godot/addons/lts_runtime/Data/Scripts/Singletons/Root.gd docs/porting/lts-port.md
+git add godot/Data/Scripts/Singletons/Root.gd docs/porting/lts-port.md
 git commit -m "port(godot): Root singleton to Godot 4 (DirAccess.open, path_join, signal rename)"
 ```
 
@@ -396,7 +396,7 @@ git commit -m "port(godot): Root singleton to Godot 4 (DirAccess.open, path_join
 ### Task 6: Port `input_helper.gd` (Godot-3 joystick constants)
 
 **Files:**
-- Modify: `godot/addons/lts_runtime/Data/Scripts/input_helper.gd`
+- Modify: `godot/Data/Scripts/Singletons/input_helper.gd`
 - Modify: `docs/porting/lts-port.md`
 
 **Interfaces:**
@@ -420,7 +420,7 @@ Apply this mapping in `input_helper.gd` (and anywhere else the identifiers appea
 | `JOY_XBOX_Y` | `JOY_BUTTON_Y` |
 | `JOY_SONY_X/CIRCLE/SQUARE/TRIANGLE` | `JOY_BUTTON_A/B/X/Y` |
 | `JOY_L`/`JOY_R` | `JOY_BUTTON_LEFT_SHOULDER`/`JOY_BUTTON_RIGHT_SHOULDER` |
-| `JOY_L2`/`JOY_R2` | `JOY_BUTTON_LEFT_SHOULDER`+axis (use `JOY_AXIS_TRIGGER_LEFT`/`RIGHT`) |
+| `JOY_L2`/`JOY_R2` | These are axes in Godot 4; map them to `JOY_AXIS_TRIGGER_LEFT`/`JOY_AXIS_TRIGGER_RIGHT` in axis-label helpers, not in button matchers |
 | `JOY_SELECT`/`JOY_START` | `JOY_BUTTON_BACK`/`JOY_BUTTON_START` |
 | `JOY_L3`/`JOY_R3` | `JOY_BUTTON_LEFT_STICK`/`JOY_BUTTON_RIGHT_STICK` |
 | `JOY_DPAD_*` | `JOY_BUTTON_DPAD_*` |
@@ -432,7 +432,7 @@ Apply this mapping in `input_helper.gd` (and anywhere else the identifiers appea
 Run: `"$GODOT" --headless --path godot --script res://tests/test_parse.gd` — expect no `input_helper.gd` errors.
 
 ```bash
-git add godot/addons/lts_runtime/Data/Scripts/input_helper.gd docs/porting/lts-port.md
+git add godot/Data/Scripts/Singletons/input_helper.gd docs/porting/lts-port.md
 git commit -m "port(godot): input_helper joystick constants to Godot 4"
 ```
 
@@ -441,8 +441,8 @@ git commit -m "port(godot): input_helper joystick constants to Godot 4"
 ### Task 7: Port `chunk.gd` + convert required scenes to `format=3`
 
 **Files:**
-- Modify: `godot/addons/lts_runtime/Data/Scripts/chunk.gd`
-- Modify: required `*.tscn` under `godot/addons/lts_runtime/Data/Modules/`
+- Modify: `godot/Data/Scripts/chunk.gd`
+- Modify: required `*.tscn` under `godot/Data/Modules/`
 - Modify: `docs/porting/lts-port.md`
 
 **Interfaces:**
@@ -469,19 +469,19 @@ Root.world_origin_shifted.connect(_on_world_origin_shifted)
 Open the project once in the Godot 4.7 **editor on Windows** (or run the headless upgrade on a scratch copy) to let Godot convert `Data/Modules/chunk_prefab.tscn`, `chunk_prefab_default_grass.tscn`, `Rail.tscn`, `Signal.tscn`, and `World-Pattern.tscn`. Confirm conversion:
 
 ```bash
-grep -l 'format=3' godot/addons/lts_runtime/Data/Modules/*.tscn
+grep -l 'format=3' godot/Data/Modules/*.tscn
 ```
 Expected: the five files listed above now start with `format=3`.
 
 - [ ] **Step 4: Verify**
 
 Run: `"$GODOT" --headless --path godot --script res://tests/test_parse.gd`
-Expected: `PASS test_parse` (all scripts in `lts_runtime/` parse).
+Expected: `PASS test_parse` for the selected runtime and overlay scripts. Excluded legacy/editor/UI scripts and ignored binary assets must not be loaded by this smoke test.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add godot/addons/lts_runtime/Data/Scripts/chunk.gd godot/addons/lts_runtime/Data/Modules docs/porting/lts-port.md
+git add godot/Data/Scripts/chunk.gd godot/Data/Modules docs/porting/lts-port.md
 git commit -m "port(godot): chunk.gd + convert core scenes to Godot 4 format"
 ```
 

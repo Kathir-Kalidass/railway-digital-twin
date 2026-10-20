@@ -1,0 +1,19 @@
+# Godot
+.godot/
+*.uid
+*.import
+*:Zone.Identifier
+config.cfg
+
+# Ported Libre-TrainSim binary assets: present locally for the runtime but not
+# redistributed in this repo (GPL asset tree, ~600MB). Curated assets live in
+# assets/ (see CREDITS.md). Procedural fallbacks ship when these are absent.
+Resources/*
+!Resources/.gdignore
+
+# Curated downloaded assets (add via source-controlled manifests instead)
+assets/*.glb
+assets/*.gltf
+assets/*.hdr
+assets/*.png
+!assets/.gitkeep

@@ -1,0 +1,179 @@
+extends Node
+
+signal world_origin_shifted(delta)
+
+var current_track: String = "" # file path
+var current_scenario: String = "" # file path
+var selected_train: String = "" # file path
+var selected_route: String = "" # route name
+var selected_time: int = -1 # start time of scenario in seconds
+var EasyMode: bool = true
+var mobile_version: bool = OS.has_feature("mobile")
+
+var game_pause = {"pause_menu": false, "ingame_pause": false, "message": false}
+
+var world: Node  ## RefCounted to world
+
+
+# If scenario editor is running, then Editor and scenario_editor are true
+var Editor: bool = false
+var scenario_editor: bool = false
+
+var current_editor_track: String = ""
+var current_editor_track_path: String = ""
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_low_resolution(mobile_version)
+
+
+func _unhandled_key_input(_event) -> void:
+	if Engine.is_editor_hint():
+		return
+	if Input.is_action_just_released("fullscreen"):
+		jSettings.set_fullscreen(!((get_window().mode == Window.MODE_EXCLUSIVE_FULLSCREEN) or (get_window().mode == Window.MODE_FULLSCREEN)))
+
+
+func set_game_pause(type, value) -> void:
+	game_pause[type] = value
+	update_pause()
+
+func reset_game_pause() -> void:
+	for key in game_pause.keys():
+		game_pause[key] = false
+	update_pause()
+
+func update_pause() -> void:
+	if game_pause.values().has(true):
+		get_tree().paused = true
+	else:
+		get_tree().paused = false
+
+
+## Get appropriate name for new object. Used for adding and renaming nodes at ingame editor, also for train spawn
+func name_node_appropriate(node: Node, wanted_name: String, parent_node: Node) -> String:
+	# Remove last Numbers from wanted name
+	while(wanted_name[-1].is_valid_int()):
+		wanted_name.erase(wanted_name.length() -1, 1)
+
+	wanted_name = wanted_name.replace(" " , "")
+	wanted_name = wanted_name.validate_node_name()
+
+	if not parent_node.has_node(wanted_name):
+		node.name = wanted_name
+		return wanted_name
+
+	var counter: int = 2
+	var base_name: String = wanted_name
+
+	while(true):
+		var new_name: String = base_name + str(counter)
+		if not parent_node.has_node(new_name):
+			node.name = new_name
+			return new_name
+		counter += 1
+	return ""
+
+
+# Searches for translation files with trackName in res://Translations/
+func checkAndLoadTranslationsForTrack(trackName: String) -> void:
+	LTSLogger.vlog(trackName.get_file().get_basename())
+	var trackTranslations := []
+	var dir := DirAccess.open("res://Translations")
+	if dir == null:
+		return
+	var _unused = dir.list_dir_begin() # TODOConverter3To4 fill missing arguments https://github.com/godotengine/godot/pull/40547
+	while(true):
+		var file: String = dir.get_next()
+		if file == "":
+				break
+		if file.get_extension() == "position":
+			if file.get_file().begins_with(trackName):
+				trackTranslations.append("res://Translations/" + file.get_file())
+				LTSLogger.vlog("Track Translation Found " + "res://Translations/" + file.get_file())
+	for trackTranslationPath in trackTranslations:
+		var trackTranslation: Translation = load(trackTranslationPath)
+		LTSLogger.vlog(trackTranslation.locale)
+		TranslationServer.add_translation(trackTranslation)
+
+
+# Searches for translation files wich are located in the same folder as the train.tscn.
+# Gets the full path to train.tscn as input
+func checkAndLoadTranslationsForTrain(trainDirPath: String) -> void:
+	LTSLogger.vlog(trainDirPath)
+	var trainTranslations := []
+	var dir := DirAccess.open(trainDirPath)
+	if dir == null:
+		return
+	var _unused = dir.list_dir_begin() # TODOConverter3To4 fill missing arguments https://github.com/godotengine/godot/pull/40547
+	while(true):
+		var file: String = dir.get_next()
+		if file == "":
+				break
+		if file.get_extension() == "position":
+			trainTranslations.append(trainDirPath+"/"+file)
+			LTSLogger.vlog("Track Translation Found " + "res://Translations/" + file.get_file())
+	for trainTranslationPath in trainTranslations:
+		var tainTranslation: Translation = load(trainTranslationPath)
+		LTSLogger.vlog(tainTranslation.locale)
+		TranslationServer.add_translation(tainTranslation)
+
+
+# recursion_depth = -1 -> unlimited recursion
+# the result is saved to the 'found_files' variable
+func crawl_directory(found_files: Array, directory_path: String, file_extensions: Array, recursion_depth: int = -1) -> void:
+	var dir := DirAccess.open(directory_path)
+	if dir == null or dir.list_dir_begin()  != OK:# TODOConverter3To4 fill missing arguments https://github.com/godotengine/godot/pull/40547
+		return
+
+	while true:
+		var file: String = dir.get_next()
+		if file.is_empty():
+			break
+		if file == "." or file == "..":
+			continue
+		elif dir.current_is_dir() and recursion_depth != 0:
+			var child_depth := -1 if recursion_depth < 0 else recursion_depth - 1
+			crawl_directory(found_files, directory_path.path_join(file), file_extensions, child_depth)
+		else:
+			var ext := file.get_extension()
+			if OS.has_feature("standalone") and ext == "import":
+				file = file.get_basename()
+				ext = file.get_extension()
+			if ext in file_extensions:
+				found_files.push_back(directory_path.path_join(file))
+	dir.list_dir_end()
+
+
+func get_subfolders_of(directory_path: String) -> Array:
+	var dir := DirAccess.open(directory_path)
+	if dir == null or dir.list_dir_begin()  != OK:# TODOConverter3To4 fill missing arguments https://github.com/godotengine/godot/pull/40547
+		return []
+	var folder_names: Array = []
+	while(true):
+		var file: String = dir.get_next()
+		if file == "":
+			break
+		if dir.current_is_dir():
+			folder_names.append(file)
+	dir.list_dir_end()
+	return folder_names
+
+
+func set_low_resolution(value: bool) -> void:
+	if value:
+		if ProjectSettings.get_setting("display/window/stretch/mode") == "viewport":
+			return
+		ProjectSettings.set_setting("display/window/stretch/mode", "viewport")
+		ProjectSettings.set_setting("display/window/stretch/aspect", "keep")
+		ProjectSettings.set_setting("display/window/size/viewport_width", "1280")
+		ProjectSettings.set_setting("display/window/size/viewport_height", "720")
+	else:
+		ProjectSettings.set_setting("display/window/stretch/mode", "disabled")
+		ProjectSettings.set_setting("display/window/stretch/aspect", "ignore")
+		ProjectSettings.set_setting("display/window/size/viewport_width", "1024")
+		ProjectSettings.set_setting("display/window/size/viewport_height", "600")
+
+
+func emit_world_origin_shifted(delta) -> void:
+	world_origin_shifted.emit(delta)

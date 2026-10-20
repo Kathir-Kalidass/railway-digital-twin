@@ -1,0 +1,172 @@
+class_name LTSSignal
+extends RailLogic
+
+
+enum SignalType {
+	MAIN = 1,
+	PRESIGNAL = 2,
+	COMBINED = 3
+}
+@export var signal_type: SignalType = SignalType.COMBINED
+
+@export var status: int = SignalStatus.RED: set = set_status
+signal signal_changed(signal_instance)
+
+var signal_after: String = "": set = set_signal_after
+var signal_after_node: Node # RefCounted to the signal after it. Set by the route manager from the players train. Just works for the players route. Should only be used for visuals!!
+
+@export var signal_free_time: int = -1 # the signal will be turned to status = 1 at this specified time. Set to -1 to deactivate. Only available in manual mode.
+var did_set_pass: bool = false
+
+@export var speed: float = -1: set = set_velocity
+var warn_speed: float = -1: set = set_warn_speed
+
+@export var visual_instance_path: String = "res://Resources/SignalTypes/Ks/Ks.tscn" # (String, FILE, "*.tscn,*.scn")
+@export var operation_mode: int = SignalOperationMode.BLOCK # (SignalOperationMode.TypeHint)
+
+
+func _get_type() -> String:
+	return RailLogicTypes.SIGNAL
+
+
+var timer
+func update_visual_instance() -> void:
+	update()
+	if not is_instance_valid(rail):
+		rail = world.get_node("Rails/" + attached_rail)
+		if rail == null:
+			queue_free()
+			return
+
+	visible = rail.visible
+	if not rail.visible:
+		if get_node_or_null("VisualInstance3D") != null:
+			self.disconnect("signal_changed", Callable($VisualInstance3D, "update_visual_instance"))
+			$VisualInstance3D.queue_free()
+			if get_node_or_null("SelectCollider") != null:
+				$SelectCollider.queue_free()
+
+		return
+
+	if get_node_or_null("VisualInstance3D") == null:
+		create_visual_instance()
+
+
+
+func create_visual_instance() -> void:
+	if visual_instance_path == "":
+		visual_instance_path = "res://Resources/SignalTypes/Ks/Ks.tscn"
+	var visual_instance = load(visual_instance_path).instance()
+	add_child(visual_instance)
+	visual_instance.name = "VisualInstance3D"
+	visual_instance.owner = self
+	connect_visual_instance()
+
+
+func connect_visual_instance() -> void:
+	var visual_instance = get_node_or_null("VisualInstance3D")
+	var _unused = self.connect("signal_changed", Callable(visual_instance, "update_visual_instance"))
+
+
+func update() -> void:
+	assert(not not world)
+
+	if Root.Editor and operation_mode == SignalOperationMode.BLOCK:
+		set_status(SignalStatus.GREEN)
+
+
+	if operation_mode == SignalOperationMode.STATION:
+		if world.get_assigned_station_of_signal(name) == null:
+			LTSLogger.warn("%s should run in station mode, but can't find it's correspondending station. Switching to block mode..." % name, "Signal")
+			set_operation_mode(SignalOperationMode.BLOCK)
+
+
+	if operation_mode == SignalOperationMode.MANUAL and signal_free_time != -1 and not did_set_pass and not Root.Editor and world.time > signal_free_time:
+		set_status(SignalStatus.GREEN)
+		did_set_pass = true
+
+	# set signal orange if next signal is RED and this signal is not RED, but only for Pre- and Combined Signals
+	if signal_type != SignalType.MAIN and status == SignalStatus.GREEN and signal_after_node != null and signal_after_node.status == SignalStatus.RED:
+		set_status(SignalStatus.ORANGE)
+
+
+func _ready() -> void:
+	# This is f****** hack and the whole deferred init is causing a lot of issues.
+	timer = Timer.new()
+	timer.connect("timeout", Callable(self, "update_visual_instance"))
+	self.add_child(timer)
+	timer.start()
+
+	set_to_rail(true)
+	update()
+
+	if operation_mode == SignalOperationMode.BLOCK:
+		set_status(SignalStatus.GREEN)
+
+	if operation_mode == SignalOperationMode.BLOCK or\
+			operation_mode == SignalOperationMode.STATION:
+		signal_free_time = -1
+
+
+
+# signals necessary for RailMap to work
+func set_status(new_val: int) -> void:
+	if signal_type == SignalType.PRESIGNAL and new_val == SignalStatus.RED:
+		LTSLogger.warn(name + ": Cannot set a presignal to red!", self)
+		return
+	if signal_type == SignalType.MAIN and new_val == SignalStatus.ORANGE:
+		LTSLogger.warn(name + ": Cannot set a main signal to orange!", self)
+		return
+
+	# make sure signal does not become green when it should be orange
+	if signal_type != SignalType.MAIN and new_val == SignalStatus.GREEN and signal_after_node != null and signal_after_node.status == SignalStatus.RED:
+		new_val = SignalStatus.ORANGE
+
+	if status != new_val:
+		status = new_val
+		emit_signal("signal_changed", self)
+
+
+func set_velocity(new_speed: float) -> void:
+	speed = new_speed
+	emit_signal("signal_changed", self)
+
+
+func set_warn_speed(new_speed: float) -> void:
+	warn_speed = new_speed
+	emit_signal("signal_changed", self)
+
+
+func give_signal_free() -> void:
+	if operation_mode == SignalOperationMode.BLOCK:
+		set_status(SignalStatus.GREEN)
+
+
+func set_data(d: SignalSettings) -> void:
+	set_status(d.status)
+	signal_free_time = d.signal_free_time
+	set_velocity(d.speed)
+	set_operation_mode(d.operation_mode)
+
+
+func reset() -> void:
+	set_status(SignalStatus.RED)
+	signal_free_time = -1
+	set_velocity(-1)
+	operation_mode = SignalOperationMode.BLOCK
+
+
+func set_operation_mode(mode: int):
+	operation_mode = mode
+	if operation_mode == SignalOperationMode.BLOCK:
+		set_status(SignalStatus.GREEN)
+		signal_free_time = -1
+	elif operation_mode == SignalOperationMode.STATION:
+		set_status(SignalStatus.RED)
+		signal_free_time = -1
+
+
+func set_signal_after(signal_name: String) -> void:
+	signal_after = signal_name
+	signal_after_node = world.get_node_or_null("Signals/"+signal_after)
+	emit_signal("signal_changed", self)

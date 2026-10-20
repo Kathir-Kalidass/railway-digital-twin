@@ -14,6 +14,17 @@ config/name="Railway Digital Twin - Wildlife Safety"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7")
 
+[autoload]
+
+Math="*res://Data/Scripts/Singletons/Math.gd"
+Root="*res://Data/Scripts/Singletons/Root.gd"
+ContentLoader="*res://Data/Scripts/Singletons/content_loader.gd"
+jSettings="*res://src/compat_stubs.gd"
+jEssentials="*res://src/compat_stubs.gd"
+jSaveManager="*res://src/compat_stubs.gd"
+DebugDraw="*res://src/compat_stubs.gd"
+DebugLabel="*res://src/compat_stubs.gd"
+
 [display]
 
 window/size/viewport_width=1440
@@ -27,3 +38,9 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
 environment/defaults/default_clear_color=Color(0.07, 0.13, 0.16, 1)
+
+[debug]
+
+gdscript/warnings/native_method_override=0
+gdscript/warnings/inference_on_variant=0
+gdscript/warnings/untyped_declaration=0
