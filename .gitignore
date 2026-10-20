@@ -13,3 +13,6 @@ backend/.env.*
 mosquitto/password_file
 esp32/secrets.h
 esp32/.pio/
+
+# Local Libre-TrainSim upstream checkout (GPL asset tree, ~1.5GB)
+Libre-TrainSim-master/

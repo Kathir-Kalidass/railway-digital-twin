@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "policy": "Heavy upstream Libre-TrainSim binaries are local-only and ignored. The runtime must fall back to procedural geometry when an optional asset is absent.",
+  "assets": [
+    {
+      "id": "procedural-terrain",
+      "kind": "world",
+      "path": "res://src/terrain_generator.gd",
+      "status": "procedural-fallback",
+      "license": "n/a"
+    },
+    {
+      "id": "procedural-trees",
+      "kind": "scenery",
+      "path": "res://src/lts_world.gd",
+      "status": "procedural-fallback",
+      "license": "n/a"
+    },
+    {
+      "id": "procedural-deer",
+      "kind": "animal",
+      "path": "res://src/wildlife_spawner.gd",
+      "status": "procedural-fallback",
+      "license": "n/a"
+    },
+    {
+      "id": "procedural-elephant",
+      "kind": "animal",
+      "path": "res://src/wildlife_spawner.gd",
+      "status": "procedural-fallback",
+      "license": "n/a"
+    },
+    {
+      "id": "lts-jfr1-locomotive",
+      "kind": "train",
+      "path": "res://Trains/JFR1/JFR1_Red.tscn",
+      "status": "optional-local",
+      "license": "GPL-3.0",
+      "source": "Libre-TrainSim v0.9.beta1 (not redistributed)"
+    },
+    {
+      "id": "lts-jfr1-wagon",
+      "kind": "train",
+      "path": "res://Trains/JFR1/JFR1_Grey.tscn",
+      "status": "optional-local",
+      "license": "GPL-3.0",
+      "source": "Libre-TrainSim v0.9.beta1 (not redistributed)"
+    },
+    {
+      "id": "lts-street-bridge",
+      "kind": "scenery",
+      "path": "res://Resources/Objects/street_bridge_1_30m.obj",
+      "status": "optional-local",
+      "license": "GPL-3.0",
+      "source": "Libre-TrainSim v0.9.beta1 (not redistributed)"
+    }
+  ]
+}

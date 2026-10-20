@@ -17,3 +17,6 @@ assets/*.gltf
 assets/*.hdr
 assets/*.png
 !assets/.gitkeep
+
+# Ported LTS train models: present locally for the runtime but not redistributed
+Trains/*

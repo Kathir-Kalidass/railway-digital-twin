@@ -1,0 +1,2 @@
+# The upstream binary asset tree is not redistributed. Keep it out of Godot's
+# filesystem scan; use curated assets or procedural fallbacks in the project.
