@@ -1,0 +1,79 @@
+[gd_scene load_steps=16 format=3 uid="uid://integrated_demo"]
+
+[ext_resource type="Script" path="res://src/terrain_generator.gd" id="1"]
+[ext_resource type="Script" path="res://src/track_builder.gd" id="2"]
+[ext_resource type="Script" path="res://src/bridge.gd" id="3"]
+[ext_resource type="Script" path="res://src/wildlife_underpass.gd" id="4"]
+[ext_resource type="Script" path="res://src/wildlife_spawner.gd" id="5"]
+[ext_resource type="Script" path="res://src/wildlife_behaviour.gd" id="6"]
+[ext_resource type="Script" path="res://src/wildlife_publisher.gd" id="7"]
+[ext_resource type="Script" path="res://src/detection_band.gd" id="8"]
+[ext_resource type="Script" path="res://src/safety_signals.gd" id="9"]
+[ext_resource type="Script" path="res://src/atmosphere.gd" id="10"]
+[ext_resource type="Script" path="res://src/camera_director.gd" id="11"]
+[ext_resource type="Script" path="res://src/mqtt_bridge.gd" id="12"]
+[ext_resource type="Script" path="res://src/esp32_integration.gd" id="13"]
+[ext_resource type="Script" path="res://src/animal_safety_system.gd" id="14"]
+[ext_resource type="Script" path="res://src/train_reconciler.gd" id="15"]
+
+[node name="IntegratedDemo" type="Node3D"]
+
+[node name="MQTTBridge" type="Node" parent="."]
+script = ExtResource("12")
+
+[node name="TerrainGenerator" type="Node3D" parent="."]
+script = ExtResource("1")
+
+[node name="TrackBuilder" type="Node3D" parent="."]
+script = ExtResource("2")
+
+[node name="Bridge" type="Node3D" parent="."]
+script = ExtResource("3")
+
+[node name="WildlifeUnderpass" type="Node3D" parent="."]
+script = ExtResource("4")
+
+[node name="WildlifeSpawner" type="Node3D" parent="."]
+script = ExtResource("5")
+
+[node name="WildlifeBehaviour" type="Node" parent="."]
+script = ExtResource("6")
+spawner_path = NodePath("../WildlifeSpawner")
+underpass_path = NodePath("../WildlifeUnderpass")
+
+[node name="WildlifePublisher" type="Node" parent="."]
+script = ExtResource("7")
+bridge_path = NodePath("../MQTTBridge")
+zone = "zone1"
+
+[node name="DetectionBand" type="Area3D" parent="."]
+script = ExtResource("8")
+publisher_path = NodePath("../WildlifePublisher")
+species = "deer"
+
+[node name="SafetySignals" type="Node3D" parent="."]
+script = ExtResource("9")
+
+[node name="Atmosphere" type="Node" parent="."]
+script = ExtResource("10")
+
+[node name="CameraDirector" type="Node" parent="."]
+script = ExtResource("11")
+
+[node name="ESP32Integration" type="Node" parent="."]
+script = ExtResource("13")
+bridge_path = NodePath("../MQTTBridge")
+zone = "zone1"
+animal_safety_path = NodePath("../AnimalSafetySystem")
+
+[node name="AnimalSafetySystem" type="Node" parent="."]
+script = ExtResource("14")
+bridge_path = NodePath("../MQTTBridge")
+zone = "zone1"
+safety_signals_path = NodePath("../SafetySignals")
+reconciler_path = NodePath("../TrainReconciler")
+
+[node name="TrainReconciler" type="Node" parent="."]
+script = ExtResource("15")
+bridge_path = NodePath("../MQTTBridge")
+zone = "zone1"
