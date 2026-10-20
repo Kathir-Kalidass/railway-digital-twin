@@ -1,0 +1,2 @@
+goatchurchprime/godot-mqtt @ 47eee87dfe50a8cba57bef93ac355b5caa64c491 (MIT)
+Vendor change: added "class_name MQTTClient" to mqtt.gd for typed access.
