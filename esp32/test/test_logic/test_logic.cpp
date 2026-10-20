@@ -3,9 +3,11 @@
 #include <cstring>
 
 #include "debounce.h"
-#include "command_logic.h"
 #include "output_logic.h"
+#include "command_logic.h"
 #include "telemetry.h"
+#include "sensors.h"
+#include "actuator.h"
 
 void test_local_wildlife_dominates() {
   TEST_ASSERT_EQUAL(static_cast<int>(Output::RESTRICTIVE),
@@ -67,6 +69,38 @@ void test_command_rejects_malformed() {
                     static_cast<int>(parse_command("{not json", "zone1", 0)));
 }
 
+void test_animal_detected_any_channel() {
+  TEST_ASSERT_TRUE(animal_detected(true, 400, 0, 100, 500));
+  TEST_ASSERT_TRUE(animal_detected(false, 60, 0, 100, 500));
+  TEST_ASSERT_TRUE(animal_detected(false, 400, 800, 100, 500));
+  TEST_ASSERT_FALSE(animal_detected(false, 400, 100, 100, 500));
+  TEST_ASSERT_FALSE(animal_detected(false, -1, 0, 100, 500));
+}
+
+void test_distance_conversion() {
+  TEST_ASSERT_EQUAL_FLOAT(0.42f, distance_cm_to_m(42));
+  TEST_ASSERT_EQUAL_FLOAT(-1.0f, distance_cm_to_m(-1));
+}
+
+void test_barrier_and_status() {
+  TEST_ASSERT_EQUAL_INT(90, barrier_angle(true));
+  TEST_ASSERT_EQUAL_INT(0, barrier_angle(false));
+  TEST_ASSERT_EQUAL_STRING("LOCAL WILDLIFE", status_line(true, false, true, false));
+  TEST_ASSERT_EQUAL_STRING("SENSOR FAULT", status_line(false, true, true, false));
+  TEST_ASSERT_EQUAL_STRING("COMM LOSS", status_line(false, false, false, false));
+  TEST_ASSERT_EQUAL_STRING("WILDLIFE", status_line(false, false, true, true));
+  TEST_ASSERT_EQUAL_STRING("CLEAR", status_line(false, false, true, false));
+}
+
+void test_telemetry_extended_fields() {
+  const std::string json =
+      build_telemetry("esp32", "zone1", "req-1", "2026-10-19T12:00:00.000Z", true,
+                      true, true, 7000, 0.42f, true, 700);
+  TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"distanceM\":0.42"));
+  TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"motion\":true"));
+  TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"vibration\":700"));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(test_local_wildlife_dominates);
@@ -79,5 +113,9 @@ int main(int, char **) {
   RUN_TEST(test_command_rejects_other_zone);
   RUN_TEST(test_command_accepts_same_zone);
   RUN_TEST(test_command_rejects_malformed);
+  RUN_TEST(test_animal_detected_any_channel);
+  RUN_TEST(test_distance_conversion);
+  RUN_TEST(test_barrier_and_status);
+  RUN_TEST(test_telemetry_extended_fields);
   return UNITY_END();
 }

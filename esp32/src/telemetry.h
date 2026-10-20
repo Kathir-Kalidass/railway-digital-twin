@@ -28,16 +28,19 @@ inline std::string telemetry_json_escape(const char *value) {
 inline std::string build_telemetry(const char *device, const char *zone,
                                    const char *request_id, const char *iso_timestamp,
                                    bool clock_valid, bool wildlife,
-                                   bool sensor_healthy, unsigned long uptime_ms) {
+                                   bool sensor_healthy, unsigned long uptime_ms,
+                                   float distance_m = -1.0f, bool motion = false, int vibration = 0) {
   const std::string timestamp = clock_valid
     ? "\"" + telemetry_json_escape(iso_timestamp) + "\""
     : "null";
-  char tail[128];
+  char tail[256];
   std::snprintf(tail, sizeof(tail),
-                ",\"clockValid\":%s,\"source\":\"esp32\",\"payload\":{" 
-                "\"device\":\"%s\",\"sensorHealthy\":%s,\"wildlifeDetected\":%s,\"uptimeMs\":%lu}}",
+                ",\"clockValid\":%s,\"source\":\"esp32\",\"payload\":{"
+                "\"device\":\"%s\",\"sensorHealthy\":%s,\"wildlifeDetected\":%s,"
+                "\"uptimeMs\":%lu,\"distanceM\":%g,\"motion\":%s,\"vibration\":%d}}",
                 clock_valid ? "true" : "false", telemetry_json_escape(device).c_str(),
-                sensor_healthy ? "true" : "false", wildlife ? "true" : "false", uptime_ms);
+                sensor_healthy ? "true" : "false", wildlife ? "true" : "false", uptime_ms,
+                distance_m, motion ? "true" : "false", vibration);
   return "{\"request_id\":\"" + telemetry_json_escape(request_id) +
          "\",\"zone\":\"" + telemetry_json_escape(zone) +
          "\",\"event\":\"DEVICE_TELEMETRY\",\"timestamp\":" + timestamp + tail;

@@ -6,12 +6,18 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <ESP32Servo.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <time.h>
 #include "secrets.h"
 #include "src/command_logic.h"
 #include "src/debounce.h"
 #include "src/output_logic.h"
 #include "src/telemetry.h"
+#include "src/sensors.h"
+#include "src/actuator.h"
 
 const char* TOPIC_COMMANDS = "railway/commands/esp32";
 const char* TOPIC_TELEMETRY = "railway/telemetry/esp32";
@@ -23,13 +29,29 @@ const int BUZZER = 27;
 const int WILDLIFE_INPUT = 33; // Optional active-high pushbutton/sensor simulation
 const int FAULT_INPUT = 32;    // Optional active-high pushbutton/sensor fault simulation
 
+// Stage D sensor/actuator pins (Wokwi-compatible defaults).
+const int TRIG_PIN = 5;
+const int ECHO_PIN = 18;
+const int PIR_PIN = 19;
+const int VIBRATION_PIN = 34;
+const int SERVO_PIN = 13;
+const int DISTANCE_THRESHOLD_CM = 100;
+const int VIBRATION_THRESHOLD = 800;
+const unsigned long SENSOR_SAMPLE_MS = 100;
+
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
+Servo barrier;
+Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 bool localWildlifeDetected = false;
 bool localFaultDetected = false;
 bool backendWildlifeDetected = false;
 bool backendFaultDetected = false;
 bool backendContextFresh = false;
+bool localPirDetected = false;
+int localDistanceCm = -1;
+int localVibration = 0;
+unsigned long lastSensorSample = 0;
 unsigned long lastPublish = 0;
 unsigned long telemetrySequence = 0;
 unsigned long nextWiFiAttempt = 0;
@@ -46,13 +68,35 @@ const unsigned long RETRY_MAX_MS = 30000;
 
 void applyOutputs() {
   const bool backendRestrictive = backendWildlifeDetected || backendFaultDetected;
-  const Output output = decide_output(localWildlifeDetected, localFaultDetected,
-                                      mqtt.connected() && backendContextFresh, backendRestrictive);
+  const bool commOk = mqtt.connected() && backendContextFresh;
+  const Output output = decide_output(localWildlifeDetected, localFaultDetected, commOk, backendRestrictive);
   const bool restrictive = output != Output::RENDER_BACKEND || backendRestrictive;
   digitalWrite(RED_LED, restrictive ? HIGH : LOW);
   digitalWrite(GREEN_LED, restrictive ? LOW : HIGH);
   // Communication loss remains restrictive but is distinguishable by a pulse.
   digitalWrite(BUZZER, output == Output::COMM_LOSS ? ((millis() / 250) % 2) : (restrictive ? HIGH : LOW));
+  barrier.write(barrier_angle(restrictive));
+  oled.clearDisplay();
+  oled.setCursor(0, 0);
+  oled.println(status_line(localWildlifeDetected, localFaultDetected, commOk, backendRestrictive));
+  oled.setCursor(0, 16);
+  char sensorLines[64];
+  snprintf(sensorLines, sizeof(sensorLines), "Dist: %d cm\nVib:  %d\nWiFi: %s\n",
+           localDistanceCm, localVibration, WiFi.status() == WL_CONNECTED ? "up" : "down");
+  oled.print(sensorLines);
+  oled.display();
+}
+
+int readDistanceCm() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  const unsigned long us = pulseIn(ECHO_PIN, HIGH, 30000);
+  if (us == 0) return -1;
+  const int cm = static_cast<int>(us / 58);
+  return (cm < 0 || cm > 400) ? -1 : cm;
 }
 
 bool commandAlreadyAccepted(const char *requestId) {
@@ -111,6 +155,16 @@ void setup() {
   Serial.begin(115200);
   pinMode(RED_LED, OUTPUT); pinMode(GREEN_LED, OUTPUT); pinMode(BUZZER, OUTPUT);
   pinMode(WILDLIFE_INPUT, INPUT_PULLDOWN); pinMode(FAULT_INPUT, INPUT_PULLDOWN);
+  pinMode(TRIG_PIN, OUTPUT); pinMode(ECHO_PIN, INPUT);
+  pinMode(PIR_PIN, INPUT); pinMode(VIBRATION_PIN, INPUT);
+  Wire.begin(21, 22);
+  barrier.attach(SERVO_PIN);
+  if (!oled.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("OLED init failed");
+  }
+  oled.clearDisplay();
+  oled.setTextSize(1);
+  oled.setTextColor(SSD1306_WHITE);
   // mqtt is disconnected at boot, so this is a restrictive indication.
   applyOutputs();
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
@@ -133,12 +187,23 @@ void publishTelemetry() {
            ESP.getEfuseMac(), ++telemetrySequence);
   const std::string payload = build_telemetry(DEVICE_ID, DEVICE_ZONE, requestId, timestamp,
                                               clockValid, localWildlifeDetected, !localFaultDetected,
-                                              millis());
+                                              millis(), distance_cm_to_m(localDistanceCm),
+                                              localPirDetected, localVibration);
   mqtt.publish(TOPIC_TELEMETRY, payload.c_str(), false);
 }
 
 void sampleInputs(unsigned long now) {
-  const bool wildlife = wildlifeDebouncer.update(digitalRead(WILDLIFE_INPUT) == HIGH, now);
+  if (now - lastSensorSample >= SENSOR_SAMPLE_MS) {
+    lastSensorSample = now;
+    localDistanceCm = readDistanceCm();
+    localPirDetected = digitalRead(PIR_PIN) == HIGH;
+    localVibration = analogRead(VIBRATION_PIN);
+  }
+  const bool fusedWildlife =
+      animal_detected(localPirDetected, localDistanceCm, localVibration,
+                      DISTANCE_THRESHOLD_CM, VIBRATION_THRESHOLD) ||
+      digitalRead(WILDLIFE_INPUT) == HIGH;
+  const bool wildlife = wildlifeDebouncer.update(fusedWildlife, now);
   const bool fault = faultDebouncer.update(digitalRead(FAULT_INPUT) == HIGH, now);
   if (wildlife != localWildlifeDetected || fault != localFaultDetected) {
     localWildlifeDetected = wildlife;
