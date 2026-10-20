@@ -2,14 +2,48 @@ extends Node
 class_name ScenarioDirector
 
 @export var bridge_path: NodePath
-@export var spawner_path: NodePath
+@export var wildlife_behaviour_path: NodePath
+@export var camera_director_path: NodePath
+@export var atmosphere_path: NodePath
+@export var zone := "zone1"
+@export var cinematic_seconds := 8.0
+
+var running := false
+
 
 func run_reel() -> void:
-	var sp = get_node_or_null(spawner_path)
-	var bh = get_node_or_null(spawner_path.get_parent().get_path() + "/WildlifeBehaviour") if spawner_path else null
-	if sp and sp.get_parent().has_method("trigger_crossing"):
-		pass
-	elif sp:
-		var beh = sp.get_parent().get_node_or_null("WildlifeBehaviour")
-		if beh and beh.has_method("trigger_crossing"):
-			beh.trigger_crossing("deer")
+	if running:
+		return
+	running = true
+	var wildlife := get_node_or_null(wildlife_behaviour_path) as WildlifeBehaviour
+	if wildlife:
+		wildlife.trigger_crossing("deer")
+	var camera := get_node_or_null(camera_director_path) as CameraDirector
+	if camera:
+		camera.set_mode("drone")
+	var atmosphere := get_node_or_null(atmosphere_path) as Atmosphere
+	if atmosphere:
+		atmosphere.set_daynight(0.25)
+
+	await get_tree().create_timer(cinematic_seconds).timeout
+
+	if is_instance_valid(camera):
+		camera.set_mode("follow")
+	if is_instance_valid(atmosphere):
+		atmosphere.set_daynight(0.75)
+	running = false
+
+
+func run_safety_scenario() -> void:
+	if running:
+		return
+	running = true
+	var bridge := get_node_or_null(bridge_path) as MQTTBridge
+	if bridge == null:
+		running = false
+		return
+	for signal_aspect in ["GREEN", "YELLOW", "RED"]:
+		bridge.message_received.emit("railway/%s/signal" % zone, {"signal": signal_aspect})
+		await get_tree().create_timer(1.2).timeout
+	bridge.message_received.emit("railway/%s/signal" % zone, {"signal": "GREEN"})
+	running = false

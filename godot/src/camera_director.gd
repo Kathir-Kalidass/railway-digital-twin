@@ -47,7 +47,18 @@ func _setup() -> void:
 func cycle() -> void:
 	if _cameras.is_empty():
 		return
-	index = (index + 1) % _cameras.size()
+	_activate((index + 1) % _cameras.size())
+
+
+func set_mode(mode: String) -> void:
+	var modes := ["follow", "cab", "drone"]
+	var wanted := modes.find(mode)
+	if wanted >= 0 and wanted < _cameras.size():
+		_activate(wanted)
+
+
+func _activate(target: int) -> void:
+	index = target
 	for i in _cameras.size():
 		_cameras[i].current = i == index
 

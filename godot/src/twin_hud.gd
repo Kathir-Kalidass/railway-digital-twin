@@ -17,7 +17,7 @@ func _ready() -> void:
 	_status = _make_label(18, Color(0.92, 0.96, 1.0), Vector2(18, 14))
 	_metrics = _make_label(16, Color(0.78, 0.88, 0.95), Vector2(18, 44))
 	_help = _make_label(14, Color(0.65, 0.72, 0.78), Vector2(18, 108))
-	_help.text = "C camera   N day/night   SPACE wildlife   \u2191/\u2193 speed"
+	_help.text = "C camera   N day/night   B cinematic reel   SPACE wildlife   \u2191/\u2193 speed"
 	refresh()
 
 

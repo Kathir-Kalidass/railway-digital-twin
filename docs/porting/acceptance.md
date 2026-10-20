@@ -17,7 +17,7 @@ Educational simulation only; not certified railway equipment.
 
 Godot suites: `test_parse`, `test_port_helpers`, `test_scene_load`,
 `test_lts_full_enhance`, `test_mqtt_bridge`, `test_train_reconciler`,
-`test_wildlife_publisher`, `test_e2e_safety`, `test_camera_director`, `test_hud`.
+`test_wildlife_publisher`, `test_e2e_safety`, `test_camera_director`, `test_hud`, `test_scenario_director`.
 
 Notes:
 

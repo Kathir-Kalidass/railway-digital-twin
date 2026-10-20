@@ -40,6 +40,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var atmosphere := get_node_or_null("WorldWildlife/Atmosphere") as Atmosphere
 		if atmosphere:
 			atmosphere.toggle()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_B:
+		var scenario := get_node_or_null("ScenarioDirector") as ScenarioDirector
+		if scenario:
+			scenario.run_reel()
 
 
 func _update_camera(weight: float) -> void:

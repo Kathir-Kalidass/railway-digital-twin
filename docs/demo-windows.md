@@ -37,6 +37,7 @@ Educational simulation only; not certified railway equipment.
 | h2 | In-scene HUD shows zone, signal, wildlife, sensor, MQTT, speed and camera | | |
 | i | Reset is rejected while the hazard or sensor fault is active | | |
 | j | Day/night cycle and cinematic reel render without artifacts | | |
+| j2 | Press `B` to run the cinematic reel (drone, dusk, then restore) | | |
 
 ## Observed values (fill during the run)
 
