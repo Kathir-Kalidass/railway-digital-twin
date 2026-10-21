@@ -8,6 +8,7 @@ import { makeEvents } from './src/events.js';
 import { makeBus } from './src/bus.js';
 import { makeMqtt } from './src/mqtt.js';
 import { makeIngest } from './src/ingest.js';
+import { makeLoop } from './src/loop.js';
 import { createApp } from './src/app.js';
 
 const db = openDb(config.dbPath);
@@ -22,10 +23,15 @@ let ingest;
 const mqtt = makeMqtt({ config, onMessage: (topic, message) => ingest?.handle(topic, message) });
 const bus = makeBus({ mqtt, state, events });
 ingest = makeIngest({ state, bus, config });
+const loop = makeLoop({ state, bus, config });
 mqtt.client.on('connect', () => {
-  mqtt.subscribe(['railway/zone1/train', 'railway/zone1/wildlife', 'railway/zone2/train', 'railway/zone2/wildlife', 'railway/telemetry/esp32']);
+  mqtt.subscribe(['railway/zone1/wildlife', 'railway/zone2/wildlife', 'railway/telemetry/esp32']);
   ingest.onBrokerConnected(true);
+  loop.start();
 });
-mqtt.client.on('close', () => ingest.onBrokerConnected(false));
+mqtt.client.on('close', () => {
+  loop.stop();
+  ingest.onBrokerConnected(false);
+});
 const app = createApp({ config, db, audit, replay, auth, state, bus, events, mqtt });
 app.listen(config.port, '0.0.0.0', () => console.log(`Railway backend listening on :${config.port}; MQTT=${config.mqttUrl}`));
