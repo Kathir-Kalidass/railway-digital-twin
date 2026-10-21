@@ -86,7 +86,7 @@
       "top": 90,
       "left": 420,
       "attrs": {
-        "horn": "white"
+        "horn": "single"
       }
     },
     {
@@ -113,7 +113,7 @@
       []
     ],
     [
-      "esp:25",
+      "esp:D25",
       "ledRed:A",
       "",
       []
@@ -125,7 +125,7 @@
       []
     ],
     [
-      "esp:26",
+      "esp:D26",
       "ledGreen:A",
       "",
       []
@@ -137,7 +137,7 @@
       []
     ],
     [
-      "esp:27",
+      "esp:D27",
       "buzz:1",
       "",
       []
@@ -155,7 +155,7 @@
       []
     ],
     [
-      "esp:33",
+      "esp:D33",
       "wildlife:2.l",
       "",
       []
@@ -167,19 +167,19 @@
       []
     ],
     [
-      "esp:32",
+      "esp:D32",
       "fault:2.l",
       "",
       []
     ],
     [
-      "esp:5",
+      "esp:D5",
       "us:TRIG",
       "green",
       []
     ],
     [
-      "esp:18",
+      "esp:D18",
       "us:ECHO",
       "green",
       []
@@ -204,7 +204,7 @@
     ],
     [
       "pir:OUT",
-      "esp:19",
+      "esp:D19",
       "green",
       []
     ],
@@ -222,7 +222,7 @@
     ],
     [
       "vib:SIG",
-      "esp:34",
+      "esp:D34",
       "green",
       []
     ],
@@ -233,7 +233,7 @@
       []
     ],
     [
-      "esp:13",
+      "esp:D13",
       "servo:PWM",
       "orange",
       []
@@ -251,13 +251,13 @@
       []
     ],
     [
-      "esp:21",
+      "esp:D21",
       "oled:SDA",
       "blue",
       []
     ],
     [
-      "esp:22",
+      "esp:D22",
       "oled:SCL",
       "yellow",
       []
