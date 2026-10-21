@@ -69,6 +69,33 @@ void test_command_rejects_malformed() {
                     static_cast<int>(parse_command("{not json", "zone1", 0)));
 }
 
+void test_command_accepts_backend_source_for_wildlife() {
+  const std::string detected =
+      "{\"event\":\"WILDLIFE_DETECTED\",\"zone\":\"zone1\",\"source\":\"backend\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::WILDLIFE_SET),
+                    static_cast<int>(parse_command(detected, "zone1", 0)));
+
+  const std::string cleared =
+      "{\"event\":\"WILDLIFE_CLEARED\",\"zone\":\"zone1\",\"source\":\"backend\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::WILDLIFE_CLEAR),
+                    static_cast<int>(parse_command(cleared, "zone1", 0)));
+
+  const std::string fault_from_backend =
+      "{\"event\":\"SENSOR_FAULT\",\"zone\":\"zone1\",\"source\":\"backend\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::NONE),
+                    static_cast<int>(parse_command(fault_from_backend, "zone1", 0)));
+
+  const std::string reset_from_backend =
+      "{\"event\":\"RESET\",\"zone\":\"zone1\",\"source\":\"backend\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::NONE),
+                    static_cast<int>(parse_command(reset_from_backend, "zone1", 0)));
+
+  const std::string dashboard_ok =
+      "{\"event\":\"RESET\",\"zone\":\"zone1\",\"source\":\"dashboard\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::RESET),
+                    static_cast<int>(parse_command(dashboard_ok, "zone1", 0)));
+}
+
 void test_animal_detected_any_channel() {
   TEST_ASSERT_TRUE(animal_detected(true, 400, 0, 100, 500));
   TEST_ASSERT_TRUE(animal_detected(false, 60, 0, 100, 500));
@@ -113,6 +140,7 @@ int main(int, char **) {
   RUN_TEST(test_command_rejects_other_zone);
   RUN_TEST(test_command_accepts_same_zone);
   RUN_TEST(test_command_rejects_malformed);
+  RUN_TEST(test_command_accepts_backend_source_for_wildlife);
   RUN_TEST(test_animal_detected_any_channel);
   RUN_TEST(test_distance_conversion);
   RUN_TEST(test_barrier_and_status);

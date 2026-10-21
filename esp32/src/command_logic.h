@@ -31,6 +31,12 @@ inline bool command_json_string(const std::string &json, const char *key, std::s
   return false;
 }
 
+inline bool is_valid_command_source(const std::string &source, const std::string &event) {
+  if (source == "dashboard") return true;
+  if (source == "backend" && (event == "WILDLIFE_DETECTED" || event == "WILDLIFE_CLEARED")) return true;
+  return false;
+}
+
 inline CmdEffect parse_command(const std::string &json, const char *expected_zone,
                                unsigned long now_ms) {
   (void)now_ms;
@@ -39,8 +45,12 @@ inline CmdEffect parse_command(const std::string &json, const char *expected_zon
   if (begin == std::string::npos || json[begin] != '{' || json[end] != '}') return CmdEffect::NONE;
   std::string zone;
   std::string event;
+  std::string source;
   if (!command_json_string(json, "zone", &zone) || zone != expected_zone ||
       !command_json_string(json, "event", &event)) return CmdEffect::NONE;
+  if (command_json_string(json, "source", &source)) {
+    if (!is_valid_command_source(source, event)) return CmdEffect::NONE;
+  }
   if (event == "WILDLIFE_DETECTED") return CmdEffect::WILDLIFE_SET;
   if (event == "WILDLIFE_CLEARED") return CmdEffect::WILDLIFE_CLEAR;
   if (event == "SENSOR_FAULT") return CmdEffect::FAULT_SET;

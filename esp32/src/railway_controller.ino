@@ -140,7 +140,9 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   const char *requestId = document["request_id"] | "";
   const char *timestamp = document["timestamp"] | "";
   const char *source = document["source"] | "";
-  if (strcmp(zone, DEVICE_ZONE) != 0 || strcmp(source, "dashboard") != 0 || !requestId[0] ||
+  const char *event = document["event"] | "";
+  const bool validSource = is_valid_command_source(source, event);
+  if (strcmp(zone, DEVICE_ZONE) != 0 || !validSource || !requestId[0] ||
       !document["payload"].is<JsonObject>() || !commandTimestampFresh(timestamp) ||
       commandAlreadyAccepted(requestId)) return;
   std::string message(reinterpret_cast<const char *>(payload), length);
