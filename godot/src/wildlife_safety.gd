@@ -8,6 +8,7 @@ class_name WildlifeSafety
 @export var reconciler_path: NodePath
 @export var publisher_path: NodePath
 @export var crossing_path: NodePath
+@export var fleet_path: NodePath = NodePath("../../FleetController")
 @export var warning_distance_m := 10.0
 @export var stop_distance_m := 4.0
 @export var caution_speed_kmh := 30.0
@@ -51,6 +52,16 @@ func refresh() -> void:
 	if not is_equal_approx(limit, _last_limit):
 		_reconciler.set_local_wildlife_limit(limit)
 		_last_limit = limit
+
+		var fleet := get_node_or_null(fleet_path) as FleetController
+		if is_instance_valid(fleet):
+			for tid in fleet.train_ids():
+				var tr := fleet.get_train(str(tid))
+				if is_instance_valid(tr):
+					if limit >= 0.0:
+						tr.set_target_speed_kmh(minf(tr.get_target_speed_kmh(), limit))
+					else:
+						tr.set_target_speed_kmh(tr.initial_speed_kmh)
 
 	if is_instance_valid(_crossing) and _crossing.has_method("set_alarm"):
 		_crossing.call("set_alarm", next_state != "CLEAR")
