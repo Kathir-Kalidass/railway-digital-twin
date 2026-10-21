@@ -11,7 +11,7 @@ Educational simulation only; not certified railway equipment.
 |---|---|---|
 | Godot headless | `bash godot/tests/run_tests.sh` | PASS (16 suites) |
 | ESP32 host logic | `cd esp32 && pio test -e native` | PASS (14 cases) |
-| Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (58 tests) |
+| Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (83 tests) |
 | Web build | `cd web && npm run build` | PASS |
 | ESP32 firmware | `cd esp32 && pio run -e esp32dev` | PASS (1.2 MB image, 87% flash) |
 
@@ -32,8 +32,11 @@ Notes:
   Godot: detection produced `STOP`/RED and clear left the backend in
   `RECOVERY_REQUIRED` with RED and target 0.
 - `test_mqtt_bridge` exercises connection-failure backoff against a closed port.
-- Backend tests start Mosquitto through `scripts/test-backend.sh` so the broker
-  ACL and end-to-end cases run instead of timing out. The suite uses
+- Backend tests need a broker for the ACL/e2e cases. With the host broker
+  unavailable they run against a disposable container on 1884:
+  `docker run -d --rm --name rdt-test-mqtt -p 127.0.0.1:1884:1883
+  -v "$PWD/mosquitto:/mosquitto/config:ro" eclipse-mosquitto:2`, then
+  `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test`. The suite uses
   `--test-force-exit` because some MQTT clients intentionally keep handles open.
 - A host-level Mosquitto service can occupy port 1883 and shadow the Compose
   broker, which makes ACL tests appear to fail. Stop it (`sudo systemctl stop
@@ -73,9 +76,29 @@ Notes:
 | Level-crossing alarm and barrier | `test_wildlife_safety` asserts alarm and barrier-down after actuation; visible in `scene_wildlife.png` |
 | ESP32 telemetry drives the twin | `test_esp32_integration`; local live MQTT check; cloud Wokwi scenario through Pinggy PASS (serial `STATE LOCAL WILDLIFE`, Godot `external=true` → STOP/RED) |
 
-Deferred by the approved phased scope: wildlife-underpass preference, double
-track, track interchange/crossover, and multi-train meet/pass signalling. The
-Phase 2 design is recorded separately.
+Deferred by the approved phased scope: wildlife-underpass preference and the
+Phase 2 visual slices. The Phase 2 design is recorded separately.
+
+## Stage 2A backend-live verification (2026-10-21)
+
+Slice 2A is implemented on branch `master`. The backend is authoritative for two
+trains (`T1` UP, `T3` DOWN), ten blocks, per-block aspects, station dwell state,
+and one station crossover pair (`UP-B2 <-> DOWN-B2`).
+
+| Item | Evidence |
+|---|---|
+| Two-train fleet state | `state.test.js` exposes `trains`, `lines`, `blocks`, `station`, `routes`; `config.test.js` asserts `T1`/`T3`, `753.9822 m` UP, `728.8495 m` DOWN |
+| Per-block aspects and retained MQTT signals | `signalling.test.js`, `bus.test.js`; `bus.snapshot()` publishes retained `railway/signal/{blockId}` |
+| Occupancy safety | `simulation.test.js` holds a train at the boundary of a RED block; `routes.js` rejects occupied crossover destinations |
+| Crossover interlock | `routes.test.js` grants one route at a time, rejects hazards/occupancy, releases after clear; `POST /api/route` audited with `route:set` RBAC |
+| Fixed-timestep loop | `loop.test.js` ticks `state` and publishes a snapshot; `server.js` starts the loop on MQTT connect and stops it on close |
+| ACL least privilege | `broker_acl.test.js`; godot reads `railway/state` and `railway/signal/+` and can no longer write `railway/zoneN/train`; esp32 cannot read block signals |
+| Legacy endpoint removed | `POST /api/event` returns 404 (`control_routes.test.js`); `/api/speed` accepts `trainId` and rejects unknown IDs |
+| Regression | Backend 83/83, Godot 16/16, ESP32 native 14/14, `pio run -e esp32dev` PASS |
+
+The legacy `snapshot().train` summary is retained for un-migrated clients. Godot
+and ESP32 integrations still pass unchanged; visual double-track rendering and
+meet/pass remain in slices 2B–2E.
 
 ## Manual demo
 

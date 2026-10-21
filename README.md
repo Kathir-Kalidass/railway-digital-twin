@@ -7,7 +7,7 @@ A runnable digital twin integrating a Godot 4 3D forest railway, trusted Node.js
 - **Mosquitto broker (TCP 1883 / WS 9001):** `allow_anonymous false` with per-client credentials (`godot`, `esp32`, `backend`, `dashboard`) and topic ACLs.
 - **Node.js backend (trusted control plane):** Authenticates users via bcrypt & JWT, enforces RBAC (`viewer`, `operator`, `admin`), validates command envelopes, prevents command replay via SQLite registry, logs audit events, manages a two-zone state machine (`zone1`, `zone2`), and is the **sole publisher** of commands, state snapshots, and alerts.
 - **React dashboard:** Authenticated web interface. Viewers can monitor state; operators can issue control commands; admins can inspect audit logs. Control actions flow through REST + JWT; dashboard reads live updates via WebSocket.
-- **Godot twin:** full-scale 3D railway world with an LTS-derived Blender train/station/scenery fleet, a 754 m closed loop, a carved river with road and railway bridges, a direct wildlife level crossing, catenary, dynamic signals, barriers, and cameras. Subscribes to commands and reports zone telemetry.
+- **Godot twin:** full-scale 3D railway world with an LTS-derived Blender train/station/scenery fleet, a 754 m closed loop, a carved river with road and railway bridges, a direct wildlife level crossing, catenary, dynamic signals, barriers, and cameras. Subscribes to authoritative state and reports wildlife observations.
 - **ESP32 controller:** Authenticated MQTT IoT node providing edge sensing and restrictive signal fail-safe outputs.
 
 > **Safety:** this is a classroom digital-twin simulation, not railway safety equipment. Do not connect it to real signalling, trains, or operational infrastructure. “Stopping distance” is a visualization estimate only.
@@ -18,8 +18,12 @@ A runnable digital twin integrating a Godot 4 3D forest railway, trusted Node.js
 crossing with a local warn/slow/stop fail-safe, visible boom barriers, and a river
 with road/railway bridges. See `docs/porting/acceptance.md` for evidence.
 
-**Phase 2 is designed, not implemented:** double track, a station crossover /
-track interchange, per-block signals, and multi-train meet/pass. See
+**Phase 2 / Stage 2A is implemented:** the backend is authoritative for a
+two-train double-track fleet, per-block aspects, a station crossover interlock,
+per-train speed control, and retained per-block MQTT signals. The unauthenticated
+`POST /api/event` shim is removed; `POST /api/route` is authenticated and
+audited. Visual double-track rendering and meet/pass scenarios are implemented
+in slices 2B–2E. See
 `docs/superpowers/specs/2026-10-21-stage-c2-double-track-multitrain-design.md`.
 The wildlife underpass remains scenery only in Phase 1.
 
