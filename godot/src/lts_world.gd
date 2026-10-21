@@ -44,6 +44,20 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var scenario := get_node_or_null("ScenarioDirector") as ScenarioDirector
 		if scenario:
 			scenario.run_reel()
+	elif event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_TAB or event.keycode == KEY_T):
+		var hud := get_node_or_null("HUD") as TwinHUD
+		if hud:
+			hud.cycle_selected_train()
+
+
+func set_target_train(target_train: Node3D) -> void:
+	if not is_instance_valid(target_train):
+		return
+	train = target_train
+	if train.get("track_path") != null:
+		var t_node := train.get_node_or_null(train.get("track_path")) as LTSTrack
+		if is_instance_valid(t_node):
+			track = t_node
 
 
 func _update_camera(weight: float) -> void:
