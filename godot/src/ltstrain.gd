@@ -15,11 +15,57 @@ const LTS_PASSENGER := "res://assets/models/lts/wagon_passenger.glb"
 var _target_speed_mps := 0.0
 var _speed_mps := 0.0
 var _track_position_m := 0.0
+var _target_distance_m := 0.0
+var remote_mode := false
 var _carriages: Array[Node3D] = []
 var _wheels: Array[MeshInstance3D] = []
 var _track: LTSTrack
 var _lts_math: Node
 var uses_lts_models := false
+
+
+func set_remote_mode(enabled: bool) -> void:
+	remote_mode = enabled
+
+
+func set_track(new_track: LTSTrack) -> void:
+	_track = new_track
+	if is_instance_valid(_track):
+		track_path = _track.get_path()
+
+
+func set_track_position_m(distance_m: float) -> void:
+	if not is_instance_valid(_lts_math):
+		_lts_math = load("res://Data/Scripts/Singletons/Math.gd").new()
+	if is_instance_valid(_track):
+		_track_position_m = fposmod(distance_m, _track.length)
+		_target_distance_m = _track_position_m
+		_update_train_pose()
+
+
+func set_remote_target(distance_m: float, speed_kmh: float, target_kmh: float) -> void:
+	if not is_instance_valid(_lts_math):
+		_lts_math = load("res://Data/Scripts/Singletons/Math.gd").new()
+	if not is_instance_valid(_track):
+		return
+	var track_len := _track.length
+	_target_distance_m = fposmod(distance_m, track_len)
+	_target_speed_mps = float(_lts_math.call("kmh_to_speed", target_kmh))
+	_speed_mps = float(_lts_math.call("kmh_to_speed", speed_kmh))
+
+	if not remote_mode:
+		remote_mode = true
+		_track_position_m = _target_distance_m
+		_update_train_pose()
+		return
+
+	var err := fposmod(_target_distance_m - _track_position_m, track_len)
+	if err > track_len * 0.5:
+		err -= track_len
+	if absf(err) > 15.0:
+		_track_position_m = _target_distance_m
+		_update_train_pose()
+
 
 func set_target_speed_kmh(speed_kmh: float) -> void:
 	var limit := 120.0
@@ -42,8 +88,10 @@ func get_track_position_m() -> float:
 
 
 func _ready() -> void:
-	_lts_math = load("res://Data/Scripts/Singletons/Math.gd").new()
-	_track = get_node_or_null(track_path) as LTSTrack
+	if not is_instance_valid(_lts_math):
+		_lts_math = load("res://Data/Scripts/Singletons/Math.gd").new()
+	if not is_instance_valid(_track):
+		_track = get_node_or_null(track_path) as LTSTrack
 	if not is_instance_valid(_track):
 		push_error("LTSTrain requires an LTSTrack at %s" % track_path)
 		set_physics_process(false)
@@ -63,6 +111,20 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if remote_mode:
+		if is_instance_valid(_track):
+			var track_len := _track.length
+			_track_position_m = fposmod(_track_position_m + _speed_mps * delta, track_len)
+			var err := fposmod(_target_distance_m - _track_position_m, track_len)
+			if err > track_len * 0.5:
+				err -= track_len
+			_track_position_m = fposmod(_track_position_m + err * minf(1.0, 3.0 * delta), track_len)
+			_update_train_pose()
+			var rot_delta := (_speed_mps * delta) / 0.48
+			for wheel in _wheels:
+				wheel.rotate_object_local(Vector3.UP, rot_delta)
+		return
+
 	var target_speed := _target_speed_mps
 	if _target_speed_mps < _speed_mps:
 		var braking := emergency_brake_mps2 if _target_speed_mps == 0.0 else service_brake_mps2
