@@ -56,7 +56,7 @@ Append to `_run()` in `godot/tests/test_station_island.gd`, directly before `sce
 		a.ok(absf(top - (mid.origin.y + 0.55)) < 0.06, "module %d top rests at 0.55 m" % module)
 		a.ok(absf(bottom - (mid.origin.y - 1.25)) < 0.06, "module %d bottom sits at -1.25 m" % module)
 
-	for bench in scenery.find_children("*bench*", "", true, false):
+	for bench in scenery.find_children("Bench*", "", true, false):
 		var fixture := bench as Node3D
 		var bottom := _world_aabb(fixture).position.y
 		var rests := false
@@ -64,9 +64,9 @@ Append to `_run()` in `godot/tests/test_station_island.gd`, directly before `sce
 			if absf(top - bottom) < 0.06:
 				rests = true
 		a.ok(rests, "bench rests on a platform top")
-	a.ok(scenery.find_children("*bench*", "", true, false).size() >= 2, "both benches exist")
+	a.ok(scenery.find_children("Bench*", "", true, false).size() >= 2, "both benches exist")
 
-	for bin_node in scenery.find_children("*garbage*", "", true, false):
+	for bin_node in scenery.find_children("Bin*", "", true, false):
 		var fixture := bin_node as Node3D
 		var bottom := _world_aabb(fixture).position.y
 		var rests := false
@@ -74,10 +74,10 @@ Append to `_run()` in `godot/tests/test_station_island.gd`, directly before `sce
 			if absf(top - bottom) < 0.06:
 				rests = true
 		a.ok(rests, "bin rests on a platform top")
-	a.ok(scenery.find_children("*garbage*", "", true, false).size() >= 2, "both bins exist")
+	a.ok(scenery.find_children("Bin*", "", true, false).size() >= 2, "both bins exist")
 ```
 
-Patterns use `*bench*` / `*garbage*` because Godot auto-renames duplicate sibling names with an `@` prefix (e.g. `@bench@2`), which an exact `bench*` pattern would miss.
+Patterns use `Bench*` / `Bin*` because Godot replaces clashing duplicate sibling names with non-readable ones (`@Node3D@85`), so matching on the asset name would silently miss the second fixture. The implementation therefore names the fixtures deterministically (`Bench1`, `Bench3`, `Bin1`, `Bin3`) as part of Step 3.
 
 Add this helper next to `_world_aabb`:
 
@@ -184,6 +184,23 @@ with:
 ```
 
 and change `var platform_top := 0.55` to `var platform_top := PLATFORM_TOP_M` so benches and bins share the single source of truth.
+
+Also give the fixtures deterministic names, because Godot replaces the second duplicate sibling name with a non-readable one (`@Node3D@85`), so the asset-derived `bench` / `garbage` name survives only on the first fixture:
+
+```gdscript
+		if module in [1, 3]:
+			var bench_pose := mid
+			bench_pose.origin += bench_pose.basis.x * 4.0
+			var bench := _spawn("bench", bench_pose)
+			if bench:
+				bench.name = "Bench%d" % module
+				_align_bottom(bench, mid.origin.y + platform_top)
+			var bin := _spawn("garbage", bench_pose)
+			if bin:
+				bin.name = "Bin%d" % module
+				bin.global_position += bench_pose.basis.x * 1.6
+				_align_bottom(bin, mid.origin.y + platform_top)
+```
 
 - [ ] **Step 4: Run tests to verify they pass**
 

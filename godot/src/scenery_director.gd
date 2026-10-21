@@ -17,6 +17,11 @@ extends Node3D
 @export var crossover_b_up_distance := 434.0
 @export var use_lts_models := true
 
+const PLATFORM_LENGTH_M := 9.6
+const PLATFORM_WIDTH_M := 2.2
+const PLATFORM_TOP_M := 0.55
+const PLATFORM_BOTTOM_M := -1.25
+
 const LTS := "res://assets/models/lts/"
 const TREES := [
 	"res://assets/models/trees/oak.glb",
@@ -63,14 +68,44 @@ func _pose_pair(up_distance: float) -> Dictionary:
 	return {"up": up_pose, "down": down_pose, "mid": mid}
 
 
-func _fit_platform(node: Node3D, pose: Transform3D, max_width: float) -> void:
-	var box := _world_aabb(node)
-	var lateral := 0.0
-	for index in 8:
-		lateral = maxf(lateral, absf((box.get_endpoint(index) - pose.origin).dot(pose.basis.z)))
-	if lateral <= 0.01:
-		return
-	node.scale *= Vector3.ONE * minf(1.0, (max_width * 0.5) / lateral)
+func _place_platform_module(mid: Transform3D) -> Node3D:
+	var platform := _spawn("platform", mid)
+	if platform == null:
+		return null
+	var railing := platform.get_node_or_null("Cylinder_001")
+	if railing:
+		platform.remove_child(railing)
+		railing.queue_free()
+	var box := _local_mesh_aabb(platform)
+	if box.size.x < 0.01 or box.size.y < 0.01 or box.size.z < 0.01:
+		return platform
+	var module_scale := Vector3(
+		PLATFORM_LENGTH_M / box.size.x,
+		(PLATFORM_TOP_M - PLATFORM_BOTTOM_M) / box.size.y,
+		PLATFORM_WIDTH_M / box.size.z)
+	platform.scale = module_scale
+	platform.global_position = mid.origin - mid.basis * (box.get_center() * module_scale)
+	_align_bottom(platform, mid.origin.y + PLATFORM_BOTTOM_M)
+	return platform
+
+
+func _local_mesh_aabb(root: Node3D) -> AABB:
+	var result := AABB()
+	var found := false
+	for item in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := item as MeshInstance3D
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		var transform := root.global_transform.affine_inverse() * mesh_instance.global_transform
+		var box := mesh_instance.get_aabb()
+		for index in 8:
+			var point := transform * box.get_endpoint(index)
+			if not found:
+				result = AABB(point, Vector3.ZERO)
+				found = true
+			else:
+				result = result.expand(point)
+	return result
 
 
 func _pose(distance_m: float, side_offset: float = 0.0) -> Transform3D:
@@ -128,23 +163,23 @@ func _align_bottom(node: Node3D, target_y: float) -> void:
 
 
 func _build_station() -> void:
-	var platform_top := 0.55
+	var platform_top := PLATFORM_TOP_M
 	for module in station_modules:
 		var pair := _pose_pair(station_distance + module * station_module_spacing)
 		var mid: Transform3D = pair["mid"]
-		var platform := _spawn("platform", mid)
+		var platform := _place_platform_module(mid)
 		if platform:
 			platform.name = "Platform%d" % module
-			_fit_platform(platform, mid, 2.2)
-			_align_bottom(platform, mid.origin.y - 1.25)
 		if module in [1, 3]:
 			var bench_pose := mid
 			bench_pose.origin += bench_pose.basis.x * 4.0
 			var bench := _spawn("bench", bench_pose)
 			if bench:
+				bench.name = "Bench%d" % module
 				_align_bottom(bench, mid.origin.y + platform_top)
 			var bin := _spawn("garbage", bench_pose)
 			if bin:
+				bin.name = "Bin%d" % module
 				bin.global_position += bench_pose.basis.x * 1.6
 				_align_bottom(bin, mid.origin.y + platform_top)
 
