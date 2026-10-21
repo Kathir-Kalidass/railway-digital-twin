@@ -114,7 +114,7 @@ station crossover pair, widened river bridges, and a two-track level crossing.
 | Corridor | `test_corridor_flatten.gd`: both centre lines and the mid-corridor are flatten sources, the corridor ends 12 m outside the outer rail; river still carved |
 | River bridges | `test_river_bridges.gd`: one 12 m deck per river crossing covers both centre lines; piers clear both rails |
 | Level crossing | `test_level_crossing_two_track.gd`: two crossing points, pad covers both tracks, both barrier sets (2 pivots) stand clear of both tracks and lower together |
-| Island station | `test_station_island.gd`: five modules centred between the rails inside `UP-B2`/`DOWN-B2`, half-width ≤ 1.15 m |
+| Island station | `test_station_island.gd`: five identical 9.6 × 1.8 × 2.2 m modules centred between the rails inside `UP-B2`/`DOWN-B2`, tops level at +0.55 m, benches/bins on the deck (`2B.1`); captures `platform_after_topdown.png`, `platform_after_oblique.png` |
 | Crossovers | `test_station_crossovers.gd`: `CrossoverA` (UP 312 m) and `CrossoverB` (UP 434 m) end on both centre lines, switch blades present |
 | Catenary + trees | `test_catenary_double.gd`: wire runs above both lines; no tree within 5 m of either centre line |
 | Regression | Godot 22/22, backend 84/84, ESP32 native 14/14, `pio run -e esp32dev` PASS |
