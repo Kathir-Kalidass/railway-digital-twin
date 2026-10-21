@@ -14,14 +14,17 @@ export const config = {
     lines: ['UP', 'DOWN'],
     blocksPerLine: 5,
     blockLengthM: 300,
+    lineLengthM: { UP: 753.9822, DOWN: 728.8495 },
     zoneByIndex: ['zone1', 'zone1', 'zone1', 'zone2', 'zone2'],
     station: { id: 'station', name: 'Forest Halt', upIndex: 2, downIndex: 2, dwellSec: 20 },
+    crossovers: [
+      { id: 'X-UP-DOWN', from: 'UP-B2', to: 'DOWN-B2' },
+      { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
+    ],
   },
   trains: [
     { id: 'T1', line: 'UP', direction: 'UP', startBlock: 0, startOffsetM: 0, lengthM: 60 },
-    { id: 'T2', line: 'UP', direction: 'UP', startBlock: 2, startOffsetM: 0, lengthM: 90 },
     { id: 'T3', line: 'DOWN', direction: 'DOWN', startBlock: 0, startOffsetM: 0, lengthM: 60 },
-    { id: 'T4', line: 'DOWN', direction: 'DOWN', startBlock: 3, startOffsetM: 0, lengthM: 90 },
   ],
   simulation: {
     tickMs: 500,
@@ -47,6 +50,19 @@ export function validateConfig(c) {
     if (!c.topology.lines.includes(t.line)) errors.push(`train ${t.id} unknown line ${t.line}`);
     if (t.startBlock < 0 || t.startBlock >= c.topology.blocksPerLine) errors.push(`train ${t.id} startBlock out of range`);
     if (!(t.lengthM > 0)) errors.push(`train ${t.id} lengthM must be > 0`);
+  }
+  for (const line of c.topology.lines) {
+    const length = c.topology.lineLengthM?.[line] ?? c.topology.blockLengthM * c.topology.blocksPerLine;
+    if (!(length > 0)) errors.push(`topology lineLengthM.${line} must be > 0`);
+  }
+  for (const route of c.topology.crossovers || []) {
+    if (!route.id) errors.push('crossover id required');
+    for (const end of ['from', 'to']) {
+      const id = route[end];
+      const line = c.topology.lines.find((l) => l === id?.split('-')[0]);
+      const index = Number(id?.split('-B')[1]);
+      if (!line || !(index >= 0 && index < c.topology.blocksPerLine)) errors.push(`crossover ${route.id} unknown ${end} block ${id}`);
+    }
   }
   if (!(c.simulation.tickMs > 0)) errors.push('simulation.tickMs must be > 0');
   if (errors.length) throw new Error(`invalid config: ${errors.join('; ')}`);

@@ -14,7 +14,16 @@ test('config exposes required defaults', async () => {
 
 test('config exposes topology, trains and simulation settings', () => {
   assert.equal(config.zones.length, 2);
-  assert.equal(config.trains.length, 4);
+  assert.deepEqual(config.trains.map((t) => t.id), ['T1', 'T3']);
   assert.equal(config.topology.lines.length, 2);
   assert.ok(config.simulation.tickMs > 0);
+});
+
+test('config exposes per-line lengths and the station crossover pair', () => {
+  assert.equal(config.topology.lineLengthM.UP, 753.9822);
+  assert.equal(config.topology.lineLengthM.DOWN, 728.8495);
+  assert.deepEqual(config.topology.crossovers, [
+    { id: 'X-UP-DOWN', from: 'UP-B2', to: 'DOWN-B2' },
+    { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
+  ]);
 });

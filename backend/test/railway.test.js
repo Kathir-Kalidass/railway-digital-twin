@@ -22,3 +22,20 @@ test('nextBlockId wraps the ring', () => {
   assert.equal(nextBlockId(topo, 'UP', 4), 'UP-B0');
   assert.equal(nextBlockId(topo, 'UP', 0), 'UP-B1');
 });
+
+test('per-line lengths are split evenly across blocks', () => {
+  const topo = buildTopology({ topology: { ...config.topology, lineLengthM: { UP: 753.9822, DOWN: 728.8495 } } });
+  assert.equal(blockById(topo, 'UP-B0').lengthM, 150.796);
+  assert.equal(blockById(topo, 'DOWN-B4').lengthM, 145.77);
+});
+
+test('station crossover pair is built from config', () => {
+  const topo = buildTopology({ topology: { ...config.topology, crossovers: [
+    { id: 'X-UP-DOWN', from: 'UP-B2', to: 'DOWN-B2' },
+    { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
+  ] } });
+  assert.deepEqual(topo.crossovers, [
+    { id: 'X-UP-DOWN', from: 'UP-B2', to: 'DOWN-B2' },
+    { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
+  ]);
+});
