@@ -7,7 +7,7 @@ class_name RailwayBridge
 @export var track_path: NodePath
 @export var distance_fraction := 0.25
 @export var span_m := 44.0
-@export var width_m := 6.0
+@export var width_m := 12.0
 
 func _ready() -> void:
 	_place()
@@ -31,6 +31,7 @@ func _build() -> void:
 	var rail := _material(Color(0.2, 0.22, 0.23), 0.55, 0.35)
 
 	var deck := MeshInstance3D.new()
+	deck.name = "Deck"
 	var deck_mesh := BoxMesh.new()
 	deck_mesh.size = Vector3(span_m, 0.42, width_m)
 	deck.mesh = deck_mesh
@@ -40,6 +41,7 @@ func _build() -> void:
 
 	for side in [-1.0, 1.0]:
 		var girder := MeshInstance3D.new()
+		girder.name = "Girder"
 		var girder_mesh := BoxMesh.new()
 		girder_mesh.size = Vector3(span_m, 0.62, 0.26)
 		girder.mesh = girder_mesh
@@ -49,6 +51,7 @@ func _build() -> void:
 
 		for rail_y in [0.42, 0.78]:
 			var railing := MeshInstance3D.new()
+			railing.name = "Railing"
 			var railing_mesh := BoxMesh.new()
 			railing_mesh.size = Vector3(span_m, 0.06, 0.08)
 			railing.mesh = railing_mesh
@@ -56,9 +59,12 @@ func _build() -> void:
 			railing.position = Vector3(0.0, rail_y, side * (width_m * 0.5 - 0.2))
 			add_child(railing)
 
-	for x in [-span_m * 0.3, span_m * 0.3]:
-		for z in [-width_m * 0.32, width_m * 0.32]:
+	var pier_index := 0
+	for x in [-span_m * 0.2, span_m * 0.2]:
+		for z in [-width_m * 0.475, width_m * 0.475]:
 			var pier := MeshInstance3D.new()
+			pier.name = "Pier%d" % pier_index
+			pier_index += 1
 			var pier_mesh := BoxMesh.new()
 			pier_mesh.size = Vector3(0.75, 3.8, 0.75)
 			pier.mesh = pier_mesh

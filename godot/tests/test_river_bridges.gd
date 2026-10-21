@@ -45,6 +45,57 @@ func _run() -> void:
 		var track_point := track.get_global_transform_at_distance(float(crossing.get("distance_m"))).origin
 		a.ok(crossing_point.distance_to(track_point) < 1.0, "level crossing is aligned to the track")
 
+	var down := scene.get_node("InnerTrack") as LTSTrack
+	for bridge in [railway_a, railway_b]:
+		if bridge == null:
+			continue
+		var fraction: float = bridge.get("distance_fraction")
+		var up_point: Vector3 = track.get_global_transform_at_distance(track.length * fraction).origin
+		var down_point: Vector3 = down.get_global_transform_at_distance(down.length * fraction).origin
+		var deck := bridge.get_node_or_null("Deck") as MeshInstance3D
+		a.ok(deck != null, "bridge has a named deck")
+		if deck:
+			var deck_box := _world_aabb(deck)
+			a.ok(deck_box.has_point(up_point + Vector3(0.0, -0.5, 0.0)), "deck supports the UP rails")
+			a.ok(deck_box.has_point(down_point + Vector3(0.0, -0.5, 0.0)), "deck supports the DOWN rails")
+			var deck_mesh := deck.mesh as BoxMesh
+			a.ok(deck_mesh != null and deck_mesh.size.z > 10.0, "deck is wide enough for both tracks")
+		for pier in bridge.find_children("Pier*", "MeshInstance3D", true, false):
+			var pier_centre: Vector3 = (pier as MeshInstance3D).global_position
+			a.ok(_horizontal_distance(pier_centre, track) > 1.25, "pier clears the UP centre line")
+			a.ok(_horizontal_distance(pier_centre, down) > 1.25, "pier clears the DOWN centre line")
+
 	scene.queue_free()
 	await process_frame
 	quit(a.report("test_river_bridges"))
+
+
+func _horizontal_distance(point: Vector3, track: LTSTrack) -> float:
+	var best := INF
+	var distance := 0.0
+	while distance <= track.length:
+		var sample := track.get_global_transform_at_distance(distance).origin
+		best = minf(best, Vector2(point.x - sample.x, point.z - sample.z).length())
+		distance += 1.0
+	return best
+
+
+func _world_aabb(root: Node3D) -> AABB:
+	var result := AABB()
+	var found := false
+	var items: Array[Node] = root.find_children("*", "MeshInstance3D", true, false)
+	if root is MeshInstance3D and not items.has(root):
+		items.push_front(root)
+	for item in items:
+		var mesh_instance := item as MeshInstance3D
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		var box := mesh_instance.get_aabb()
+		for index in 8:
+			var point := mesh_instance.global_transform * box.get_endpoint(index)
+			if not found:
+				result = AABB(point, Vector3.ZERO)
+				found = true
+			else:
+				result = result.expand(point)
+	return result
