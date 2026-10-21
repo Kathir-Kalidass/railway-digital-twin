@@ -73,6 +73,7 @@ distance_fraction = 0.75
 [node name="LevelCrossing" type="Node3D" parent="."]
 script = ExtResource("12")
 track_path = NodePath("../../Track")
+track_paths = [NodePath("../../Track"), NodePath("../../InnerTrack")]
 distance_m = 260.0
 
 [node name="WildlifeSafety" type="Node" parent="."]
