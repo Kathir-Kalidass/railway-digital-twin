@@ -17,6 +17,8 @@ extends Node3D
 @export var crossover_b_up_distance := 434.0
 @export var use_lts_models := true
 
+var _crossover_states: Dictionary = {}
+
 const PLATFORM_LENGTH_M := 9.6
 const PLATFORM_WIDTH_M := 2.2
 const PLATFORM_TOP_M := 0.55
@@ -387,6 +389,24 @@ func _build_station_signs() -> void:
 func _build_crossovers() -> void:
 	_build_crossover("CrossoverA", crossover_a_up_distance)
 	_build_crossover("CrossoverB", crossover_b_up_distance)
+
+
+func set_crossover_active(node_name: String, active: bool) -> void:
+	_crossover_states[node_name] = active
+	var node := get_node_or_null(node_name) as Node3D
+	if node:
+		var blades := node.get_node_or_null("Blades") as Node3D
+		if blades:
+			var angle := 14.0 if active else 6.0
+			for child in blades.get_children():
+				var mi := child as MeshInstance3D
+				if mi:
+					var side := 1.0 if mi.position.z > 0.0 else -1.0
+					mi.rotation.y = deg_to_rad(-angle if side < 0.0 else angle)
+
+
+func is_crossover_active(node_name: String) -> bool:
+	return _crossover_states.get(node_name, false)
 
 
 func _build_crossover(node_name: String, up_distance: float) -> void:
