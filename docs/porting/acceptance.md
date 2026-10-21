@@ -11,7 +11,7 @@ Educational simulation only; not certified railway equipment.
 |---|---|---|
 | Godot headless | `bash godot/tests/run_tests.sh` | PASS (16 suites) |
 | ESP32 host logic | `cd esp32 && pio test -e native` | PASS (14 cases) |
-| Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (83 tests) |
+| Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (84 tests) |
 | Web build | `cd web && npm run build` | PASS |
 | ESP32 firmware | `cd esp32 && pio run -e esp32dev` | PASS (1.2 MB image, 87% flash) |
 
@@ -89,12 +89,14 @@ and one station crossover pair (`UP-B2 <-> DOWN-B2`).
 |---|---|
 | Two-train fleet state | `state.test.js` exposes `trains`, `lines`, `blocks`, `station`, `routes`; `config.test.js` asserts `T1`/`T3`, `753.9822 m` UP, `728.8495 m` DOWN |
 | Per-block aspects and retained MQTT signals | `signalling.test.js`, `bus.test.js`; `bus.snapshot()` publishes retained `railway/signal/{blockId}` |
-| Occupancy safety | `simulation.test.js` holds a train at the boundary of a RED block; `routes.js` rejects occupied crossover destinations |
+| Occupancy safety | `simulation.test.js` holds a train at the boundary of a RED block, and lets it continue past a RED block occupied by its own overlapping consist (`f55f872`); `routes.js` rejects occupied crossover destinations |
 | Crossover interlock | `routes.test.js` grants one route at a time, rejects hazards/occupancy, releases after clear; `POST /api/route` audited with `route:set` RBAC |
 | Fixed-timestep loop | `loop.test.js` ticks `state` and publishes a snapshot; `server.js` starts the loop on MQTT connect and stops it on close |
 | ACL least privilege | `broker_acl.test.js`; godot reads `railway/state` and `railway/signal/+` and can no longer write `railway/zoneN/train`; esp32 cannot read block signals |
 | Legacy endpoint removed | `POST /api/event` returns 404 (`control_routes.test.js`); `/api/speed` accepts `trainId` and rejects unknown IDs |
-| Regression | Backend 83/83, Godot 16/16, ESP32 native 14/14, `pio run -e esp32dev` PASS |
+| Live server check | `node backend/server.js` on the isolated broker published `railway/state` at 2 Hz with `T1`/`T3` moving and retained per-block signals for `UP-B0`/`DOWN-B0` |
+| Live crossover grant | With `T3` held via `/api/speed`, `POST /api/route` (`X-UP-DOWN`) returned the active route and moved `T1` from `UP-B2` to `DOWN-B2`; the same request while `T3` occupied the destination correctly returned 409 |
+| Regression | Backend 84/84, Godot 16/16, ESP32 native 14/14, `pio run -e esp32dev` PASS, `web` build PASS |
 
 The legacy `snapshot().train` summary is retained for un-migrated clients. Godot
 and ESP32 integrations still pass unchanged; visual double-track rendering and
