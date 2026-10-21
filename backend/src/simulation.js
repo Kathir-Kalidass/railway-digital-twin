@@ -52,11 +52,17 @@ export function stepTrains({ topology, simulation, zones, trains, dtSec, aspects
     while (advance > 0) {
       const cur = topology.blocks.find((b) => b.id === t.block);
       const room = cur.lengthM - t.offsetM;
+      const nextIdx = (cur.index + 1) % line.blocks.length;
+      const nextId = line.blocks[nextIdx];
+      if (advance >= room && aspects && aspects[nextId] === 'RED') {
+        t.offsetM = cur.lengthM;
+        t.speedKmh = 0;
+        break;
+      }
       if (advance < room) { t.offsetM += advance; advance = 0; }
       else {
         advance -= room;
-        const nextIdx = (cur.index + 1) % line.blocks.length;
-        t.block = line.blocks[nextIdx];
+        t.block = nextId;
         t.offsetM = 0;
       }
     }

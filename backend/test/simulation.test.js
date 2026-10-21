@@ -43,6 +43,16 @@ test('RED aspect ahead holds the train', () => {
   assert.ok(t.targetSpeedKmh < 40);
 });
 
+test('holds the train at the boundary of a RED block instead of entering it', () => {
+  const topo = buildTopology(config);
+  const t = train({ block: 'UP-B0', offsetM: 290, speedKmh: 80 });
+  const aspects = { 'UP-B1': 'RED' };
+  stepTrains({ topology: topo, simulation: sim, zones: zones(), trains: [t], dtSec: 1, aspects });
+  assert.equal(t.block, 'UP-B0');
+  assert.equal(t.offsetM, 300);
+  assert.equal(t.speedKmh, 0);
+});
+
 test('deterministic for a fixed number of equal steps', () => {
   const run = () => {
     const topo = buildTopology(config);
