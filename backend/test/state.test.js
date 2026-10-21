@@ -28,6 +28,24 @@ test('clearing wildlife requires reset and stays restrictive', () => {
   assert.equal(snap.overall, 'NORMAL');
 });
 
+test('telemetry detection sets hazard and clear requires reset', () => {
+  const s = makeState({ config });
+  s.setWildlife('zone1', true);
+  let snap = s.snapshot();
+  assert.equal(snap.zones.zone1.signal, 'RED');
+  assert.equal(snap.zones.zone1.targetSpeedKmh, 0);
+  assert.equal(snap.overall, 'HAZARD');
+
+  s.setWildlife('zone1', false);
+  snap = s.snapshot();
+  assert.equal(snap.zones.zone1.signal, 'RED');
+  assert.equal(snap.overall, 'RECOVERY_REQUIRED');
+  assert.equal(s.applyCommand(env('zone1', 'RESET')).ok, true);
+  snap = s.snapshot();
+  assert.equal(snap.zones.zone1.signal, 'GREEN');
+  assert.equal(snap.overall, 'NORMAL');
+});
+
 test('reset is rejected while hazard active', () => {
   const s = makeState({ config });
   s.applyCommand(env('zone2', 'SENSOR_FAULT'));

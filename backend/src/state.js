@@ -91,7 +91,7 @@ export function makeState({ config }) {
     if (!z) return;
     if (typeof msg.trainPresent === 'boolean') z.trainPresent = msg.trainPresent;
     if (Number.isFinite(msg.speedKmh)) train.speedKmh = Math.max(0, Math.min(80, msg.speedKmh));
-    if (typeof msg.wildlifeDetected === 'boolean') z.wildlifeDetected = msg.wildlifeDetected;
+    if (typeof msg.wildlifeDetected === 'boolean') setWildlife(zone, msg.wildlifeDetected);
     if (typeof msg.sensorHealthy === 'boolean') z.sensorHealthy = msg.sensorHealthy;
   }
 
@@ -107,7 +107,14 @@ export function makeState({ config }) {
   function setWildlife(zone, detected) {
     const z = zones[zone];
     if (!z || typeof detected !== 'boolean') return false;
+    const wasActive = z.wildlifeDetected;
     z.wildlifeDetected = detected;
+    if (detected) {
+      if (z.sensorHealthy) z.status = 'HAZARD';
+      z.targetSpeedKmh = 0;
+    } else if (wasActive && z.sensorHealthy && z.status === 'HAZARD') {
+      z.status = 'RECOVERY_REQUIRED';
+    }
     return true;
   }
 

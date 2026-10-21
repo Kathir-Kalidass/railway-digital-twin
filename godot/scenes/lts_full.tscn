@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://lts_full"]
+[gd_scene load_steps=13 format=3 uid="uid://lts_full"]
 
 [ext_resource type="Script" path="res://src/lts_world.gd" id="1"]
 [ext_resource type="Script" path="res://src/ltstrack.gd" id="2"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://src/twin_hud.gd" id="8"]
 [ext_resource type="Script" path="res://src/scenario_director.gd" id="9"]
 [ext_resource type="Script" path="res://src/scenery_director.gd" id="10"]
+[ext_resource type="Script" path="res://src/esp32_integration.gd" id="11"]
 
 [node name="World" type="Node3D"]
 script = ExtResource("1")
@@ -37,6 +38,13 @@ bridge_path = NodePath("../MQTTBridge")
 zone = "zone1"
 
 [node name="WorldWildlife" parent="." instance=ExtResource("6")]
+
+[node name="ESP32Integration" type="Node" parent="."]
+script = ExtResource("11")
+bridge_path = NodePath("../MQTTBridge")
+zone = "zone1"
+safety_path = NodePath("../WorldWildlife/WildlifeSafety")
+behaviour_path = NodePath("../WorldWildlife/WildlifeBehaviour")
 
 [node name="CameraDirector" type="Node" parent="."]
 script = ExtResource("7")

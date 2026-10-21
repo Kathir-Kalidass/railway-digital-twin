@@ -1,4 +1,5 @@
 user godot
+topic read railway/telemetry/esp32
 topic write railway/zone1/train
 topic write railway/zone1/wildlife
 topic write railway/zone2/train

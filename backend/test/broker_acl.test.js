@@ -98,3 +98,29 @@ test('esp32 cannot publish command, state, or signal topics', async () => {
   assert.deepEqual(received, []);
   publisher.end(true); commandObserver.end(true); stateObserver.end(true); signalObserver.end(true);
 });
+
+test('godot can read esp32 telemetry but cannot publish it', async () => {
+  const godot = connectAs('godot');
+  await waitFor(() => godot.connected);
+  await new Promise((resolve) => godot.subscribe('railway/telemetry/esp32', resolve));
+  const seen = [];
+  godot.on('message', (topic, payload) => seen.push([topic, payload.toString()]));
+
+  const esp32 = connectAs('esp32');
+  await waitFor(() => esp32.connected);
+  esp32.publish('railway/telemetry/esp32', JSON.stringify({ marker: 'esp32-to-godot' }));
+  await waitFor(() => seen.some(([, body]) => body.includes('esp32-to-godot')));
+  assert.ok(seen.some(([topic, body]) => topic === 'railway/telemetry/esp32' && body.includes('esp32-to-godot')));
+
+  const backendObserver = connectAs('backend');
+  await waitFor(() => backendObserver.connected);
+  await new Promise((resolve) => backendObserver.subscribe('railway/telemetry/esp32', resolve));
+  const backendSeen = [];
+  backendObserver.on('message', (topic, payload) => backendSeen.push(payload.toString()));
+
+  godot.publish('railway/telemetry/esp32', JSON.stringify({ marker: 'godot-unauthorized' }));
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.ok(!backendSeen.some((body) => body.includes('godot-unauthorized')));
+
+  godot.end(true); esp32.end(true); backendObserver.end(true);
+});

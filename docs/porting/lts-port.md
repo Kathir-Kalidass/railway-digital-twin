@@ -38,7 +38,15 @@ be required for parse tests or core operation.
 | `godot/src/wildlife_publisher.gd` | Publish changed wildlife observations on the zone wildlife topic | Twin-to-backend wildlife observations |
 | `godot/src/{detection_band,wildlife_spawner}.gd` | Spawn Blender deer/elephant GLBs with articulated gait, fall back to capsules, and publish matching-species entry/exit counts | Runtime detection with or without asset packs |
 | `godot/scenes/lts_full.tscn` | Full-scale scene: LTS track/train, station, buildings, catenary, procedural terrain, wildlife, safety, cameras, and HUD. Renamed from `lts_minimal.tscn` | Runnable Godot 4 LTS-led simulation scene |
-| `godot/src/{scenery_director,animal_visual,terrain_generator}.gd` | Populate the station (canopies, footbridge, lamps, signs), tree line, wires and foothills; animate animal limbs; flatten/generate terrain around the curve | Full-scale presentation without hand-placed editor content |
+| `godot/src/{scenery_director,animal_visual,terrain_generator}.gd` | Populate the station (canopies, footbridge, lamps, signs), tree line, wires and foothills; animate animal limbs; flatten/generate terrain around the curve; carve the river channel and add the water plane | Full-scale presentation without hand-placed editor content |
+| `godot/src/ltstrain.gd` | Add an initial cruise speed and wrap the locomotive/carriage track distance with `fposmod`; remove the old end-of-track stop | Continuous closed-loop operation |
+| `godot/src/wildlife_behaviour.gd` | Replace underpass movement with direct, visible crossings at `LevelCrossing`; expose active animals and a hazard snapshot | Observable animals and a stable safety input |
+| `godot/src/wildlife_safety.gd` | Add the local warn/stop fail-safe, barrier alarm, and on-track backend publication transitions | Local safety independent of broker latency |
+| `godot/src/level_crossing.gd` | Add procedural crossing pad, crossbucks, flashers, and two boom barriers | Visible barrier state driven by the safety controller |
+| `godot/src/railway_bridge.gd` | Add aligned railway decks, girders, railings, and piers at both river crossings | River crossing structure for the loop |
+| `godot/src/bridge.gd` | Rebuild the road bridge with deck, asphalt, abutments, piers, railings, and approaches | Structured bridge over the river |
+| `godot/src/train_reconciler.gd` | Merge the local wildlife limit with backend target/signal/command state; expose local-active state to the HUD | Layered authority without letting local input relax the backend |
+| `godot/tests/{test_train_loop,test_wildlife_safety,test_river_bridges}.gd` | Add regression coverage for loop wrapping, direct wildlife safety/barrier, and river/bridge alignment | Phase 1 acceptance evidence |
 
 ## Curated Blender exports
 
@@ -62,10 +70,11 @@ blender -b -P tools/build_trees.py   # oak, pine, birch, bush
 ## Validation scope
 
 `bash godot/tests/run_tests.sh` imports the Godot project and runs the parse,
-port-helper, LTS full-scene/motion, real-model, MQTT reconnect,
-backend-schema reconciliation, wildlife publishing, end-to-end safety,
-cinematic-reel, and camera/day-night tests (12 suites). A live bridge smoke
-check also connected to the local broker and published a wildlife payload.
+port-helper, LTS full-scene/motion, loop-wrapping, real-model, MQTT reconnect,
+backend-schema reconciliation, wildlife publishing, direct-crossing safety,
+river/bridge alignment, end-to-end safety, ESP32 telemetry integration,
+cinematic-reel, and camera/day-night tests (16 suites). A live bridge smoke check also connected to the local broker
+and published a wildlife payload.
 
 `godot/scenes/lts_full.tscn` is the project startup scene; the former
 procedural demo remains available at `godot/scenes/procedural_twin.tscn`.

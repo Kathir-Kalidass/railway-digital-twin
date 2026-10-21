@@ -7,10 +7,21 @@ A runnable digital twin integrating a Godot 4 3D forest railway, trusted Node.js
 - **Mosquitto broker (TCP 1883 / WS 9001):** `allow_anonymous false` with per-client credentials (`godot`, `esp32`, `backend`, `dashboard`) and topic ACLs.
 - **Node.js backend (trusted control plane):** Authenticates users via bcrypt & JWT, enforces RBAC (`viewer`, `operator`, `admin`), validates command envelopes, prevents command replay via SQLite registry, logs audit events, manages a two-zone state machine (`zone1`, `zone2`), and is the **sole publisher** of commands, state snapshots, and alerts.
 - **React dashboard:** Authenticated web interface. Viewers can monitor state; operators can issue control commands; admins can inspect audit logs. Control actions flow through REST + JWT; dashboard reads live updates via WebSocket.
-- **Godot twin:** full-scale 3D railway world with LTS-derived Blender train/station/scenery models, animated wildlife, catenary, dynamic signals, barriers, and cameras. Subscribes to commands and reports zone telemetry.
+- **Godot twin:** full-scale 3D railway world with an LTS-derived Blender train/station/scenery fleet, a 754 m closed loop, a carved river with road and railway bridges, a direct wildlife level crossing, catenary, dynamic signals, barriers, and cameras. Subscribes to commands and reports zone telemetry.
 - **ESP32 controller:** Authenticated MQTT IoT node providing edge sensing and restrictive signal fail-safe outputs.
 
 > **Safety:** this is a classroom digital-twin simulation, not railway safety equipment. Do not connect it to real signalling, trains, or operational infrastructure. “Stopping distance” is a visualization estimate only.
+
+## Current scope
+
+**Phase 1 is implemented:** a closed single-track loop, direct wildlife level
+crossing with a local warn/slow/stop fail-safe, visible boom barriers, and a river
+with road/railway bridges. See `docs/porting/acceptance.md` for evidence.
+
+**Phase 2 is designed, not implemented:** double track, a station crossover /
+track interchange, per-block signals, and multi-train meet/pass. See
+`docs/superpowers/specs/2026-10-21-stage-c2-double-track-multitrain-design.md`.
+The wildlife underpass remains scenery only in Phase 1.
 
 ## Requirements
 
@@ -40,7 +51,7 @@ A runnable digital twin integrating a Godot 4 3D forest railway, trusted Node.js
      - `viewer` / `viewer-dev-pass`
      - `operator` / `operator-dev-pass`
      - `admin` / `admin-dev-pass`
-5. Launch Godot and run `godot/project.godot` if you are validating the twin view. The startup scene is `godot/scenes/lts_full.tscn`; press `B` for the cinematic reel, `C` to cycle cameras, and `SPACE` to trigger a deer crossing.
+5. Launch Godot and run `godot/project.godot` if you are validating the twin view. The startup scene is `godot/scenes/lts_full.tscn`; press `B` for the cinematic reel, `C` to cycle cameras, and `SPACE` to trigger a deer crossing. Wildlife walks to the fixed level crossing and the local safety layer warns, slows, and stops the train; the boom barriers lower while the animal is on the track.
 
 ## Operational commands
 
@@ -56,7 +67,7 @@ A runnable digital twin integrating a Godot 4 3D forest railway, trusted Node.js
 | Client | Role | Publish | Subscribe |
 |---|---|---|---|
 | `backend` | Sole control authority | `railway/state`, `railway/events`, `railway/alerts`, `railway/zone*/signal`, `railway/commands/*`, `railway/speed/*`, `railway/security/events` | `railway/zone*/train`, `railway/zone*/wildlife`, `railway/telemetry/esp32` |
-| `godot` | 3D twin telemetry | `railway/zone1/train`, `railway/zone1/wildlife`, `railway/zone2/train`, `railway/zone2/wildlife` | `railway/commands/zone1`, `railway/commands/zone2`, `railway/speed/zone1`, `railway/speed/zone2`, `railway/zone1/signal`, `railway/zone2/signal` |
+| `godot` | 3D twin telemetry | `railway/zone1/train`, `railway/zone1/wildlife`, `railway/zone2/train`, `railway/zone2/wildlife`, `railway/telemetry/esp32` (read-only) | `railway/commands/zone1`, `railway/commands/zone2`, `railway/speed/zone1`, `railway/speed/zone2`, `railway/zone1/signal`, `railway/zone2/signal` |
 | `dashboard` | Read-only client | *(none)* | `railway/state`, `railway/events`, `railway/alerts` |
 | `esp32` | IoT controller | `railway/telemetry/esp32` | `railway/commands/esp32` |
 
@@ -79,10 +90,15 @@ The controller is an educational indicator only, never real signalling equipment
 
 The output is restrictive at startup, during loss of MQTT/fresh backend context, and for active local wildlife/fault inputs. Local inputs are debounced and cannot be cleared by a received command. Reconnect and telemetry publishing are non-blocking; no old telemetry or commands are queued for replay.
 
-Manual Stage D checklist (all **not run** in this repository-only verification):
+The Wokwi CLI (v0.29.0) is supported in addition to the VS Code extension. It is installed at `~/.wokwi/bin/wokwi-cli`; set `WOKWI_CLI_TOKEN` from <https://wokwi.com/dashboard/ci> before running a simulation. For a cloud simulation that reaches the local broker, run `./scripts/wokwi-tunnel.sh --write-secrets` (Pinggy raw TCP), then use `scenarios/wildlife.yaml`. See `docs/wokwi-connectivity.md` for details.
 
-- **Not run (Wokwi / physical):** Boot and confirm restrictive output until current backend context arrives.
-- **Not run (Wokwi / physical):** Press/release both inputs; check debounce, telemetry, backend state, and dashboard indication.
+The live path was verified locally through MQTT and through the cloud Wokwi
+scenario over Pinggy: ESP32 detection produced `STOP`/RED, and release left the
+backend in `RECOVERY_REQUIRED` until reset. Manual Stage D checklist (physical
+hardware items remain **not run**):
+
+- **PASS (Wokwi, 2026-10-21):** Boot and confirm restrictive output until current backend context arrives (`STATE COMM LOSS`).
+- **PASS (Wokwi wildlife input, 2026-10-21):** Press/release `wildlife`; serial `STATE LOCAL WILDLIFE`, Godot STOP/RED and backend recovery. Physical fault input remains not run.
 - **Not run (Wokwi / physical):** Issue authorized same-zone and out-of-zone dashboard controls; verify only the same-zone action reaches the controller and local faults still dominate.
 - **Not run (Wokwi / physical):** Disconnect/reconnect broker or Wi-Fi while exercising inputs; verify responsiveness and a fresh telemetry publish after reconnect.
 - **Not run (Wokwi / physical):** Inspect serial diagnostics and confirm no credentials are printed.

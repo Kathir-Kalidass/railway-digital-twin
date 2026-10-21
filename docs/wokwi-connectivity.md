@@ -25,28 +25,66 @@ ESP32 toolchain), then press `F1 → Wokwi: Start Simulator`.
 If Wokwi reports `firmware binary .pio/build/esp32dev/firmware.bin not found`,
 the build has not completed; check `pio run -e esp32dev` output and retry.
 
-## Option A: tunnel a local broker
+## Option 0b: Wokwi CLI (cloud simulation)
 
-1. Start Mosquitto locally:
-   ```bash
-   docker compose up -d mqtt
-   ```
-2. Tunnel TCP 1883 with cloudflared:
-   ```bash
-   cloudflared tunnel --url tcp://localhost:1883
-   ```
-   or with ngrok:
-   ```bash
-   ngrok tcp 1883
-   ```
-3. Copy the public hostname (without `tcp://`) into the Wokwi `secrets.h`:
-   ```c
-   #define MQTT_HOST "your-tunnel-host.example.com"
-   #define MQTT_PORT 18830   // use the port printed by the tunnel
-   #define MQTT_USER "esp32"
-   #define MQTT_PASS "esp32-dev-pass"
-   ```
-   Never use `localhost` or `127.0.0.1` in the device configuration.
+The standalone CLI is installed at `~/.wokwi/bin/wokwi-cli` in this
+environment (v0.29.0). It is not on the default `PATH`:
+
+```bash
+cd esp32
+pio run -e esp32dev
+export WOKWI_CLI_TOKEN="..."   # from https://wokwi.com/dashboard/ci
+~/.wokwi/bin/wokwi-cli . --timeout 60000 --serial-log-file /tmp/wokwi-serial.log
+```
+
+Build the firmware first; `wokwi.toml` points at
+`.pio/build/esp32dev/firmware.bin`. The CLI runs the simulation in Wokwi's
+cloud, so the MQTT broker must still be internet-reachable (Option A or B).
+`WOKWI_CLI_TOKEN` is a secret: never commit it or put it in the repository.
+
+To drive the wildlife input automatically, run the checked-in scenario:
+
+```bash
+~/.wokwi/bin/wokwi-cli . --scenario scenarios/wildlife.yaml \
+  --timeout 60000 --serial-log-file /tmp/wokwi-wildlife.log
+```
+
+The scenario waits for `MQTT connected`, presses the `wildlife` button for
+2.5 seconds, then releases it. Firmware status changes are printed as
+`STATE ...` lines on the serial console. This scenario completed successfully
+on 2026-10-21 using the Pinggy tunnel: serial showed `MQTT connected` and
+`STATE LOCAL WILDLIFE`; the live Godot monitor saw `external=true`, `STOP`, and
+RED, then release with the backend held in `RECOVERY_REQUIRED`.
+
+## Option A: tunnel a local broker (Pinggy, verified)
+
+Wokwi needs a public **raw TCP** endpoint. Cloudflare Quick Tunnels only proxy
+HTTP/WebSocket traffic, so `cloudflared tunnel --url tcp://localhost:1883`
+cannot carry MQTT. Use the checked-in Pinggy helper instead:
+
+```bash
+./scripts/wokwi-tunnel.sh --write-secrets
+```
+
+The script starts a temporary raw TCP tunnel to local port 1883, waits for the
+public `tcp://host:port` address, and (with `--write-secrets`) writes the
+git-ignored `esp32/secrets.h` using the `esp32` broker user. Keep it running
+for the duration of the simulation; the free tunnel expires after about an
+hour. Then rebuild and start Wokwi:
+
+```bash
+cd esp32
+pio run -e esp32dev
+~/.wokwi/bin/wokwi-cli . --scenario scenarios/wildlife.yaml --timeout 60000
+```
+
+Use `MQTT_LOCAL_PORT=1884 ./scripts/wokwi-tunnel.sh` when the host broker is
+not on 1883. Never commit `secrets.h`, and never use `localhost` or
+`127.0.0.1` in the device configuration.
+
+The older `ngrok tcp 1883` workflow also works if ngrok is installed. A named
+Cloudflare tunnel with a client-side TCP route is possible but needs an
+account and is not part of this demo.
 
 ## Option B: internet-reachable broker
 
@@ -73,3 +111,16 @@ mosquitto_pub -h 127.0.0.1 -p 1883 -u backend -P backend-dev-pass \
 
 Expected device behaviour: red LED, barrier down (servo 90°), OLED shows
 `WILDLIFE`, and telemetry includes `distanceM`, `motion`, and `vibration`.
+
+## Live animation
+
+With the broker, backend, and Godot twin running, the ESP32 telemetry drives
+the same hazard path as the dashboard:
+
+1. Open the Godot demo (`godot/scenes/lts_full.tscn`).
+2. Start the Wokwi scenario. The `wildlife` button produces
+   `wildlifeDetected: true`; the backend raises the zone hazard and the twin
+   spawns a deer, lowers both barriers, and stops the train.
+3. Releasing the button publishes `wildlifeDetected: false`. The local animal
+   hazard clears, but the backend remains in recovery until the dashboard
+   sends `RESET`. This is intentional: the backend is authoritative.

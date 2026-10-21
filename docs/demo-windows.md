@@ -15,9 +15,9 @@ Educational simulation only; not certified railway equipment.
 3. Confirm the backend is ready: `curl http://localhost:3001/api/health` →
    `{"ok":true,"mqttConnected":true}`.
 4. Open the dashboard at http://localhost:5173 and log in as `operator`.
-5. If the ESP32 runs in Wokwi, expose the broker first
-   (`cloudflared tunnel --url tcp://localhost:1883`) and follow
-   `docs/wokwi-connectivity.md`.
+5. If the ESP32 runs in Wokwi, expose the broker first with
+   `bash scripts/wokwi-tunnel.sh --write-secrets` (Pinggy raw TCP), then follow
+   `docs/wokwi-connectivity.md`. Cloudflare Quick Tunnels cannot carry raw MQTT.
 6. Launch Godot 4.7 on the Windows GPU machine and open `godot/project.godot`.
 
 ## Run the checklist
@@ -29,9 +29,9 @@ Educational simulation only; not certified railway equipment.
 | b2 | Press `C` to cycle follow → cab → drone cameras | | |
 | b3 | Press `N` to toggle day/night lighting | | |
 | c | Cab camera can be selected and looks forward along the track | | |
-| d | Wildlife spawns near the underpass and prefers crossing there | | |
-| e | At least one animal crosses the track and triggers a detection | | |
-| f | Safety sequence: warn → slow → stop with barrier down → clear → resume | | |
+| d | Wildlife appears at the trackside level crossing and is clearly visible | | |
+| e | At least one animal walks onto the track and triggers a local detection | | |
+| f | Safety sequence: warn → slow → stop with both booms down and flashing lamps → clear → resume | | |
 | g | ESP32 servo, buzzer, LEDs, and OLED match backend state | | |
 | h | Dashboard shows the same signal, speed, and wildlife state | | |
 | h2 | In-scene HUD shows zone, signal, wildlife, sensor, MQTT, speed and camera | | |
@@ -67,7 +67,8 @@ MESA_LOADER_DRIVER_OVERRIDE=d3d12 GALLIUM_DRIVER=d3d12 LIBGL_ALWAYS_SOFTWARE=0 \
 | Cinematic reel (drone + dusk + restore) | PASS |
 | HUD status/speed/camera text | PASS |
 | Deer and elephant Blender models | PASS |
-| In-scene wildlife crossing and safety barrier sequence | Covered by automated tests; not visually captured in WSL |
+| Direct deer crossing, blocked track, and lowered barriers | PASS (`/tmp/opencode/scene_wildlife.png`) |
+| Closed-loop track and river/railway bridge alignment | PASS (overview capture) |
 | Dashboard/ESP32/Wokwi end-to-end | Not part of WSL visual run |
 
 The clean captures are development artifacts only. A 150-frame MovieWriter run
@@ -79,4 +80,7 @@ desktop content in captures, so always wrap capture runs with `xvfb-run`.
 
 - WSLg GPU validation covers rendering only; run the full checklist on the
   Windows host for dashboard, ESP32/Wokwi, and safety-sequence checks.
+- Wildlife underpass preference, double track, track interchange/crossover, and
+  multi-train meet/pass signalling are deferred to Phase 2; the underpass is
+  currently scenery only.
 - “Stopping distance” is a visualization estimate, not certified braking.

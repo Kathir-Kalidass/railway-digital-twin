@@ -62,6 +62,8 @@ String acceptedCommandIds[8];
 uint8_t acceptedCommandIndex = 0;
 Debouncer wildlifeDebouncer;
 Debouncer faultDebouncer;
+String lastStatusLine;
+bool wifiAnnounced = false;
 
 const unsigned long HEARTBEAT_MS = 1500;
 const unsigned long RETRY_MAX_MS = 30000;
@@ -76,9 +78,15 @@ void applyOutputs() {
   // Communication loss remains restrictive but is distinguishable by a pulse.
   digitalWrite(BUZZER, output == Output::COMM_LOSS ? ((millis() / 250) % 2) : (restrictive ? HIGH : LOW));
   barrier.write(barrier_angle(restrictive));
+  const char *status = status_line(localWildlifeDetected, localFaultDetected, commOk, backendRestrictive);
+  if (lastStatusLine != status) {
+    lastStatusLine = status;
+    Serial.print("STATE ");
+    Serial.println(status);
+  }
   oled.clearDisplay();
   oled.setCursor(0, 0);
-  oled.println(status_line(localWildlifeDetected, localFaultDetected, commOk, backendRestrictive));
+  oled.println(status);
   oled.setCursor(0, 16);
   char sensorLines[64];
   snprintf(sensorLines, sizeof(sensorLines), "Dist: %d cm\nVib:  %d\nWiFi: %s\n",
@@ -219,8 +227,13 @@ void sampleInputs(unsigned long now) {
 void attemptWiFi(unsigned long now) {
   if (WiFi.status() == WL_CONNECTED) {
     wifiBackoff = 1000;
+    if (!wifiAnnounced) {
+      wifiAnnounced = true;
+      Serial.println("WiFi connected");
+    }
     return;
   }
+  wifiAnnounced = false;
   if (now < nextWiFiAttempt) return;
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -235,6 +248,7 @@ void attemptMqtt(unsigned long now) {
   if (mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASS)) {
     mqttBackoff = 1000;
     mqtt.subscribe(TOPIC_COMMANDS);
+    Serial.println("MQTT connected");
     // Keep the output restrictive until a new valid command establishes context.
     backendContextFresh = false;
     publishTelemetry();
