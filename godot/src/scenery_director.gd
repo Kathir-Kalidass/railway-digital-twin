@@ -6,9 +6,13 @@ extends Node3D
 
 @export var track_path: NodePath = NodePath("../Track")
 @export var terrain_path: NodePath = NodePath("../WorldWildlife/TerrainGenerator")
+@export var registry_path: NodePath = NodePath("../TrackRegistry")
+@export var inner_track_path: NodePath = NodePath("../InnerTrack")
 @export var seed := 17
 @export var tree_count := 280
-@export var station_distance := 70.0
+@export var station_distance := 322.0
+@export var station_module_spacing := 9.6
+@export var station_modules := 5
 @export var use_lts_models := true
 
 const LTS := "res://assets/models/lts/"
@@ -35,6 +39,36 @@ func _ready() -> void:
 	_build_wires()
 	_build_details()
 	_scatter_trees()
+
+
+func _inner_track() -> LTSTrack:
+	var registry := get_node_or_null(registry_path) as TrackRegistry
+	if registry != null:
+		var down := registry.track("DOWN")
+		if down != null:
+			return down
+	return get_node_or_null(inner_track_path) as LTSTrack
+
+
+func _pose_pair(up_distance: float) -> Dictionary:
+	var up_pose := _pose(up_distance)
+	var down := _inner_track()
+	if down == null:
+		return {"up": up_pose, "down": null, "mid": up_pose}
+	var down_pose := down.get_global_transform_at_distance(clampf(up_distance * down.length / _track.length, 0.0, down.length))
+	var mid := up_pose
+	mid.origin = (up_pose.origin + down_pose.origin) * 0.5
+	return {"up": up_pose, "down": down_pose, "mid": mid}
+
+
+func _fit_platform(node: Node3D, pose: Transform3D, max_width: float) -> void:
+	var box := _world_aabb(node)
+	var lateral := 0.0
+	for index in 8:
+		lateral = maxf(lateral, absf((box.get_endpoint(index) - pose.origin).dot(pose.basis.z)))
+	if lateral <= 0.01:
+		return
+	node.scale *= Vector3.ONE * minf(1.0, (max_width * 0.5) / lateral)
 
 
 func _pose(distance_m: float, side_offset: float = 0.0) -> Transform3D:
@@ -93,21 +127,24 @@ func _align_bottom(node: Node3D, target_y: float) -> void:
 
 func _build_station() -> void:
 	var platform_top := 0.55
-	for module in 5:
-		for side in [-1.0, 1.0]:
-			var pose := _pose(station_distance + module * 10.4, side * 4.4)
-			var platform := _spawn("platform", pose)
-			if platform:
-				_align_bottom(platform, pose.origin.y - 1.25)
-			if module in [1, 3]:
-				var bench_pose := _pose(station_distance + module * 10.4 + 4.0, side * 4.9)
-				var bench := _spawn("bench", bench_pose)
-				if bench:
-					_align_bottom(bench, pose.origin.y + platform_top)
-				var bin := _spawn("garbage", bench_pose)
-				if bin:
-					bin.global_position += bench_pose.basis.x * 1.6
-					_align_bottom(bin, pose.origin.y + platform_top)
+	for module in station_modules:
+		var pair := _pose_pair(station_distance + module * station_module_spacing)
+		var mid: Transform3D = pair["mid"]
+		var platform := _spawn("platform", mid)
+		if platform:
+			platform.name = "Platform%d" % module
+			_fit_platform(platform, mid, 2.2)
+			_align_bottom(platform, mid.origin.y - 1.25)
+		if module in [1, 3]:
+			var bench_pose := mid
+			bench_pose.origin += bench_pose.basis.x * 4.0
+			var bench := _spawn("bench", bench_pose)
+			if bench:
+				_align_bottom(bench, mid.origin.y + platform_top)
+			var bin := _spawn("garbage", bench_pose)
+			if bin:
+				bin.global_position += bench_pose.basis.x * 1.6
+				_align_bottom(bin, mid.origin.y + platform_top)
 
 	var house_pose := _pose(station_distance - 8.0, 30.0)
 	house_pose.basis = house_pose.basis * Basis(Vector3.UP, -PI / 2.0)
@@ -172,39 +209,39 @@ func _build_canopies() -> void:
 	var metal := _plain_material(Color(0.24, 0.27, 0.30), 0.45, 0.55)
 	var roof := _plain_material(Color(0.32, 0.35, 0.38), 0.6, 0.25)
 	for module in [1, 2, 3]:
-		for side in [-1.0, 1.0]:
-			var pose := _pose(station_distance + module * 10.4 + 5.2, side * 4.4)
-			var root := Node3D.new()
-			add_child(root)
-			root.global_transform = pose
-			var slab := MeshInstance3D.new()
-			var slab_mesh := BoxMesh.new()
-			slab_mesh.size = Vector3(10.0, 0.16, 3.8)
-			slab.mesh = slab_mesh
-			slab.material_override = roof
-			slab.position = Vector3(0.0, 3.85, 0.0)
-			root.add_child(slab)
-			for post_x in [-4.4, 4.4]:
-				for post_z in [-1.65, 1.65]:
-					var post := MeshInstance3D.new()
-					var post_mesh := BoxMesh.new()
-					post_mesh.size = Vector3(0.12, 3.4, 0.12)
-					post.mesh = post_mesh
-					post.material_override = metal
-					post.position = Vector3(post_x, 2.15, post_z)
-					root.add_child(post)
+		var pair := _pose_pair(station_distance + module * station_module_spacing + 4.8)
+		var root := Node3D.new()
+		add_child(root)
+		root.global_transform = pair["mid"]
+		var slab := MeshInstance3D.new()
+		var slab_mesh := BoxMesh.new()
+		slab_mesh.size = Vector3(8.4, 0.16, 2.0)
+		slab.mesh = slab_mesh
+		slab.material_override = roof
+		slab.position = Vector3(0.0, 3.85, 0.0)
+		root.add_child(slab)
+		for post_x in [-3.8, 3.8]:
+			for post_z in [-0.8, 0.8]:
+				var post := MeshInstance3D.new()
+				var post_mesh := BoxMesh.new()
+				post_mesh.size = Vector3(0.12, 3.4, 0.12)
+				post.mesh = post_mesh
+				post.material_override = metal
+				post.position = Vector3(post_x, 2.15, post_z)
+				root.add_child(post)
 
 
 func _build_footbridge() -> void:
-	var pose := _pose(station_distance + 58.0)
+	var pair := _pose_pair(station_distance + 24.0)
+	var mid: Transform3D = pair["mid"]
 	var concrete := _plain_material(Color(0.55, 0.57, 0.58), 0.8)
 	var steel := _plain_material(Color(0.30, 0.34, 0.38), 0.4, 0.6)
 	var root := Node3D.new()
 	add_child(root)
-	root.global_transform = pose
+	root.global_transform = mid
 	var deck := MeshInstance3D.new()
 	var deck_mesh := BoxMesh.new()
-	deck_mesh.size = Vector3(3.2, 0.35, 16.0)
+	deck_mesh.size = Vector3(3.2, 0.35, 13.0)
 	deck.mesh = deck_mesh
 	deck.material_override = concrete
 	deck.position = Vector3(0.0, 7.6, 0.0)
@@ -212,12 +249,12 @@ func _build_footbridge() -> void:
 	for wall_x in [-1.55, 1.55]:
 		var parapet := MeshInstance3D.new()
 		var parapet_mesh := BoxMesh.new()
-		parapet_mesh.size = Vector3(0.10, 1.05, 16.0)
+		parapet_mesh.size = Vector3(0.10, 1.05, 13.0)
 		parapet.mesh = parapet_mesh
 		parapet.material_override = steel
 		parapet.position = Vector3(wall_x, 8.3, 0.0)
 		root.add_child(parapet)
-	for tower_z in [-7.3, 7.3]:
+	for tower_z in [-5.5, 5.5]:
 		for tower_x in [-1.1, 1.1]:
 			var leg := MeshInstance3D.new()
 			var leg_mesh := BoxMesh.new()
@@ -245,10 +282,12 @@ func _build_lamps() -> void:
 	lamp_material.emission_enabled = true
 	lamp_material.emission = Color(1.0, 0.82, 0.5)
 	lamp_material.emission_energy_multiplier = 2.2
-	for module in 5:
+	for module in station_modules:
+		var pair := _pose_pair(station_distance + module * station_module_spacing + 4.8)
+		var mid: Transform3D = pair["mid"]
 		for side in [-1.0, 1.0]:
-			var pose := _pose(station_distance + module * 10.4 + 5.2, side * 5.6)
-			var base_y := pose.origin.y + 0.55
+			var pole_position: Vector3 = mid.origin + mid.basis.z * side * 0.9
+			var base_y: float = mid.origin.y + 0.55
 			var pole := MeshInstance3D.new()
 			var pole_mesh := CylinderMesh.new()
 			pole_mesh.top_radius = 0.055
@@ -257,7 +296,7 @@ func _build_lamps() -> void:
 			pole.mesh = pole_mesh
 			pole.material_override = pole_material
 			add_child(pole)
-			pole.global_position = Vector3(pose.origin.x, base_y + 1.9, pose.origin.z)
+			pole.global_position = Vector3(pole_position.x, base_y + 1.9, pole_position.z)
 			var head := MeshInstance3D.new()
 			var head_mesh := SphereMesh.new()
 			head_mesh.radius = 0.17
@@ -265,9 +304,9 @@ func _build_lamps() -> void:
 			head.mesh = head_mesh
 			head.material_override = lamp_material
 			add_child(head)
-			head.global_position = Vector3(pose.origin.x, base_y + 3.85, pose.origin.z)
+			head.global_position = Vector3(pole_position.x, base_y + 3.85, pole_position.z)
 			var light := OmniLight3D.new()
-			light.position = Vector3(pose.origin.x, base_y + 3.75, pose.origin.z)
+			light.position = Vector3(pole_position.x, base_y + 3.75, pole_position.z)
 			light.omni_range = 15.0
 			light.light_energy = 1.1
 			light.light_color = Color(1.0, 0.84, 0.58)
@@ -277,11 +316,12 @@ func _build_lamps() -> void:
 
 func _build_station_signs() -> void:
 	for side in [-1.0, 1.0]:
-		var pose := _pose(station_distance + 22.0, side * 4.8)
+		var pair := _pose_pair(station_distance + 22.0)
+		var mid: Transform3D = pair["mid"]
 		var root := Node3D.new()
 		add_child(root)
-		root.global_position = Vector3(pose.origin.x, pose.origin.y + 3.3, pose.origin.z)
-		root.global_basis = Basis.looking_at(-pose.basis.z * side, pose.basis.y)
+		root.global_position = mid.origin + mid.basis.z * side * 0.85 + Vector3(0.0, 3.3, 0.0)
+		root.global_basis = Basis.looking_at(mid.basis.z * side, mid.basis.y)
 		var board := MeshInstance3D.new()
 		var board_mesh := BoxMesh.new()
 		board_mesh.size = Vector3(4.2, 1.1, 0.12)
