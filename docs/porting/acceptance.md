@@ -102,6 +102,26 @@ The legacy `snapshot().train` summary is retained for un-migrated clients. Godot
 and ESP32 integrations still pass unchanged; visual double-track rendering and
 meet/pass remain in slices 2B–2E.
 
+## Stage 2B double-track world verification (2026-10-22)
+
+The twin renders two concentric loops (UP radius 120 m, DOWN radius 116 m,
+4.0 m spacing), an island station inside backend block `B2`, the visible
+station crossover pair, widened river bridges, and a two-track level crossing.
+
+| Item | Evidence |
+|---|---|
+| Inner loop + registry | `test_track_registry.gd`: DOWN radius/length/offset, 4 m spacing at four angles, `TrackRegistry` maps both lines |
+| Corridor | `test_corridor_flatten.gd`: both centre lines and the mid-corridor are flatten sources, the corridor ends 12 m outside the outer rail; river still carved |
+| River bridges | `test_river_bridges.gd`: one 12 m deck per river crossing covers both centre lines; piers clear both rails |
+| Level crossing | `test_level_crossing_two_track.gd`: two crossing points, pad covers both tracks, both barrier sets (2 pivots) stand clear of both tracks and lower together |
+| Island station | `test_station_island.gd`: five modules centred between the rails inside `UP-B2`/`DOWN-B2`, half-width ≤ 1.15 m |
+| Crossovers | `test_station_crossovers.gd`: `CrossoverA` (UP 312 m) and `CrossoverB` (UP 434 m) end on both centre lines, switch blades present |
+| Catenary + trees | `test_catenary_double.gd`: wire runs above both lines; no tree within 5 m of either centre line |
+| Regression | Godot 22/22, backend 84/84, ESP32 native 14/14, `pio run -e esp32dev` PASS |
+| Capture | `/tmp/opencode/double_track_overview.png` (double-track overview) |
+
+Signal masts, remote fleet rendering, and meet/pass remain in slices 2C–2D.
+
 ## Manual demo
 
 The Windows GPU checklist is `docs/demo-windows.md`. The visual subset was
