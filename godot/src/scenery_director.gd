@@ -13,6 +13,8 @@ extends Node3D
 @export var station_distance := 322.0
 @export var station_module_spacing := 9.6
 @export var station_modules := 5
+@export var crossover_a_up_distance := 312.0
+@export var crossover_b_up_distance := 434.0
 @export var use_lts_models := true
 
 const LTS := "res://assets/models/lts/"
@@ -177,6 +179,7 @@ func _build_details() -> void:
 	_build_footbridge()
 	_build_lamps()
 	_build_station_signs()
+	_build_crossovers()
 	_build_speed_signs()
 	_build_mountains()
 	_build_foothills()
@@ -344,6 +347,66 @@ func _build_station_signs() -> void:
 			post.material_override = _plain_material(Color(0.2, 0.21, 0.22), 0.5, 0.6)
 			post.position = Vector3(post_x, -1.65, -0.02)
 			root.add_child(post)
+
+
+func _build_crossovers() -> void:
+	_build_crossover("CrossoverA", crossover_a_up_distance)
+	_build_crossover("CrossoverB", crossover_b_up_distance)
+
+
+func _build_crossover(node_name: String, up_distance: float) -> void:
+	var pair := _pose_pair(up_distance)
+	if pair["down"] == null:
+		return
+	var root := Node3D.new()
+	root.name = node_name
+	add_child(root)
+	root.global_transform = pair["mid"]
+	var down: LTSTrack = _inner_track()
+	root.set_meta("up_distance", up_distance)
+	root.set_meta("down_distance", up_distance * down.length / _track.length)
+
+	var ballast := MeshInstance3D.new()
+	var ballast_mesh := BoxMesh.new()
+	ballast_mesh.size = Vector3(2.2, 0.18, 4.0)
+	ballast.mesh = ballast_mesh
+	ballast.material_override = _plain_material(Color(0.2, 0.18, 0.16), 0.95)
+	ballast.position = Vector3(0.0, -0.14, 0.0)
+	root.add_child(ballast)
+
+	var rail_material := _plain_material(Color(0.38, 0.42, 0.44), 0.3, 0.7)
+	for side in [-0.7175, 0.7175]:
+		var rail := MeshInstance3D.new()
+		var rail_mesh := BoxMesh.new()
+		rail_mesh.size = Vector3(2.2, 0.16, 0.13)
+		rail.mesh = rail_mesh
+		rail.material_override = rail_material
+		rail.position = Vector3(0.0, 0.02, side)
+		root.add_child(rail)
+
+	var sleeper_material := _plain_material(Color(0.22, 0.13, 0.08), 0.9)
+	for x in [-0.7, 0.0, 0.7]:
+		var sleeper := MeshInstance3D.new()
+		var sleeper_mesh := BoxMesh.new()
+		sleeper_mesh.size = Vector3(0.18, 0.16, 2.35)
+		sleeper.mesh = sleeper_mesh
+		sleeper.material_override = sleeper_material
+		sleeper.position = Vector3(x, -0.1, 0.0)
+		root.add_child(sleeper)
+
+	var blades := Node3D.new()
+	blades.name = "Blades"
+	blades.position = Vector3(0.0, 0.02, -2.0)
+	root.add_child(blades)
+	for side in [-0.9, 0.9]:
+		var blade := MeshInstance3D.new()
+		var blade_mesh := BoxMesh.new()
+		blade_mesh.size = Vector3(1.1, 0.12, 0.09)
+		blade.mesh = blade_mesh
+		blade.material_override = rail_material
+		blade.position = Vector3(0.0, 0.0, side * 0.75)
+		blade.rotation.y = deg_to_rad(-6.0 if side < 0.0 else 6.0)
+		blades.add_child(blade)
 
 
 func _build_speed_signs() -> void:
