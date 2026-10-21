@@ -1,7 +1,7 @@
 # Stage C2 — Double Track, Track Interchange, and Multi-Train Meet/Pass Signalling
 
 Date: 2026-10-21
-Status: proposed
+Status: approved 2026-10-21; implementation begins with slice 2A
 Parent design: [`2026-10-20-stage-c-libretrainsim-wildlife-design.md`](./2026-10-20-stage-c-libretrainsim-wildlife-design.md)
 Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19-stage-a2-block-signalling-design.md) (core modules only), [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md)
 
@@ -335,22 +335,19 @@ where the current single-train scene cannot start.
 | Bridge/terrain gaps at the second track | Geometry tests plus GPU overview capture |
 | Scope creep into real interlocking | Explicitly out of scope; only illustrative route mutual exclusion |
 
-## 9. Open decisions for approval
+## 9. Approved decisions (2026-10-21)
 
-1. **Default train count:** two visible trains (recommended) vs four-train
-   stress mode. The backend may support four behind config either way.
-2. **Station platform:** island between tracks (recommended) vs two side
-   platforms. Island keeps the station compact; side platforms simplify
-   building placement.
-3. **Crossover count:** one pair at the station (recommended for Phase 2) vs an
-   additional mid-loop pair. A second pair increases scenic and interlocking
-   complexity.
-4. **Legacy endpoint removal:** confirm that removing `POST /api/event` in the
-   same slice is acceptable. It is a security fix but changes an existing
-   endpoint.
-5. **Track spacing:** 4.0 m centre-to-centre (recommended, visually plausible
-   for the scale) vs a wider 5–6 m spacing if the train models clip at the
-   station.
+1. **Default train count:** two visible trains, `T1` on UP and `T3` on DOWN.
+   Four-train operation remains a config-only stress mode.
+2. **Station platform:** island platform between the two tracks.
+3. **Crossover count:** one crossover pair at the station.
+4. **Legacy endpoint removal:** remove unauthenticated `POST /api/event`;
+   preserve compatibility only through an explicitly secured replacement if
+   needed.
+5. **Track spacing:** 4.0 m centre-to-centre.
+
+These decisions are binding for slices 2A–2E. Slice 2A must land the backend
+contract and keep the existing Godot scene runnable before 2B starts.
 
 ## 10. Explicitly out of scope
 
