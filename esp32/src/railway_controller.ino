@@ -12,12 +12,12 @@
 #include <Adafruit_SSD1306.h>
 #include <time.h>
 #include "secrets.h"
-#include "src/command_logic.h"
-#include "src/debounce.h"
-#include "src/output_logic.h"
-#include "src/telemetry.h"
-#include "src/sensors.h"
-#include "src/actuator.h"
+#include "command_logic.h"
+#include "debounce.h"
+#include "output_logic.h"
+#include "telemetry.h"
+#include "sensors.h"
+#include "actuator.h"
 
 const char* TOPIC_COMMANDS = "railway/commands/esp32";
 const char* TOPIC_TELEMETRY = "railway/telemetry/esp32";
