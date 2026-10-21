@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Railway Digital Twin - Wildlife Safety"
-run/main_scene="res://scenes/lts_minimal.tscn"
+run/main_scene="res://scenes/lts_full.tscn"
 config/features=PackedStringArray("4.7")
 
 [autoload]

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://lts_minimal"]
+[gd_scene load_steps=12 format=3 uid="uid://lts_full"]
 
 [ext_resource type="Script" path="res://src/lts_world.gd" id="1"]
 [ext_resource type="Script" path="res://src/ltstrack.gd" id="2"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://src/camera_director.gd" id="7"]
 [ext_resource type="Script" path="res://src/twin_hud.gd" id="8"]
 [ext_resource type="Script" path="res://src/scenario_director.gd" id="9"]
+[ext_resource type="Script" path="res://src/scenery_director.gd" id="10"]
 
 [node name="World" type="Node3D"]
 script = ExtResource("1")
@@ -56,3 +57,8 @@ wildlife_behaviour_path = NodePath("../WorldWildlife/WildlifeBehaviour")
 camera_director_path = NodePath("../CameraDirector")
 atmosphere_path = NodePath("../WorldWildlife/Atmosphere")
 zone = "zone1"
+
+[node name="Scenery" type="Node3D" parent="."]
+script = ExtResource("10")
+track_path = NodePath("../Track")
+terrain_path = NodePath("../WorldWildlife/TerrainGenerator")

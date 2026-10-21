@@ -2,8 +2,8 @@ extends SceneTree
 
 func _initialize() -> void:
 	var a := Assert.new()
-	var packed: PackedScene = load("res://scenes/lts_minimal.tscn")
-	a.ok(packed != null, "lts_minimal loads")
+	var packed: PackedScene = load("res://scenes/lts_full.tscn")
+	a.ok(packed != null, "lts_full loads")
 	var world := packed.instantiate()
 	world.get_node("MQTTBridge").connect_on_ready = false
 	root.add_child(world)

@@ -83,18 +83,28 @@ func mode_name() -> String:
 			return "camera-%d" % index
 
 
-func _process(delta: float) -> void:
+func _front_carriage() -> Node3D:
 	if not is_instance_valid(_train):
+		return null
+	if _train.get_child_count() > 0:
+		return _train.get_child(0) as Node3D
+	return _train as Node3D
+
+
+func _process(delta: float) -> void:
+	var carriage := _front_carriage()
+	if carriage == null:
 		return
-	var forward := -_train.global_basis.z
-	var up := _train.global_basis.y
+	var forward := carriage.global_basis.x.normalized()
+	var up := carriage.global_basis.y.normalized()
+	var center := carriage.global_position
 	_drone_angle += delta * 0.15
 
 	if _cab and _cab.current:
-		_cab.global_position = _train.global_position + up * 3.1
-		_cab.look_at(_train.global_position + forward * 30.0 + up * 2.2, up)
+		_cab.global_position = center + forward * 9.6 + up * 2.6
+		_cab.look_at(center + forward * 80.0 + up * 1.9, up)
 
 	if _drone and _drone.current:
 		var offset := Vector3(sin(_drone_angle), 0.0, cos(_drone_angle)) * drone_radius
-		_drone.global_position = _train.global_position + offset + Vector3.UP * drone_height
-		_drone.look_at(_train.global_position + up * 2.0, Vector3.UP)
+		_drone.global_position = center + offset + Vector3.UP * drone_height
+		_drone.look_at(center + up * 2.0, Vector3.UP)

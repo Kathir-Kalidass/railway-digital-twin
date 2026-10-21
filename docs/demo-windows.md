@@ -46,7 +46,37 @@ Educational simulation only; not certified railway equipment.
 - Target speed after reset/resume: ______ km/h
 - MQTT client IDs seen by the broker: ______________________________
 
+## WSL GPU validation record (2026-10-21)
+
+Renderer: Mesa 25.2.8 D3D12 (`AMD Radeon(TM) Graphics` through WSLg) using
+`gl_compatibility`, 1280x720, captured under `xvfb-run` to avoid WSLg window
+buffer ghosting. The GPU path is forced with:
+
+```bash
+MESA_LOADER_DRIVER_OVERRIDE=d3d12 GALLIUM_DRIVER=d3d12 LIBGL_ALWAYS_SOFTWARE=0 \
+  xvfb-run -a -s "-screen 0 1280x720x24" \
+  godot --path godot --resolution 1280x720 --rendering-method gl_compatibility \
+  --script res://tests/capture_scene.gd
+```
+
+| Check | Result |
+|---|---|
+| Curved track, LTS train placement, follow camera | PASS |
+| Follow → cab → drone camera cycle | PASS |
+| Day/night lighting, platform lamps, train lights | PASS |
+| Cinematic reel (drone + dusk + restore) | PASS |
+| HUD status/speed/camera text | PASS |
+| Deer and elephant Blender models | PASS |
+| In-scene wildlife crossing and safety barrier sequence | Covered by automated tests; not visually captured in WSL |
+| Dashboard/ESP32/Wokwi end-to-end | Not part of WSL visual run |
+
+The clean captures are development artifacts only. A 150-frame MovieWriter run
+on this path reported about 11.8 ms GPU render time per frame (about 85 FPS at
+1280x720 before encoding); the WSLg window without `xvfb-run` can leave stale
+desktop content in captures, so always wrap capture runs with `xvfb-run`.
+
 ## Known limitations
 
-- WSL has no GPU in this environment; run the checklist on the Windows host.
+- WSLg GPU validation covers rendering only; run the full checklist on the
+  Windows host for dashboard, ESP32/Wokwi, and safety-sequence checks.
 - “Stopping distance” is a visualization estimate, not certified braking.

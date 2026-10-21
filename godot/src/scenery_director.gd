@@ -1,0 +1,422 @@
+class_name SceneryDirector
+extends Node3D
+
+## Populates the full-scale world from the LTS Blender library: station
+## platforms, buildings, catenary poles, benches and a dense tree line.
+
+@export var track_path: NodePath = NodePath("../Track")
+@export var terrain_path: NodePath = NodePath("../WorldWildlife/TerrainGenerator")
+@export var seed := 17
+@export var tree_count := 280
+@export var station_distance := 70.0
+@export var use_lts_models := true
+
+const LTS := "res://assets/models/lts/"
+const TREES := [
+	"res://assets/models/trees/oak.glb",
+	"res://assets/models/trees/pine.glb",
+	"res://assets/models/trees/birch.glb",
+]
+
+var _track: LTSTrack
+var _terrain: TerrainGenerator
+var _rng := RandomNumberGenerator.new()
+var _tree_roots: Array[Node3D] = []
+
+
+func _ready() -> void:
+	_rng.seed = seed
+	_track = get_node_or_null(track_path) as LTSTrack
+	_terrain = get_node_or_null(terrain_path) as TerrainGenerator
+	if not use_lts_models or not is_instance_valid(_track):
+		return
+	_build_station()
+	_build_poles()
+	_build_wires()
+	_build_details()
+	_scatter_trees()
+
+
+func _pose(distance_m: float, side_offset: float = 0.0) -> Transform3D:
+	var pose := _track.get_global_transform_at_distance(clampf(distance_m, 0.0, _track.length))
+	pose.origin += pose.basis.z * side_offset
+	return pose
+
+
+func _spawn(asset: String, pose: Transform3D, scale := 1.0, parent: Node3D = null) -> Node3D:
+	var path := asset if asset.begins_with("res://") else LTS + asset + ".glb"
+	if not ResourceLoader.exists(path):
+		return null
+	var packed := load(path) as PackedScene
+	if packed == null:
+		return null
+	var node := packed.instantiate() as Node3D
+	if node == null:
+		return null
+	parent = parent if parent else self
+	parent.add_child(node)
+	pose.basis = pose.basis.scaled_local(Vector3.ONE * scale)
+	node.global_transform = pose
+	return node
+
+
+func _world_aabb(root: Node3D) -> AABB:
+	var result := AABB()
+	var found := false
+	for item in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := item as MeshInstance3D
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		var box := mesh_instance.get_aabb()
+		for index in 8:
+			var point := mesh_instance.global_transform * box.get_endpoint(index)
+			if not found:
+				result = AABB(point, Vector3.ZERO)
+				found = true
+			else:
+				result = result.expand(point)
+	return result
+
+
+func _place_on_ground(node: Node3D, lift := 0.0) -> void:
+	var box := _world_aabb(node)
+	var ground := 0.0
+	if is_instance_valid(_terrain):
+		ground = _terrain.height_at(node.global_position.x, node.global_position.z)
+	node.global_position.y += ground + lift - box.position.y
+
+
+func _align_bottom(node: Node3D, target_y: float) -> void:
+	var box := _world_aabb(node)
+	node.global_position.y += target_y - box.position.y
+
+
+func _build_station() -> void:
+	var platform_top := 0.55
+	for module in 5:
+		for side in [-1.0, 1.0]:
+			var pose := _pose(station_distance + module * 10.4, side * 4.4)
+			var platform := _spawn("platform", pose)
+			if platform:
+				_align_bottom(platform, pose.origin.y - 1.25)
+			if module in [1, 3]:
+				var bench_pose := _pose(station_distance + module * 10.4 + 4.0, side * 4.9)
+				var bench := _spawn("bench", bench_pose)
+				if bench:
+					_align_bottom(bench, pose.origin.y + platform_top)
+				var bin := _spawn("garbage", bench_pose)
+				if bin:
+					bin.global_position += bench_pose.basis.x * 1.6
+					_align_bottom(bin, pose.origin.y + platform_top)
+
+	var house_pose := _pose(station_distance - 8.0, 30.0)
+	house_pose.basis = house_pose.basis * Basis(Vector3.UP, -PI / 2.0)
+	var house := _spawn("house", house_pose)
+	if house:
+		_place_on_ground(house)
+
+	var office_pose := _pose(station_distance + 95.0, -34.0)
+	office_pose.basis = office_pose.basis * Basis(Vector3.UP, PI / 2.0)
+	var office := _spawn("office", office_pose)
+	if office:
+		_place_on_ground(office)
+
+
+func _build_poles() -> void:
+	var distance := 20.0
+	var side := 1.0
+	while distance < _track.length - 10.0:
+		var offset := 8.5 if absf(distance - (station_distance + 25.0)) < 45.0 else 7.0
+		var pose := _pose(distance, side * offset)
+		var pole := _spawn("pole", pose)
+		if pole:
+			_place_on_ground(pole)
+		distance += 31.0
+		side = -side
+
+
+func _build_details() -> void:
+	_build_canopies()
+	_build_footbridge()
+	_build_lamps()
+	_build_station_signs()
+	_build_speed_signs()
+	_build_mountains()
+	_build_foothills()
+
+
+func _build_foothills() -> void:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.10, 0.17, 0.11)
+	material.roughness = 1.0
+	for index in 20:
+		var angle := index * TAU / 20.0 + 0.41
+		var radius := _rng.randf_range(440.0, 560.0)
+		var height := _rng.randf_range(32.0, 82.0)
+		var base := _rng.randf_range(90.0, 170.0)
+		var cone := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.0
+		mesh.bottom_radius = base
+		mesh.height = height
+		mesh.radial_segments = 7
+		mesh.rings = 1
+		cone.mesh = mesh
+		cone.material_override = material
+		cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		cone.position = Vector3(cos(angle) * radius, -6.0 + height * 0.5, sin(angle) * radius)
+		add_child(cone)
+
+
+func _build_canopies() -> void:
+	var metal := _plain_material(Color(0.24, 0.27, 0.30), 0.45, 0.55)
+	var roof := _plain_material(Color(0.32, 0.35, 0.38), 0.6, 0.25)
+	for module in [1, 2, 3]:
+		for side in [-1.0, 1.0]:
+			var pose := _pose(station_distance + module * 10.4 + 5.2, side * 4.4)
+			var root := Node3D.new()
+			add_child(root)
+			root.global_transform = pose
+			var slab := MeshInstance3D.new()
+			var slab_mesh := BoxMesh.new()
+			slab_mesh.size = Vector3(10.0, 0.16, 3.8)
+			slab.mesh = slab_mesh
+			slab.material_override = roof
+			slab.position = Vector3(0.0, 3.85, 0.0)
+			root.add_child(slab)
+			for post_x in [-4.4, 4.4]:
+				for post_z in [-1.65, 1.65]:
+					var post := MeshInstance3D.new()
+					var post_mesh := BoxMesh.new()
+					post_mesh.size = Vector3(0.12, 3.4, 0.12)
+					post.mesh = post_mesh
+					post.material_override = metal
+					post.position = Vector3(post_x, 2.15, post_z)
+					root.add_child(post)
+
+
+func _build_footbridge() -> void:
+	var pose := _pose(station_distance + 58.0)
+	var concrete := _plain_material(Color(0.55, 0.57, 0.58), 0.8)
+	var steel := _plain_material(Color(0.30, 0.34, 0.38), 0.4, 0.6)
+	var root := Node3D.new()
+	add_child(root)
+	root.global_transform = pose
+	var deck := MeshInstance3D.new()
+	var deck_mesh := BoxMesh.new()
+	deck_mesh.size = Vector3(3.2, 0.35, 16.0)
+	deck.mesh = deck_mesh
+	deck.material_override = concrete
+	deck.position = Vector3(0.0, 7.6, 0.0)
+	root.add_child(deck)
+	for wall_x in [-1.55, 1.55]:
+		var parapet := MeshInstance3D.new()
+		var parapet_mesh := BoxMesh.new()
+		parapet_mesh.size = Vector3(0.10, 1.05, 16.0)
+		parapet.mesh = parapet_mesh
+		parapet.material_override = steel
+		parapet.position = Vector3(wall_x, 8.3, 0.0)
+		root.add_child(parapet)
+	for tower_z in [-7.3, 7.3]:
+		for tower_x in [-1.1, 1.1]:
+			var leg := MeshInstance3D.new()
+			var leg_mesh := BoxMesh.new()
+			leg_mesh.size = Vector3(0.42, 7.6, 0.42)
+			leg.mesh = leg_mesh
+			leg.material_override = concrete
+			leg.position = Vector3(tower_x, 3.8, tower_z)
+			root.add_child(leg)
+		var cap := MeshInstance3D.new()
+		var cap_mesh := BoxMesh.new()
+		cap_mesh.size = Vector3(2.7, 0.25, 2.2)
+		cap.mesh = cap_mesh
+		cap.material_override = steel
+		cap.position = Vector3(0.0, 7.85, tower_z)
+		root.add_child(cap)
+
+
+func _build_lamps() -> void:
+	var pole_material := StandardMaterial3D.new()
+	pole_material.albedo_color = Color(0.16, 0.18, 0.20)
+	pole_material.roughness = 0.55
+	pole_material.metallic = 0.6
+	var lamp_material := StandardMaterial3D.new()
+	lamp_material.albedo_color = Color(1.0, 0.86, 0.58)
+	lamp_material.emission_enabled = true
+	lamp_material.emission = Color(1.0, 0.82, 0.5)
+	lamp_material.emission_energy_multiplier = 2.2
+	for module in 5:
+		for side in [-1.0, 1.0]:
+			var pose := _pose(station_distance + module * 10.4 + 5.2, side * 5.6)
+			var base_y := pose.origin.y + 0.55
+			var pole := MeshInstance3D.new()
+			var pole_mesh := CylinderMesh.new()
+			pole_mesh.top_radius = 0.055
+			pole_mesh.bottom_radius = 0.075
+			pole_mesh.height = 3.8
+			pole.mesh = pole_mesh
+			pole.material_override = pole_material
+			add_child(pole)
+			pole.global_position = Vector3(pose.origin.x, base_y + 1.9, pose.origin.z)
+			var head := MeshInstance3D.new()
+			var head_mesh := SphereMesh.new()
+			head_mesh.radius = 0.17
+			head_mesh.height = 0.34
+			head.mesh = head_mesh
+			head.material_override = lamp_material
+			add_child(head)
+			head.global_position = Vector3(pose.origin.x, base_y + 3.85, pose.origin.z)
+			var light := OmniLight3D.new()
+			light.position = Vector3(pose.origin.x, base_y + 3.75, pose.origin.z)
+			light.omni_range = 15.0
+			light.light_energy = 1.1
+			light.light_color = Color(1.0, 0.84, 0.58)
+			light.shadow_enabled = false
+			add_child(light)
+
+
+func _build_station_signs() -> void:
+	for side in [-1.0, 1.0]:
+		var pose := _pose(station_distance + 22.0, side * 4.8)
+		var root := Node3D.new()
+		add_child(root)
+		root.global_position = Vector3(pose.origin.x, pose.origin.y + 3.3, pose.origin.z)
+		root.global_basis = Basis.looking_at(-pose.basis.z * side, pose.basis.y)
+		var board := MeshInstance3D.new()
+		var board_mesh := BoxMesh.new()
+		board_mesh.size = Vector3(4.2, 1.1, 0.12)
+		board.mesh = board_mesh
+		board.material_override = _plain_material(Color(0.92, 0.93, 0.9), 0.6)
+		root.add_child(board)
+		var label := Label3D.new()
+		label.text = "WILDTAL"
+		label.font_size = 160
+		label.pixel_size = 0.0045
+		label.modulate = Color(0.08, 0.14, 0.28)
+		label.outline_size = 0
+		label.position = Vector3(0.0, 0.0, 0.075)
+		root.add_child(label)
+		for post_x in [-1.8, 1.8]:
+			var post := MeshInstance3D.new()
+			var post_mesh := BoxMesh.new()
+			post_mesh.size = Vector3(0.1, 3.3, 0.1)
+			post.mesh = post_mesh
+			post.material_override = _plain_material(Color(0.2, 0.21, 0.22), 0.5, 0.6)
+			post.position = Vector3(post_x, -1.65, -0.02)
+			root.add_child(post)
+
+
+func _build_speed_signs() -> void:
+	for entry in [[130.0, "80"], [260.0, "60"], [390.0, "80"]]:
+		var pose := _pose(entry[0], 5.4)
+		var root := Node3D.new()
+		add_child(root)
+		root.global_position = Vector3(pose.origin.x, pose.origin.y, pose.origin.z)
+		root.global_basis = Basis.looking_at(pose.basis.x, pose.basis.y)
+		var pole := MeshInstance3D.new()
+		var pole_mesh := CylinderMesh.new()
+		pole_mesh.top_radius = 0.045
+		pole_mesh.bottom_radius = 0.06
+		pole_mesh.height = 2.8
+		pole.mesh = pole_mesh
+		pole.material_override = _plain_material(Color(0.55, 0.57, 0.6), 0.45, 0.5)
+		pole.position = Vector3(0.0, 1.4, 0.0)
+		root.add_child(pole)
+		var board := MeshInstance3D.new()
+		var board_mesh := BoxMesh.new()
+		board_mesh.size = Vector3(1.05, 1.05, 0.07)
+		board.mesh = board_mesh
+		board.material_override = _plain_material(Color(0.95, 0.95, 0.93), 0.55)
+		board.position = Vector3(0.0, 2.75, 0.04)
+		root.add_child(board)
+		var label := Label3D.new()
+		label.text = entry[1]
+		label.font_size = 220
+		label.pixel_size = 0.004
+		label.modulate = Color(0.05, 0.05, 0.05)
+		label.position = Vector3(0.0, 2.75, 0.085)
+		root.add_child(label)
+
+
+func _build_mountains() -> void:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.09, 0.15, 0.12)
+	material.roughness = 1.0
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	for index in 26:
+		var angle := index * TAU / 26.0 + 0.23
+		var radius := _rng.randf_range(620.0, 940.0)
+		var height := _rng.randf_range(70.0, 190.0)
+		var base := _rng.randf_range(120.0, 260.0)
+		var cone := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.0
+		mesh.bottom_radius = base
+		mesh.height = height
+		mesh.radial_segments = 7
+		mesh.rings = 1
+		cone.mesh = mesh
+		cone.material_override = material
+		cone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		cone.position = Vector3(cos(angle) * radius, -8.0 + height * 0.5, sin(angle) * radius)
+		add_child(cone)
+
+
+func _plain_material(color: Color, roughness := 0.8, metallic := 0.0) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = roughness
+	material.metallic = metallic
+	return material
+
+
+func _build_wires() -> void:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.16, 0.17, 0.18)
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	var distance := 0.0
+	while distance < _track.length - 6.0:
+		var a := _pose(distance).origin
+		var b := _pose(distance + 6.0).origin
+		for height in [5.55, 6.45]:
+			mesh.surface_add_vertex(a + Vector3.UP * height)
+			mesh.surface_add_vertex(b + Vector3.UP * height)
+		if int(distance / 6.0) % 2 == 0:
+			mesh.surface_add_vertex(a + Vector3.UP * 5.55)
+			mesh.surface_add_vertex(a + Vector3.UP * 6.45)
+		distance += 6.0
+	mesh.surface_end()
+	var instance := MeshInstance3D.new()
+	instance.name = "CatenaryWires"
+	instance.mesh = mesh
+	add_child(instance)
+
+
+func _scatter_trees() -> void:
+	for index in tree_count:
+		var distance := _rng.randf_range(6.0, _track.length - 6.0)
+		var side := -1.0 if _rng.randf() < 0.5 else 1.0
+		var offset := _rng.randf_range(11.0, 62.0)
+		var pose := _pose(distance, side * offset)
+		if absf(pose.origin.x) > 238.0 or absf(pose.origin.z) > 238.0:
+			continue
+		var ground := 0.0
+		if is_instance_valid(_terrain):
+			ground = _terrain.height_at(pose.origin.x, pose.origin.z)
+		if ground < -2.0:
+			continue
+		var asset: String = TREES[_rng.randi_range(0, TREES.size() - 1)]
+		var tree := _spawn(asset, pose, _rng.randf_range(0.75, 1.35))
+		if tree == null:
+			continue
+		tree.rotation.y = _rng.randf_range(0.0, TAU)
+		_place_on_ground(tree)
+		_tree_roots.append(tree)
+
+		for extra in _rng.randi_range(0, 2):
+			var bush_pose := _pose(distance + _rng.randf_range(-6.0, 6.0), side * (offset + _rng.randf_range(1.0, 4.0)))
+			var bush := _spawn("res://assets/models/trees/bush.glb", bush_pose, _rng.randf_range(0.7, 1.5))
+			if bush:
+				_place_on_ground(bush)

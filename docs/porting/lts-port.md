@@ -32,21 +32,42 @@ be required for parse tests or core operation.
 | `godot/Data/Scripts/Rail.gd` | Replace the Godot 3 global singleton reference with a runtime root lookup and retain Godot 4-compatible rail construction | Autoload access in headless `--script` tests |
 | `godot/Data/Scripts/world_object.gd` | Resolve global helpers through the scene tree instead of relying on editor-only autoload identifiers | Autoload access in headless `--script` tests |
 | `godot/addons/godot-mqtt/mqtt.gd` | Add `class_name MQTTClient`; source and pin recorded with MIT license | Script otherwise unavailable as a named global class |
-| `godot/src/{ltstrack,ltstrain,lts_world}.gd` | Compose an LTS `Rail` track with a procedural articulated train, LTS unit conversion, speed controls, and follow camera | Small runnable Godot 4 scene without the ignored upstream asset pack |
+| `godot/src/{ltstrack,ltstrain,lts_world}.gd` | Compose an LTS `Rail` track, load the curated LTS wagon GLBs when present (procedural fallback), and add LTS unit conversion, speed controls, and follow camera | Runnable Godot 4 scene without the ignored upstream asset pack |
 | `godot/src/mqtt_bridge.gd` | Load broker settings from local config, queue subscriptions, validate JSON-object messages, and retry failed connections with bounded exponential backoff | Overlay MQTT connection lifecycle |
 | `godot/src/train_reconciler.gd` | Consume backend signal, speed, and command schemas and write only through `LTSTrain.set_target_speed_kmh()`; subscribe only to topics allowed by the Godot broker ACL | Keep train safety targets synchronized without subscribing to the backend-only `railway/state` topic |
 | `godot/src/wildlife_publisher.gd` | Publish changed wildlife observations on the zone wildlife topic | Twin-to-backend wildlife observations |
-| `godot/src/{detection_band,wildlife_spawner}.gd` | Give procedural wildlife collision areas and publish matching-species entry/exit counts | Runtime detection without external animal assets |
-| `godot/scenes/lts_minimal.tscn` | Compose LTS track/train, follow camera, MQTT bridge, safety reconciler, procedural terrain, wildlife detector, bridge, and underpass | Runnable Godot 4 LTS-led simulation scene |
+| `godot/src/{detection_band,wildlife_spawner}.gd` | Spawn Blender deer/elephant GLBs with articulated gait, fall back to capsules, and publish matching-species entry/exit counts | Runtime detection with or without asset packs |
+| `godot/scenes/lts_full.tscn` | Full-scale scene: LTS track/train, station, buildings, catenary, procedural terrain, wildlife, safety, cameras, and HUD. Renamed from `lts_minimal.tscn` | Runnable Godot 4 LTS-led simulation scene |
+| `godot/src/{scenery_director,animal_visual,terrain_generator}.gd` | Populate the station (canopies, footbridge, lamps, signs), tree line, wires and foothills; animate animal limbs; flatten/generate terrain around the curve | Full-scale presentation without hand-placed editor content |
+
+## Curated Blender exports
+
+`tools/export_lts_assets.sh` runs Blender headless against the upstream
+`.blend` library and writes texture-size-capped GLBs to
+`godot/assets/models/lts/`. The passenger wagon and driver-stand EMU use the
+detailed (non-baked) material variants because the upstream baked textures were
+not included in the snapshot. `tools/build_animals.py` and
+`tools/build_trees.py` generate the deer/elephant and foliage models with
+separate limb/joint origins; `godot/src/animal_visual.gd` animates the limbs.
+
+The curated GLBs are tracked (about 16 MB); Godot's extracted sidecar PNGs,
+`.import` files, and `.uid` files are ignored. Regenerate with Blender 4.x:
+
+```bash
+bash tools/export_lts_assets.sh      # train, station, scenery
+blender -b -P tools/build_animals.py # deer + elephant
+blender -b -P tools/build_trees.py   # oak, pine, birch, bush
+```
 
 ## Validation scope
 
 `bash godot/tests/run_tests.sh` imports the Godot project and runs the parse,
-port-helper, LTS scene/motion, MQTT reconnect, backend-schema reconciliation,
-wildlife publishing, end-to-end safety, and camera/day-night tests. A live bridge smoke check also connected to the
-local broker and published a wildlife payload.
+port-helper, LTS full-scene/motion, real-model, MQTT reconnect,
+backend-schema reconciliation, wildlife publishing, end-to-end safety,
+cinematic-reel, and camera/day-night tests (12 suites). A live bridge smoke
+check also connected to the local broker and published a wildlife payload.
 
-`godot/scenes/lts_minimal.tscn` is the project startup scene; the former
+`godot/scenes/lts_full.tscn` is the project startup scene; the former
 procedural demo remains available at `godot/scenes/procedural_twin.tscn`.
 Godot's 3-to-4 editor conversion was tested in an isolated scratch project.
 Some upstream scenes remain `format=2`: two chunk prefab scenes are absent from
@@ -60,8 +81,9 @@ procedural fallbacks instead.
 - The upstream checkout (`Libre-TrainSim-master/`, ~1.5 GB), its asset tree
   (`godot/Resources/`, ~678 MB) and the train models (`godot/Trains/`,
   ~141 MB) are local-only and ignored by git.
-- Tracked tree size after cleanup: ~7.7 MB (`git ls-files -z | xargs -0 du -ch`).
-- Generated Godot `.uid` files are ignored; no `.import`, `.godot/`, or
-  upstream binaries are tracked.
+- Curated exports (`godot/assets/models/`, ~16 MB) are tracked; the upstream
+  checkout and the full texture tree remain ignored.
+- Generated Godot `.uid`, `.import`, `.godot/`, and extracted sidecar textures
+  (`assets/models/lts/*.png`) are ignored.
 - Runtime paths fall back to procedural geometry when the optional LTS assets
   are absent.

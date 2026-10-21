@@ -7,7 +7,7 @@ A runnable digital twin integrating a Godot 4 3D forest railway, trusted Node.js
 - **Mosquitto broker (TCP 1883 / WS 9001):** `allow_anonymous false` with per-client credentials (`godot`, `esp32`, `backend`, `dashboard`) and topic ACLs.
 - **Node.js backend (trusted control plane):** Authenticates users via bcrypt & JWT, enforces RBAC (`viewer`, `operator`, `admin`), validates command envelopes, prevents command replay via SQLite registry, logs audit events, manages a two-zone state machine (`zone1`, `zone2`), and is the **sole publisher** of commands, state snapshots, and alerts.
 - **React dashboard:** Authenticated web interface. Viewers can monitor state; operators can issue control commands; admins can inspect audit logs. Control actions flow through REST + JWT; dashboard reads live updates via WebSocket.
-- **Godot twin:** 3D procedural railway world with curved movement, animated train/wildlife, dynamic signals, barriers, and cameras. Subscribes to commands and reports zone telemetry.
+- **Godot twin:** full-scale 3D railway world with LTS-derived Blender train/station/scenery models, animated wildlife, catenary, dynamic signals, barriers, and cameras. Subscribes to commands and reports zone telemetry.
 - **ESP32 controller:** Authenticated MQTT IoT node providing edge sensing and restrictive signal fail-safe outputs.
 
 > **Safety:** this is a classroom digital-twin simulation, not railway safety equipment. Do not connect it to real signalling, trains, or operational infrastructure. “Stopping distance” is a visualization estimate only.
@@ -40,7 +40,7 @@ A runnable digital twin integrating a Godot 4 3D forest railway, trusted Node.js
      - `viewer` / `viewer-dev-pass`
      - `operator` / `operator-dev-pass`
      - `admin` / `admin-dev-pass`
-5. Launch Godot and run `godot/project.godot` if you are validating the twin view.
+5. Launch Godot and run `godot/project.godot` if you are validating the twin view. The startup scene is `godot/scenes/lts_full.tscn`; press `B` for the cinematic reel, `C` to cycle cameras, and `SPACE` to trigger a deer crossing.
 
 ## Operational commands
 

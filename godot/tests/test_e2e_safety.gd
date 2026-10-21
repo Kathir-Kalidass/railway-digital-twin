@@ -7,7 +7,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var a := Assert.new()
-	var scene: Node3D = load("res://scenes/lts_minimal.tscn").instantiate()
+	var scene: Node3D = load("res://scenes/lts_full.tscn").instantiate()
 	var bridge := scene.get_node("MQTTBridge") as MQTTBridge
 	bridge.connect_on_ready = false
 	root.add_child(scene)

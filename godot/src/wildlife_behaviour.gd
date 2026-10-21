@@ -33,10 +33,10 @@ func trigger_crossing(species_name: String) -> void:
 	if randf() < prefer_underpass and underpass_path:
 		var up = get_node_or_null(underpass_path)
 		if up:
-			animal.global_transform.origin = up.global_transform.origin + Vector3(0, 0.5, -10)
+			animal.global_transform.origin = up.global_transform.origin + Vector3(0, 0.0, -10)
 			animal.look_at(up.global_transform.origin + Vector3(0, 0.5, 0))
 			_active_animals.append(animal)
 		return
-	animal.global_transform.origin = Vector3(randf_range(-10, 10), 0.5, -crossing_zone_distance/2)
+	animal.global_transform.origin = Vector3(randf_range(-10, 10), 0.0, -crossing_zone_distance/2)
 	animal.rotation.y = deg_to_rad(180)
 	_active_animals.append(animal)

@@ -7,13 +7,14 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var a := Assert.new()
-	var scene: Node3D = load("res://scenes/lts_minimal.tscn").instantiate()
+	var scene: Node3D = load("res://scenes/lts_full.tscn").instantiate()
 	scene.get_node("MQTTBridge").connect_on_ready = false
 	root.add_child(scene)
 	await process_frame
 	await process_frame
 
 	var train := scene.get_node("Train") as Node3D
+	var locomotive := train.get_child(0) as Node3D
 	var director := scene.get_node("CameraDirector") as CameraDirector
 	var follow := scene.get_node("FollowCamera") as Camera3D
 	a.ok(director != null, "camera director is part of the scene")
@@ -25,7 +26,7 @@ func _run() -> void:
 	var cab := director.current_camera()
 	a.eq(director.mode_name(), "cab", "cycles to the cab camera")
 	a.ok(cab.current, "cab camera becomes active")
-	a.ok(cab.global_position.distance_to(train.global_position) < 8.0,
+	a.ok(cab.global_position.distance_to(locomotive.global_position) < 12.0,
 		"cab camera rides with the train")
 
 	director.cycle()
@@ -34,7 +35,7 @@ func _run() -> void:
 	var drone := director.current_camera()
 	a.eq(director.mode_name(), "drone", "cycles to the drone camera")
 	a.ok(drone.current, "drone camera becomes active")
-	a.ok(drone.global_position.distance_to(train.global_position) > 10.0,
+	a.ok(drone.global_position.distance_to(locomotive.global_position) > 10.0,
 		"drone camera orbits away from the train")
 
 	director.cycle()

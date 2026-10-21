@@ -2,7 +2,7 @@ extends SceneTree
 
 func _initialize() -> void:
 	var a := Assert.new()
-	var packed: PackedScene = load("res://scenes/lts_minimal.tscn")
+	var packed: PackedScene = load("res://scenes/lts_full.tscn")
 	a.ok(packed != null, "minimal LTS scene loads")
 	if packed == null:
 		quit(a.report("test_scene_load"))

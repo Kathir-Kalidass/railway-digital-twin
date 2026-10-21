@@ -6,6 +6,10 @@ extends Node3D
 @export var acceleration_mps2 := 0.45
 @export var service_brake_mps2 := 0.7
 @export var emergency_brake_mps2 := 1.1
+@export var use_lts_models := true
+
+const LTS_LOCOMOTIVE := "res://assets/models/lts/wagon_locomotive.glb"
+const LTS_PASSENGER := "res://assets/models/lts/wagon_passenger.glb"
 
 var _target_speed_mps := 0.0
 var _speed_mps := 0.0
@@ -14,6 +18,7 @@ var _carriages: Array[Node3D] = []
 var _wheels: Array[MeshInstance3D] = []
 var _track: LTSTrack
 var _lts_math: Node
+var uses_lts_models := false
 
 func set_target_speed_kmh(speed_kmh: float) -> void:
 	var limit := 120.0
@@ -46,6 +51,7 @@ func _ready() -> void:
 	_track_position_m = clampf(initial_position_m, 0.0, _track.length)
 	_build_train()
 	_update_train_pose()
+	_fit_lts_models()
 
 
 func _exit_tree() -> void:
@@ -89,7 +95,75 @@ func _build_train() -> void:
 		carriage.name = ["Locomotive", "PassengerCoach1", "PassengerCoach2"][index]
 		add_child(carriage)
 		_carriages.append(carriage)
-		_build_carriage(carriage, colors[index], index == 0)
+		if not _build_lts_carriage(carriage, index == 0):
+			_build_carriage(carriage, colors[index], index == 0)
+
+
+func _build_lts_carriage(parent: Node3D, locomotive: bool) -> bool:
+	if not use_lts_models:
+		return false
+	var path := LTS_LOCOMOTIVE if locomotive else LTS_PASSENGER
+	if not FileAccess.file_exists(path):
+		return false
+	var packed := load(path) as PackedScene
+	if packed == null:
+		return false
+	var model := packed.instantiate() as Node3D
+	if model == null:
+		return false
+	model.name = "LTSModel"
+	parent.add_child(model)
+	if locomotive:
+		for side in [-0.85, 0.85]:
+			var headlight := SpotLight3D.new()
+			headlight.position = Vector3(8.1, 1.6, side)
+			headlight.rotation.y = -PI * 0.5
+			headlight.spot_range = 60.0
+			headlight.spot_angle = 26.0
+			headlight.light_energy = 2.2
+			headlight.light_color = Color(1.0, 0.93, 0.8)
+			headlight.shadow_enabled = false
+			parent.add_child(headlight)
+	for offset in [-4.0, 4.0]:
+		var cabin := OmniLight3D.new()
+		cabin.position = Vector3(offset, 2.6, 0.0)
+		cabin.omni_range = 5.5
+		cabin.light_energy = 0.35
+		cabin.light_color = Color(1.0, 0.86, 0.64)
+		cabin.shadow_enabled = false
+		parent.add_child(cabin)
+	uses_lts_models = true
+	return true
+
+
+func _fit_lts_models() -> void:
+	for carriage in _carriages:
+		var model := carriage.get_node_or_null("LTSModel") as Node3D
+		if model == null:
+			continue
+		var box := _local_aabb(carriage, model)
+		if box.size == Vector3.ZERO:
+			continue
+		model.position = Vector3(-box.get_center().x, -box.position.y, -box.get_center().z)
+
+
+func _local_aabb(parent: Node3D, model: Node3D) -> AABB:
+	var result := AABB()
+	var found := false
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		var relative := parent.global_transform.affine_inverse() * mesh_instance.global_transform
+		var box := mesh_instance.get_aabb()
+		for index in 8:
+			var point := relative * box.get_endpoint(index)
+			if not found:
+				result = AABB(point, Vector3.ZERO)
+				found = true
+			else:
+				result = result.expand(point)
+	return result
 
 
 func _build_carriage(parent: Node3D, body_color: Color, locomotive: bool) -> void:
