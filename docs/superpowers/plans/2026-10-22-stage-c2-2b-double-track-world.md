@@ -36,7 +36,7 @@
 - Consumes: `LTSTrack` (`godot/src/ltstrack.gd`, extends `Rail`), existing `Track` node in `lts_full.tscn`.
 - Produces: `TrackRegistry` with `track(line_id: String) -> LTSTrack`, `tracks() -> Array[LTSTrack]`, `line_ids() -> PackedStringArray`, `length_m(line_id: String) -> float`, `first() -> LTSTrack`; scene nodes `InnerTrack` and `TrackRegistry`. Later tasks resolve `DOWN` through `registry.track("DOWN")`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `godot/tests/test_track_registry.gd`:
 
@@ -84,13 +84,13 @@ func _run() -> void:
 
 In `godot/tests/test_parse.gd`, add `"res://src/track_registry.gd",` after the `ltstrack.gd` entry.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -E "test_track_registry|TrackRegistry"`
 
 Expected: FAIL — `TrackRegistry` class does not exist (parse error for the test script), and `scene.get_node_or_null("TrackRegistry")` is null.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `godot/src/track_registry.gd`:
 
@@ -167,13 +167,13 @@ up_path = NodePath("../Track")
 down_path = NodePath("../InnerTrack")
 ```
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `17` (16 existing + `test_track_registry`); no `FAIL` lines.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/track_registry.gd godot/scenes/lts_full.tscn godot/tests/test_track_registry.gd godot/tests/test_parse.gd
@@ -194,7 +194,7 @@ git commit -m "feat(godot): add inner down track and track registry"
 
 Rationale: a 15 m radius around the UP centre line already reaches the DOWN rails, so flatness alone cannot fail before this change. The two-track corridor therefore uses a tighter radius `9.0` sampled from **both** centre lines (a ~22 m corridor), which stops the terrain from mutilating a 30 m-wide swath while still covering both tracks. The tests use a new `is_flattened(x, z)` query to pin the corridor edges: points under either loop and in the mid-corridor are flattened, points 12 m outside the outer rail are not. There is no ballast mesh in this project; the flattened corridor plus sleepers is the visual base.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `godot/tests/test_corridor_flatten.gd`:
 
@@ -240,13 +240,13 @@ func _run() -> void:
 	quit(a.report("test_corridor_flatten"))
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -A4 "test_corridor_flatten"`
 
 Expected: FAIL — `is_flattened` does not exist, and the 12 m corridor-edge assertion would fail against the old 15 m radius.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `godot/src/terrain_generator.gd`:
 1. Replace `@export var flatten_radius := 15.0` with `@export var flatten_radius := 9.0`.
@@ -289,13 +289,13 @@ func _resolve_tracks() -> Array[LTSTrack]:
 	return result
 ```
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `18` (17 + `test_corridor_flatten`); existing `test_river_bridges` and `test_real_assets` still PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/terrain_generator.gd godot/tests/test_corridor_flatten.gd
@@ -315,7 +315,7 @@ git commit -m "feat(godot): flatten terrain corridor across both tracks"
 - Consumes: `LTSTrack` poses (`get_global_transform_at_distance`), existing `RailwayBridgeA/B` nodes at fractions `0.25`/`0.75` on `Track`.
 - Produces: `RailwayBridge` default `width_m = 12.0`; child nodes named `Deck` (BoxMesh `span_m × 0.42 × width_m`) and `Pier` (4 per bridge). Deck half-width `6.0 m` covers the DOWN centre line at lateral `-4.0 m`; piers at lateral `±5.4 m` clear both centre lines by ≥ `1.25 m`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `godot/tests/test_river_bridges.gd` before `scene.queue_free()`:
 
@@ -377,13 +377,13 @@ func _world_aabb(root: Node3D) -> AABB:
 
 Note: `_world_aabb(deck)` handles the deck root itself (a `MeshInstance3D`, which `find_children` excludes) and computes its world AABB; `deck_box.has_point(up_point + Vector3(0,-0.5,0))` works because the deck's top face is at local `y = -0.29` and the box spans `y ∈ [-0.71, -0.29]` (plus pose origin).
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep "test_river_bridges"`
 
 Expected: FAIL — `Bridge has a named deck` (node is anonymous), and the DOWN support assertion fails with the current 6 m deck.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `godot/src/railway_bridge.gd`:
 1. Change `@export var width_m := 6.0` to `@export var width_m := 12.0`.
@@ -410,13 +410,13 @@ In `godot/src/railway_bridge.gd`:
 
 (Only the `name` assignments and `0.32` → `0.45` change; the rest of the mesh construction stays identical.)
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `18` (no new file; `test_river_bridges` still one PASS). No FAIL lines.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/railway_bridge.gd godot/tests/test_river_bridges.gd
@@ -436,7 +436,7 @@ git commit -m "feat(godot): widen river bridges across both tracks"
 - Consumes: `TrackRegistry.tracks()` via `../../TrackRegistry`; existing `LevelCrossing` API (`distance_m`, `set_alarm`, `is_alarm_active`, `is_barrier_down`, `get_crossing_point`).
 - Produces: `LevelCrossing` also exposes `get_crossing_points() -> Array[Vector3]` (UP first), builds a named `Pad` centred between the tracks, and two named `BarrierSet0`/`BarrierSet1` structures (one per approach side) whose `BarrierPivot` stands outside both tracks (corridor centre ± `6.0 m`). Existing single-track API and behaviour are unchanged, so `test_wildlife_safety`, `test_esp32_integration`, and `capture_scene.gd` keep working.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `godot/tests/test_level_crossing_two_track.gd`:
 
@@ -512,13 +512,13 @@ func _world_aabb(root: Node3D) -> AABB:
 	return result
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -A2 "test_level_crossing_two_track"`
 
 Expected: FAIL — `get_crossing_points` does not exist (`Invalid call`), and the pad node is anonymous.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `godot/src/level_crossing.gd`:
 1. Add exports and state:
@@ -722,13 +722,13 @@ track_paths = [NodePath("../../Track"), NodePath("../../InnerTrack")]
 distance_m = 260.0
 ```
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `19` (18 + `test_level_crossing_two_track`). `test_wildlife_safety` (animal on `get_crossing_point()` triggers STOP and barrier) and `test_esp32_integration` still PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/level_crossing.gd godot/scenes/world_wildlife.tscn godot/tests/test_level_crossing_two_track.gd
@@ -747,7 +747,7 @@ git commit -m "feat(godot): cover both tracks at the level crossing"
 - Consumes: `TrackRegistry`/`InnerTrack` from Task 1; `LTSTrack` poses.
 - Produces: `SceneryDirector` gains `@export var registry_path: NodePath = NodePath("../TrackRegistry")`, `@export var inner_track_path: NodePath = NodePath("../InnerTrack")`, `@export var station_module_spacing := 9.6`, `@export var station_modules := 5`; `station_distance` default becomes `322.0` (UP distance of the first module). Nodes named `Platform0`…`Platform4`, each centred between the rails, scaled so lateral half-width ≤ `1.1 m`. `_pose_pair(up_distance)` returns `{"up": Transform3D, "down": Transform3D, "mid": Transform3D}`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `godot/tests/test_station_island.gd`:
 
@@ -818,13 +818,13 @@ func _world_aabb(root: Node3D) -> AABB:
 	return result
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -A2 "test_station_island"`
 
 Expected: FAIL — `Platform0` is null (modules are anonymous and placed on both sides of the UP track at `station_distance = 70`).
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `godot/src/scenery_director.gd`:
 1. Replace the export block with:
@@ -1067,13 +1067,13 @@ func _build_station_signs() -> void:
 			root.add_child(post)
 ```
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `20` (19 + `test_station_island`). `test_real_assets` (`scenery.get_child_count() > 80`) still PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/scenery_director.gd godot/tests/test_station_island.gd
@@ -1092,7 +1092,7 @@ git commit -m "feat(godot): island station inside block B2"
 - Consumes: `_pose_pair()` from Task 5.
 - Produces: `SceneryDirector` gains `@export var crossover_a_up_distance := 312.0` and `@export var crossover_b_up_distance := 434.0`; nodes `CrossoverA`/`CrossoverB` (`Node3D`, metadata `up_distance`/`down_distance`, child `Blades` with ≥ 2 boxes). Each crossover is a lateral track segment centred between the rails: its local Z spans `4.0 m` so its endpoints are exactly on both centre lines.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `godot/tests/test_station_crossovers.gd`:
 
@@ -1154,13 +1154,13 @@ func _run() -> void:
 	quit(a.report("test_station_crossovers"))
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -A2 "test_station_crossovers"`
 
 Expected: FAIL — `CrossoverA exists` fails (node absent).
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `godot/src/scenery_director.gd`:
 
@@ -1236,13 +1236,13 @@ func _build_crossover(node_name: String, up_distance: float) -> void:
 
 Note: `pair["mid"].basis` equals the UP pose basis because the matched-angle DOWN pose has the same Y rotation; `basis.z` points outward, so local `+Z` reaches the UP centre line at `+2` and local `-Z` reaches the DOWN centre line at `-2`. The switch blades sit at the DOWN end (`z = -2.0`).
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `21` (20 + `test_station_crossovers`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/scenery_director.gd godot/tests/test_station_crossovers.gd
@@ -1261,7 +1261,7 @@ git commit -m "feat(godot): visible station crossover pair"
 - Consumes: `_inner_track()` from Task 5; `TrackRegistry` tracks.
 - Produces: SceneryDirector exposes `tree_roots() -> Array[Node3D]`; wire nodes `CatenaryWiresUP` and `CatenaryWiresDOWN` (each a `MeshInstance3D` with a line mesh at heights `5.55`/`6.45` above its track). Tree placement minimum offset rises from `11.0` to `12.0 m` so no tree is within `5 m` of either centre line.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `godot/tests/test_catenary_double.gd`:
 
@@ -1323,13 +1323,13 @@ func _mesh_has_vertex_near(mesh: Mesh, target: Vector3, tolerance: float) -> boo
 	return false
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -A2 "test_catenary_double"`
 
 Expected: FAIL — `CatenaryWiresUP exists` and `CatenaryWiresDOWN exists` fail (`CatenaryWires` is the only wire node today), and `tree_roots()` does not exist.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `godot/src/scenery_director.gd`:
 1. Replace `_build_wires()` with a per-track builder and keep the name `CatenaryWiresUP` for the outer loop:
@@ -1375,13 +1375,13 @@ func tree_roots() -> Array[Node3D]:
 	return _tree_roots
 ```
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `22` (21 + `test_catenary_double`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/scenery_director.gd godot/tests/test_catenary_double.gd
@@ -1401,7 +1401,7 @@ git commit -m "feat(godot): catenary over both tracks and tree clearance"
 - Consumes: everything from Tasks 1–7; existing `capture_scene.gd` conventions (`RenderingServer.force_draw`, `root.get_texture().get_image().save_png`).
 - Produces: `/tmp/opencode/double_track_overview.png`; an acceptance-doc section "Stage 2B double-track world verification (2026-10-22)".
 
-- [ ] **Step 1: Create the capture script**
+- [x] **Step 1: Create the capture script**
 
 Create `godot/tests/capture_double_track.gd`:
 
@@ -1437,13 +1437,13 @@ func _run() -> void:
 	quit()
 ```
 
-- [ ] **Step 2: Run the full Godot suite**
+- [x] **Step 2: Run the full Godot suite**
 
 Run: `bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"`
 
 Expected: `22`; then `bash godot/tests/run_tests.sh 2>&1 | grep -c FAIL` → `0`.
 
-- [ ] **Step 3: Run the backend and ESP32 regression**
+- [x] **Step 3: Run the backend and ESP32 regression**
 
 Run: `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test 2>&1 | grep -E "^ℹ (tests|pass|fail)"` with the disposable broker (`docker run -d --rm --name rdt-test-mqtt -p 127.0.0.1:1884:1883 -v "$PWD/mosquitto:/mosquitto/config:ro" eclipse-mosquitto:2`).
 
@@ -1453,13 +1453,13 @@ Then run: `cd esp32 && pio test -e native 2>&1 | tail -2 && pio run -e esp32dev 
 
 Expected: `14 test cases: 14 succeeded` and `esp32dev SUCCESS`.
 
-- [ ] **Step 4: Capture the double-track overview and inspect it**
+- [x] **Step 4: Capture the double-track overview and inspect it**
 
 Run: `xvfb-run -a /home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64 --path godot --resolution 1280x720 --rendering-method gl_compatibility --script res://tests/capture_double_track.gd`
 
 Expected: `/tmp/opencode/double_track_overview.png` exists and is non-zero. Read the PNG and confirm both concentric loops are continuous, the island station sits between them at the top of the ring, the crossover segments are visible near the station, both bridges cross the river, and no terrain gap is visible under either rail.
 
-- [ ] **Step 5: Update the acceptance doc**
+- [x] **Step 5: Update the acceptance doc**
 
 Add to `docs/porting/acceptance.md`, after the Stage 2A section:
 
@@ -1485,7 +1485,7 @@ station crossover pair, widened river bridges, and a two-track level crossing.
 Signal masts, remote fleet rendering, and meet/pass remain in slices 2C–2D.
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add godot/tests/capture_double_track.gd docs/porting/acceptance.md
