@@ -31,7 +31,7 @@
 - Consumes: `LTSTrack.get_global_transform_at_distance(distance) -> Transform3D`; existing `_spawn`, `_align_bottom`, `_world_aabb`.
 - Produces: `SceneryDirector.PLATFORM_LENGTH_M = 9.6`, `PLATFORM_WIDTH_M = 2.2`, `PLATFORM_TOP_M = 0.55`, `PLATFORM_BOTTOM_M = -1.25`; `_place_platform_module(mid: Transform3D) -> Node3D`; `_local_mesh_aabb(root: Node3D) -> AABB`. Task 2 (captures) and later 2C–2D slices rely on `Platform0..4` world transforms staying at rail level +0.55.
 
-- [ ] **Step 1: Write the failing test assertions**
+- [x] **Step 1: Write the failing test assertions**
 
 Append to `_run()` in `godot/tests/test_station_island.gd`, directly before `scene.queue_free()`:
 
@@ -103,13 +103,13 @@ func _world_aabb_in(root: Node3D, transform: Transform3D) -> AABB:
 	return result
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `timeout 90 /home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --script res://tests/test_station_island.gd 2>&1 | grep -E "^(PASS|FAIL)" | sort | uniq -c`
 
 Expected: `FAIL test_station_island`, with failures like "module 0 is 9.6 m long", "module 0 top rests at 0.55 m", "bench rests on a platform top".
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `godot/src/scenery_director.gd`:
 
@@ -202,14 +202,14 @@ Also give the fixtures deterministic names, because Godot replaces the second du
 				_align_bottom(bin, mid.origin.y + platform_top)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `timeout 90 /home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --script res://tests/test_station_island.gd 2>&1 | grep -E "^(PASS|FAIL)"`
 Expected: `PASS test_station_island`
 
 Then run: `timeout 420 bash godot/tests/run_tests.sh 2>&1 | grep -cE "^PASS"` → `22`, and `... | grep -c FAIL` → `0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add godot/src/scenery_director.gd godot/tests/test_station_island.gd
@@ -228,7 +228,7 @@ git commit -m "fix(godot): deterministic island platform placement"
 - Consumes: `Platform0..4` from Task 1; existing capture conventions (`RenderingServer.force_draw`, `root.get_texture().get_image().save_png`).
 - Produces: `/tmp/opencode/platform_after_topdown.png`, `/tmp/opencode/platform_after_oblique.png`.
 
-- [ ] **Step 1: Create the capture script**
+- [x] **Step 1: Create the capture script**
 
 Create `godot/tests/capture_station.gd`:
 
@@ -271,13 +271,13 @@ func _run() -> void:
 	quit()
 ```
 
-- [ ] **Step 2: Capture and inspect**
+- [x] **Step 2: Capture and inspect**
 
 Run: `timeout 180 xvfb-run -a /home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64 --path godot --resolution 1280x720 --rendering-method gl_compatibility --script res://tests/capture_station.gd`
 
 Expected: both PNGs exist and are non-zero. Inspect: five identical modules forming one continuous island with a level top; benches, bins and sign posts resting on the deck; no module crossing a rail.
 
-- [ ] **Step 3: Update the acceptance doc**
+- [x] **Step 3: Update the acceptance doc**
 
 In `docs/porting/acceptance.md`, extend the Stage 2B "Island station" row to read:
 
@@ -285,7 +285,7 @@ In `docs/porting/acceptance.md`, extend the Stage 2B "Island station" row to rea
 | Island station | `test_station_island.gd`: five identical 9.6 × 1.8 × 2.2 m modules centred between the rails inside `UP-B2`/`DOWN-B2`, tops level at +0.55 m, benches/bins on the deck (`2B.1`); captures `platform_after_topdown.png`, `platform_after_oblique.png` |
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add godot/tests/capture_station.gd docs/porting/acceptance.md
