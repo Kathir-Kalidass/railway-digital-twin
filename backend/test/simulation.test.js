@@ -43,6 +43,18 @@ test('RED aspect ahead holds the train', () => {
   assert.ok(t.targetSpeedKmh < 40);
 });
 
+test('a train does not treat its own overlapping consist as a RED block', () => {
+  const topo = buildTopology(config);
+  const t = train({ block: 'UP-B0', offsetM: 290, speedKmh: 40, lengthM: 60 });
+  occupyBlocks(topo, [t]);
+  const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones: zones(), lookaheadBlocks: 2 });
+  assert.equal(topo.blocks.find((b) => b.id === 'UP-B1').occupiedBy, 'T1');
+  assert.equal(aspects['UP-B1'], 'RED');
+  stepTrains({ topology: topo, simulation: sim, zones: zones(), trains: [t], dtSec: 1, aspects });
+  assert.ok(t.speedKmh > 0);
+  assert.equal(t.block, 'UP-B1');
+});
+
 test('holds the train at the boundary of a RED block instead of entering it', () => {
   const topo = buildTopology(config);
   const t = train({ block: 'UP-B0', offsetM: 290, speedKmh: 80 });

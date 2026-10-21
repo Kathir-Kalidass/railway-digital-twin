@@ -24,11 +24,13 @@ function permittedTarget({ topology, simulation, zones, aspects, t }) {
   const line = topology.lines.find((l) => l.id === t.line);
   const idx = line.blocks.indexOf(t.block);
   const nextId = line.blocks[(idx + 1) % line.blocks.length];
+  const nextBlock = topology.blocks.find((b) => b.id === nextId);
   const zone = zones[t.zone];
   const base = t.commandedSpeedKmh != null ? t.commandedSpeedKmh : (zone ? zone.targetSpeedKmh : simulation.defaultTargetSpeedKmh);
   let target = base;
   const nextAspect = aspects ? aspects[nextId] : 'GREEN';
-  if (nextAspect === 'RED') target = 0;
+  const ownConsist = nextBlock && nextBlock.occupiedBy === t.id;
+  if (nextAspect === 'RED' && !ownConsist) target = 0;
   else if (nextAspect === 'YELLOW') target = Math.min(target, simulation.cautionSpeedKmh);
   return target;
 }
@@ -54,7 +56,8 @@ export function stepTrains({ topology, simulation, zones, trains, dtSec, aspects
       const room = cur.lengthM - t.offsetM;
       const nextIdx = (cur.index + 1) % line.blocks.length;
       const nextId = line.blocks[nextIdx];
-      if (advance >= room && aspects && aspects[nextId] === 'RED') {
+      const nextBlock = topology.blocks.find((b) => b.id === nextId);
+      if (advance >= room && aspects && aspects[nextId] === 'RED' && nextBlock?.occupiedBy !== t.id) {
         t.offsetM = cur.lengthM;
         t.speedKmh = 0;
         break;
