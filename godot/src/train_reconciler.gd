@@ -13,11 +13,14 @@ var _wildlife_active := false
 var _sensor_healthy := true
 var _signal_aspect := "GREEN"
 var _current_limit_kmh := 60.0
+var _local_wildlife_limit := -1.0
 
 
 func _ready() -> void:
 	_train = get_node_or_null(train_path) as LTSTrain
 	_bridge = get_node_or_null(bridge_path) as MQTTBridge
+	if is_instance_valid(_train):
+		_current_limit_kmh = maxf(0.0, _train.get_target_speed_kmh())
 	if _bridge:
 		_bridge.message_received.connect(_on_message)
 		_bridge.connected.connect(_subscribe)
@@ -90,8 +93,22 @@ func _recompute() -> void:
 		target_speed = minf(target_speed, max_safe_speed_kmh * 0.5)
 	if _wildlife_active:
 		target_speed = minf(target_speed, wildlife_reduced_speed_kmh)
+	if _local_wildlife_limit >= 0.0:
+		target_speed = minf(target_speed, _local_wildlife_limit)
 	if is_instance_valid(_train):
 		_train.set_target_speed_kmh(target_speed)
+
+
+func set_local_wildlife_limit(limit_kmh: float) -> void:
+	var next_limit := -1.0 if limit_kmh < 0.0 else maxf(0.0, limit_kmh)
+	if is_equal_approx(next_limit, _local_wildlife_limit):
+		return
+	_local_wildlife_limit = next_limit
+	_recompute()
+
+
+func get_local_wildlife_limit() -> float:
+	return _local_wildlife_limit
 
 
 func get_signal_aspect() -> String:
@@ -99,7 +116,11 @@ func get_signal_aspect() -> String:
 
 
 func is_wildlife_active() -> bool:
-	return _wildlife_active
+	return _wildlife_active or _local_wildlife_limit >= 0.0
+
+
+func is_local_wildlife_active() -> bool:
+	return _local_wildlife_limit >= 0.0
 
 
 func is_sensor_healthy() -> bool:

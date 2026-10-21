@@ -1,9 +1,16 @@
 # Stage A2 (S0) — Multi-Train Block Signalling (Backend Extension) Design
 
 Date: 2026-10-19  
-Status: proposed  
+Status: core modules implemented and tested; not yet wired into the live server (Phase 2 completion)
 Parent design: [`2026-10-18-railway-digital-twin-enhancement-design.md`](./2026-10-18-railway-digital-twin-enhancement-design.md)  
-Related designs: [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-c-godot-digital-twin-design.md`](./2026-10-19-stage-c-godot-digital-twin-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md)
+Related designs: [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-c-godot-digital-twin-design.md`](./2026-10-19-stage-c-godot-digital-twin-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md), [`2026-10-21-stage-c2-double-track-multitrain-design.md`](./2026-10-21-stage-c2-double-track-multitrain-design.md)
+
+> **Implementation note (2026-10-21):** `backend/src/railway.js`,
+> `backend/src/signalling.js`, and `backend/src/simulation.js` implement the
+> topology, aspect derivation, occupancy, and fixed-step train motion with
+> passing tests. `state.snapshot()`, the live simulation loop, per-block MQTT
+> topics/ACLs, station crossover/dwell behaviour, and the Godot/dashboard
+> rendering are not yet wired. Phase 2 in the C2 design completes this contract.
 
 > **Safety boundary:** This is an educational digital-twin simulation. The
 > block/occupancy model, signal aspects, timetables, and stopping-distance

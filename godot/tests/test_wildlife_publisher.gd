@@ -10,6 +10,9 @@ class RecordingBridge:
 		sent.append({"topic": topic, "payload": payload})
 		return true
 
+	func is_broker_connected() -> bool:
+		return true
+
 
 func _initialize() -> void:
 	call_deferred("_run")

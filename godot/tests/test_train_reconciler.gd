@@ -59,6 +59,14 @@ func _run() -> void:
 	})
 	a.ok(is_equal_approx(train.get_target_speed_kmh(), 48.0), "resumes to backend target after safe state")
 
+	reconciler.set_local_wildlife_limit(30.0)
+	a.ok(is_equal_approx(train.get_target_speed_kmh(), 30.0), "local wildlife warning caps the target")
+	a.ok(reconciler.is_wildlife_active(), "local wildlife is visible as an active safety state")
+	reconciler.set_local_wildlife_limit(0.0)
+	a.ok(is_equal_approx(train.get_target_speed_kmh(), 0.0), "local wildlife stop overrides the target")
+	reconciler.set_local_wildlife_limit(-1.0)
+	a.ok(is_equal_approx(train.get_target_speed_kmh(), 48.0), "clearing local wildlife resumes the backend target")
+
 	scene.queue_free()
 	await process_frame
 	quit(a.report("test_train_reconciler"))

@@ -4,6 +4,10 @@ class_name TerrainGenerator
 @export var size := 500.0
 @export var height := 10.0
 @export var stream_width := 30.0
+@export var river_z := -120.0
+@export var river_width := 24.0
+@export var river_depth := 3.4
+@export var water_height := -2.0
 @export var seed := 42
 @export var track_path: NodePath
 @export var flatten_radius := 15.0
@@ -20,6 +24,10 @@ func _ready() -> void:
 
 func height_at(x: float, z: float) -> float:
 	var value := _noise.get_noise_2d(x, z) * height
+	var river_edge := absf(z - river_z)
+	if river_edge < river_width * 0.5:
+		var bank := smoothstep(0.0, river_width * 0.5, river_edge)
+		return minf(value, lerpf(-river_depth, -0.35, bank))
 	if z > -stream_width / 2.0 and z < stream_width / 2.0 and x > -size * 0.5 and x < size * 0.5:
 		value = minf(value, -0.5)
 	if _track_samples.is_empty():
@@ -92,3 +100,20 @@ func generate() -> void:
 	ground_material.uv1_scale = Vector3(0.18, 0.18, 0.18)
 	mi.material_override = ground_material
 	add_child(mi)
+	_build_river_water()
+
+
+func _build_river_water() -> void:
+	var water := MeshInstance3D.new()
+	water.name = "RiverWater"
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(size, river_width * 1.02)
+	water.mesh = plane
+	water.position = Vector3(0.0, water_height, river_z)
+	var water_material := StandardMaterial3D.new()
+	water_material.albedo_color = Color(0.07, 0.23, 0.27)
+	water_material.roughness = 0.16
+	water_material.metallic = 0.16
+	water.material_override = water_material
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(water)

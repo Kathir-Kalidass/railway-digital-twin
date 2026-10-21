@@ -1,7 +1,7 @@
 # Stage C — Libre-TrainSim-based Godot 4.7 Wildlife Digital Twin (rewrite)
 
 Date: 2026-10-20
-Status: proposed
+Status: Phase 1 implemented 2026-10-21; Phase 2 proposed
 Parent design: [`2026-10-18-railway-digital-twin-enhancement-design.md`](./2026-10-18-railway-digital-twin-enhancement-design.md)
 Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19-stage-a2-block-signalling-design.md) (paused), [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md) (extended), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md) (extended)
 
@@ -20,6 +20,17 @@ Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19
 > **Safety boundary:** educational simulation only. No visual, MQTT message,
 > signal aspect, or braking estimate is certified railway equipment. Do not
 > connect to live signalling, infrastructure, or rolling stock.
+
+> **Implementation status (2026-10-21):** Phase 1 of this design is implemented
+> in `godot/scenes/lts_full.tscn`: a 753.9822 m closed loop at radius 120 m, a
+> procedural river with a road bridge and two aligned railway bridges, direct
+> visible wildlife crossings at a fixed `LevelCrossing`, a local warn/stop
+> fail-safe layered with the backend reconciler, and two boom barriers.
+> Deviations from the original proposal: wildlife currently uses direct
+> level-crossing crossings only (the underpass remains scenery), and the
+> double-track/crossover design is deferred to the Phase 2 spec
+> (`2026-10-21-stage-c2-double-track-multitrain-design.md`). Verification is
+> recorded in `docs/porting/acceptance.md`.
 
 ## 1. Purpose and outcome
 

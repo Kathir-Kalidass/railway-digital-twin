@@ -3,6 +3,7 @@ extends Node3D
 
 @export var track_path: NodePath = NodePath("../Track")
 @export var initial_position_m := 40.0
+@export var initial_speed_kmh := 54.0
 @export var acceleration_mps2 := 0.45
 @export var service_brake_mps2 := 0.7
 @export var emergency_brake_mps2 := 1.1
@@ -48,7 +49,9 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 
-	_track_position_m = clampf(initial_position_m, 0.0, _track.length)
+	_track_position_m = fposmod(initial_position_m, _track.length)
+	_target_speed_mps = float(_lts_math.call("kmh_to_speed", initial_speed_kmh))
+	_speed_mps = _target_speed_mps
 	_build_train()
 	_update_train_pose()
 	_fit_lts_models()
@@ -67,10 +70,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_speed_mps = move_toward(_speed_mps, target_speed, acceleration_mps2 * delta)
 
-	_track_position_m += _speed_mps * delta
-	if _track_position_m >= _track.length:
-		_track_position_m = _track.length
-		_target_speed_mps = 0.0
+	_track_position_m = fposmod(_track_position_m + _speed_mps * delta, _track.length)
 
 	_update_train_pose()
 	var rotation_delta := (_speed_mps * delta) / 0.48
@@ -80,7 +80,7 @@ func _physics_process(delta: float) -> void:
 
 func _update_train_pose() -> void:
 	for index in _carriages.size():
-		var carriage_distance := maxf(0.0, _track_position_m - index * 18.0)
+		var carriage_distance := fposmod(_track_position_m - index * 18.0, _track.length)
 		_carriages[index].global_transform = _track.get_global_transform_at_distance(carriage_distance)
 
 
