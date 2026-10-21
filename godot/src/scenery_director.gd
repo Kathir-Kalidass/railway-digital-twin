@@ -477,12 +477,19 @@ func _build_wires() -> void:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.16, 0.17, 0.18)
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_build_track_wires(_track, "CatenaryWiresUP", material)
+	var down := _inner_track()
+	if down:
+		_build_track_wires(down, "CatenaryWiresDOWN", material)
+
+
+func _build_track_wires(track: LTSTrack, node_name: String, material: StandardMaterial3D) -> void:
 	var mesh := ImmediateMesh.new()
 	mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
 	var distance := 0.0
-	while distance < _track.length - 6.0:
-		var a := _pose(distance).origin
-		var b := _pose(distance + 6.0).origin
+	while distance < track.length - 6.0:
+		var a := track.get_global_transform_at_distance(distance).origin
+		var b := track.get_global_transform_at_distance(distance + 6.0).origin
 		for height in [5.55, 6.45]:
 			mesh.surface_add_vertex(a + Vector3.UP * height)
 			mesh.surface_add_vertex(b + Vector3.UP * height)
@@ -492,16 +499,20 @@ func _build_wires() -> void:
 		distance += 6.0
 	mesh.surface_end()
 	var instance := MeshInstance3D.new()
-	instance.name = "CatenaryWires"
+	instance.name = node_name
 	instance.mesh = mesh
 	add_child(instance)
+
+
+func tree_roots() -> Array[Node3D]:
+	return _tree_roots
 
 
 func _scatter_trees() -> void:
 	for index in tree_count:
 		var distance := _rng.randf_range(6.0, _track.length - 6.0)
 		var side := -1.0 if _rng.randf() < 0.5 else 1.0
-		var offset := _rng.randf_range(11.0, 62.0)
+		var offset := _rng.randf_range(12.0, 62.0)
 		var pose := _pose(distance, side * offset)
 		if absf(pose.origin.x) > 238.0 or absf(pose.origin.z) > 238.0:
 			continue
