@@ -9,17 +9,21 @@ Educational simulation only; not certified railway equipment.
 
 | Surface | Command | Result |
 |---|---|---|
-| Godot headless | `bash godot/tests/run_tests.sh` | PASS (16 suites) |
+| Godot headless | `bash godot/tests/run_tests.sh` | PASS (28 suites) |
 | ESP32 host logic | `cd esp32 && pio test -e native` | PASS (14 cases) |
 | Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (84 tests) |
 | Web build | `cd web && npm run build` | PASS |
 | ESP32 firmware | `cd esp32 && pio run -e esp32dev` | PASS (1.2 MB image, 87% flash) |
 
-Godot suites: `test_parse`, `test_port_helpers`, `test_scene_load`,
-`test_lts_full_enhance`, `test_mqtt_bridge`, `test_train_reconciler`,
-`test_wildlife_publisher`, `test_e2e_safety`, `test_camera_director`, `test_hud`,
-`test_scenario_director`, `test_real_assets`, `test_train_loop`,
-`test_wildlife_safety`, `test_river_bridges`, `test_esp32_integration`.
+Godot suites (28): `test_camera_director`, `test_catenary_double`,
+`test_corridor_flatten`, `test_crossover_visual`, `test_e2e_safety`,
+`test_esp32_integration`, `test_fleet_controller`, `test_fleet_hud`, `test_hud`,
+`test_level_crossing_two_track`, `test_lts_full_enhance`, `test_meet_scenario`,
+`test_mqtt_bridge`, `test_parse`, `test_port_helpers`, `test_real_assets`,
+`test_river_bridges`, `test_scenario_director`, `test_scene_load`,
+`test_signal_masts`, `test_station_crossovers`, `test_station_island`,
+`test_track_registry`, `test_train_loop`, `test_train_reconciler`,
+`test_wildlife_dual_track`, `test_wildlife_publisher`, `test_wildlife_safety`.
 
 Notes:
 
