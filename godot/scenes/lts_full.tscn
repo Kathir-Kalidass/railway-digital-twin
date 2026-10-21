@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://lts_full"]
+[gd_scene load_steps=14 format=3 uid="uid://lts_full"]
 
 [ext_resource type="Script" path="res://src/lts_world.gd" id="1"]
 [ext_resource type="Script" path="res://src/ltstrack.gd" id="2"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://src/scenario_director.gd" id="9"]
 [ext_resource type="Script" path="res://src/scenery_director.gd" id="10"]
 [ext_resource type="Script" path="res://src/esp32_integration.gd" id="11"]
+[ext_resource type="Script" path="res://src/track_registry.gd" id="12"]
 
 [node name="World" type="Node3D"]
 script = ExtResource("1")
@@ -22,6 +23,13 @@ script = ExtResource("2")
 length = 753.9822
 radius = 120.0
 max_speed_kmh = 80.0
+
+[node name="InnerTrack" type="Node3D" parent="."]
+script = ExtResource("2")
+length = 728.8495
+radius = 116.0
+max_speed_kmh = 80.0
+position = Vector3(0, 0, -4)
 
 [node name="Train" type="Node3D" parent="."]
 script = ExtResource("3")
@@ -36,6 +44,11 @@ script = ExtResource("5")
 train_path = NodePath("../Train")
 bridge_path = NodePath("../MQTTBridge")
 zone = "zone1"
+
+[node name="TrackRegistry" type="Node3D" parent="."]
+script = ExtResource("12")
+up_path = NodePath("../Track")
+down_path = NodePath("../InnerTrack")
 
 [node name="WorldWildlife" parent="." instance=ExtResource("6")]
 

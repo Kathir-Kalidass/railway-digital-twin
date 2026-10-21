@@ -14,6 +14,7 @@ const REQUIRED_SCRIPTS := [
 	"res://src/level_crossing.gd",
 	"res://src/railway_bridge.gd",
 	"res://src/ltstrack.gd",
+	"res://src/track_registry.gd",
 	"res://src/ltstrain.gd",
 	"res://src/lts_world.gd",
 	"res://Data/Scripts/Singletons/Math.gd",
