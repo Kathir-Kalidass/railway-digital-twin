@@ -2,6 +2,7 @@ user godot
 topic read railway/telemetry/esp32
 topic read railway/state
 topic read railway/signal/+
+topic write railway/wildlife
 topic write railway/zone1/wildlife
 topic write railway/zone2/wildlife
 topic read railway/commands/zone1
@@ -32,6 +33,7 @@ topic read railway/zone1/train
 topic read railway/zone1/wildlife
 topic read railway/zone2/train
 topic read railway/zone2/wildlife
+topic read railway/wildlife
 topic read railway/telemetry/esp32
 
 user dashboard
@@ -39,3 +41,4 @@ topic read railway/state
 topic read railway/events
 topic read railway/alerts
 topic read railway/signal/+
+topic read railway/wildlife

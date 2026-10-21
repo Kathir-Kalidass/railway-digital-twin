@@ -27,10 +27,24 @@ export function makeState({ config, topology }) {
 
   const legacyTrain = { zone: config.zones[0], speedKmh: DEFAULT_TARGET, targetSpeedKmh: DEFAULT_TARGET, stoppingDistanceM: 0 };
   const trains = [];
+  const blockHazards = {};
   let routes = null;
 
   if (topo) {
-    for (const b of topo.blocks) zones[b.zone].blocks.push(b.id);
+    for (const b of topo.blocks) {
+      zones[b.zone].blocks.push(b.id);
+      blockHazards[b.id] = {
+        blockId: b.id,
+        line: b.line,
+        zone: b.zone,
+        evidence: {
+          trackside: null,
+          onboard: null,
+        },
+        active: false,
+        since: null,
+      };
+    }
     for (const t of config.trains || []) {
       const block = blockById(topo, `${t.line}-B${t.startBlock}`);
       if (!block) continue;
@@ -43,19 +57,25 @@ export function makeState({ config, topology }) {
       });
     }
     occupyBlocks(topo, trains);
-    routes = makeRoutes({ topology: topo, zones, trains });
+    routes = makeRoutes({
+      topology: topo,
+      zones,
+      trains,
+      hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
+    });
   }
 
   const isRestrictive = (z) => z.wildlifeDetected || !z.sensorHealthy || z.status === 'RECOVERY_REQUIRED';
 
   function recompute() {
-    for (const id of config.zones) zones[id].signal = zoneSignal(id, zones);
+    for (const id of config.zones) zones[id].signal = zoneSignal(id, zones, blockHazards);
     const anyRestrictive = config.zones.some((id) => isRestrictive(zones[id]));
     const anyWildlife = config.zones.some((id) => zones[id].wildlifeDetected);
+    const anyBlockHazard = Object.values(blockHazards).some((h) => h.active);
     const anyFault = config.zones.some((id) => !zones[id].sensorHealthy);
     if (!comm.mqttConnected) return 'COMM_LOST';
     if (anyFault) return 'SENSOR_FAULT';
-    if (anyWildlife) return 'HAZARD';
+    if (anyWildlife || anyBlockHazard) return 'HAZARD';
     if (anyRestrictive) return 'RECOVERY_REQUIRED';
     return 'NORMAL';
   }
@@ -65,8 +85,11 @@ export function makeState({ config, topology }) {
   }
 
   function fleetSnapshot() {
-    const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones, lookaheadBlocks: sim.lookaheadBlocks });
-    for (const id of config.zones) zones[id].trainPresent = trains.some((t) => t.zone === id);
+    const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones, blockHazards, lookaheadBlocks: sim.lookaheadBlocks });
+    for (const id of config.zones) {
+      zones[id].trainPresent = trains.some((t) => t.zone === id);
+      zones[id].blockHazards = Object.values(blockHazards).filter((h) => h.zone === id && h.active).map((h) => h.blockId);
+    }
     const overall = recompute();
     const outTrains = trains.map((t) => ({ ...t, stoppingDistanceM: stoppingDistanceM(t.speedKmh) }));
     return {
@@ -74,7 +97,15 @@ export function makeState({ config, topology }) {
       train: outTrains[0] ? { ...outTrains[0] } : null, // DEPRECATED: summary of trains[0]
       trains: outTrains,
       lines: topo.lines.map((l) => ({ id: l.id, blocks: [...l.blocks] })),
-      blocks: topo.blocks.map((b) => ({ ...b, signal: aspects[b.id] || 'GREEN' })),
+      blocks: topo.blocks.map((b) => {
+        const h = blockHazards[b.id];
+        const activeSources = h?.active ? ['trackside', 'onboard'].filter((s) => h.evidence[s]?.active) : [];
+        return {
+          ...b,
+          signal: aspects[b.id] || 'GREEN',
+          hazard: h?.active ? { sources: activeSources, since: h.since } : null,
+        };
+      }),
       station: { ...topo.station, blocks: { ...topo.station.blocks } },
       routes: { active: routes.activeRoute(), available: routes.list() },
       comm: { ...comm },
@@ -116,7 +147,8 @@ export function makeState({ config, topology }) {
       case 'TRAIN_LEFT_ZONE':
         z.trainPresent = false; break;
       case 'RESET':
-        if (z.sensorHealthy && !z.wildlifeDetected) { z.status = 'NORMAL'; z.targetSpeedKmh = DEFAULT_TARGET; }
+        const hasActiveInZone = Object.values(blockHazards).some((h) => h.zone === env.zone && h.active);
+        if (z.sensorHealthy && !z.wildlifeDetected && !hasActiveInZone) { z.status = 'NORMAL'; z.targetSpeedKmh = DEFAULT_TARGET; }
         else return { ok: false, reason: 'reset rejected: active hazard or sensor fault' };
         break;
       default:
@@ -184,10 +216,63 @@ export function makeState({ config, topology }) {
     if (!topo || !comm.mqttConnected) return trains;
     tickCount += 1;
     routes.tick();
-    const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones, lookaheadBlocks: sim.lookaheadBlocks });
+    const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones, blockHazards, lookaheadBlocks: sim.lookaheadBlocks });
     stepTrains({ topology: topo, simulation: sim, zones, trains, dtSec, aspects });
     occupyBlocks(topo, trains);
     return trains;
+  }
+
+  function applyWildlifeObservation(obs) {
+    if (!topo) return { ok: false, reason: 'topology unavailable' };
+    const lineLen = topo.lines.find((l) => l.id === obs.line)?.lengthM || config.topology?.lineLengthM?.[obs.line] || 750;
+    const numBlocks = config.topology?.blocksPerLine || 5;
+    const blockLen = lineLen / numBlocks;
+    const idx = Math.min(numBlocks - 1, Math.max(0, Math.floor(obs.distanceM / blockLen)));
+    const blockId = `${obs.line}-B${idx}`;
+    const hazard = blockHazards[blockId];
+    if (!hazard) return { ok: false, reason: `unknown block ${blockId}` };
+
+    const wasActive = hazard.active;
+    const slot = obs.source === 'onboard-camera' ? 'onboard' : obs.source;
+    if (obs.wildlifeDetected) {
+      hazard.evidence[slot] = {
+        active: true,
+        species: obs.species,
+        count: obs.count,
+        eventId: obs.eventId,
+        at: obs.timestamp,
+        ...(obs.sensorId ? { sensorId: obs.sensorId } : {}),
+        ...(obs.trainId ? { trainId: obs.trainId, confidence: obs.confidence } : {}),
+      };
+    } else {
+      if (hazard.evidence[slot]) {
+        hazard.evidence[slot] = { ...hazard.evidence[slot], active: false, at: obs.timestamp };
+      } else {
+        hazard.evidence[slot] = { active: false, at: obs.timestamp };
+      }
+    }
+
+    const nowActive = Boolean(hazard.evidence.trackside?.active || hazard.evidence.onboard?.active);
+    hazard.active = nowActive;
+    if (nowActive && !wasActive) {
+      hazard.since = new Date().toISOString();
+      lastEvent = 'WILDLIFE_DETECTED';
+    } else if (wasActive && !nowActive) {
+      const z = zones[hazard.zone];
+      if (z && z.sensorHealthy && z.status !== 'SENSOR_FAULT') {
+        z.status = 'RECOVERY_REQUIRED';
+      }
+      lastEvent = 'WILDLIFE_CLEARED';
+    }
+
+    return {
+      ok: true,
+      blockId,
+      line: hazard.line,
+      zone: hazard.zone,
+      active: hazard.active,
+      changed: wasActive !== nowActive,
+    };
   }
 
   function markEvent(event) {
@@ -200,7 +285,10 @@ export function makeState({ config, topology }) {
 
   return {
     snapshot, applyCommand, applySpeed, applyTelemetry,
-    setSensor, setWildlife, markEvent, setBrokerConnected,
+    setSensor, setWildlife, applyWildlifeObservation,
+    getBlockHazards: () => blockHazards,
+    hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
+    markEvent, setBrokerConnected,
     requestRoute, tick, getTickCount: () => tickCount,
   };
 }

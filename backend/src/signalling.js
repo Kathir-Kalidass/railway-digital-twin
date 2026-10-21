@@ -8,7 +8,7 @@ export function isZoneRestrictive(z) {
   return Boolean(z.wildlifeDetected) || !z.sensorHealthy || z.status === 'RECOVERY_REQUIRED';
 }
 
-export function deriveBlockAspects({ topology, blocks, zones, lookaheadBlocks = 2 }) {
+export function deriveBlockAspects({ topology, blocks, zones, blockHazards = {}, lookaheadBlocks = 2 }) {
   const byId = new Map(blocks.map((b) => [b.id, b]));
   const occupied = new Set(blocks.filter((b) => b.occupiedBy).map((b) => b.id));
   const aspects = {};
@@ -28,14 +28,27 @@ export function deriveBlockAspects({ topology, blocks, zones, lookaheadBlocks = 
         aspect = yellow ? 'YELLOW' : 'GREEN';
       }
       if (isZoneRestrictive(zones[block.zone])) aspect = mostRestrictive(aspect, 'RED');
+
+      if (blockHazards[block.id]?.active) {
+        aspect = mostRestrictive(aspect, 'RED');
+      }
+      for (let k = 1; k <= 1; k++) {
+        const aheadId = ids[(i + k) % n];
+        if (blockHazards[aheadId]?.active) {
+          aspect = mostRestrictive(aspect, 'YELLOW');
+          break;
+        }
+      }
       aspects[block.id] = aspect;
     }
   }
   return aspects;
 }
 
-export function zoneSignal(zoneId, zones) {
+export function zoneSignal(zoneId, zones, blockHazards = {}) {
   if (isZoneRestrictive(zones[zoneId])) return 'RED';
-  const otherRestrictive = Object.keys(zones).some((id) => id !== zoneId && isZoneRestrictive(zones[id]));
+  const hasActiveHazardHere = Object.values(blockHazards).some((h) => h.zone === zoneId && h.active);
+  if (hasActiveHazardHere) return 'YELLOW';
+  const otherRestrictive = Object.keys(zones).some((id) => id !== zoneId && (isZoneRestrictive(zones[id]) || Object.values(blockHazards).some((h) => h.zone === id && h.active)));
   return otherRestrictive ? 'YELLOW' : 'GREEN';
 }

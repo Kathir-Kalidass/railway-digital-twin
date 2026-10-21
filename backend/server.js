@@ -22,10 +22,10 @@ const events = makeEvents();
 let ingest;
 const mqtt = makeMqtt({ config, onMessage: (topic, message) => ingest?.handle(topic, message) });
 const bus = makeBus({ mqtt, state, events });
-ingest = makeIngest({ state, bus, config });
+ingest = makeIngest({ state, bus, config, mqtt });
 const loop = makeLoop({ state, bus, config });
 mqtt.client.on('connect', () => {
-  mqtt.subscribe(['railway/zone1/wildlife', 'railway/zone2/wildlife', 'railway/telemetry/esp32']);
+  mqtt.subscribe(['railway/zone1/wildlife', 'railway/zone2/wildlife', 'railway/wildlife', 'railway/telemetry/esp32']);
   ingest.onBrokerConnected(true);
   loop.start();
 });

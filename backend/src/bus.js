@@ -18,5 +18,6 @@ export function makeBus({ mqtt, state, events }) {
     },
     alert(a) { mqtt.publish('railway/alerts', a); },
     security(e) { mqtt.publish('railway/security/events', e); },
+    command(target, cmd) { mqtt.publish(`railway/commands/${target}`, cmd); },
   };
 }

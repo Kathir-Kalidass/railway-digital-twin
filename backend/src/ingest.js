@@ -1,7 +1,14 @@
-export function makeIngest({ state, bus, config }) {
+import { validateWildlifeObservation } from './validate.js';
+
+export function makeIngest({ state, bus, config, mqtt }) {
   const seenTelemetryIds = new Set();
   const maxSeenTelemetryIds = 256;
   const telemetryMaxAgeMs = 5 * 60 * 1000;
+
+  const seenWildlifeEventIds = new Set();
+  const maxSeenWildlifeEventIds = 256;
+  let esp32ZoneHazardActive = false;
+  let backendCmdSeq = 0;
 
   function rejectTelemetry(reason) {
     state.markEvent('INVALID_TELEMETRY');
@@ -12,6 +19,30 @@ export function makeIngest({ state, bus, config }) {
     seenTelemetryIds.add(requestId);
     if (seenTelemetryIds.size > maxSeenTelemetryIds) {
       seenTelemetryIds.delete(seenTelemetryIds.values().next().value);
+    }
+  }
+
+  function rememberWildlifeEvent(eventId) {
+    seenWildlifeEventIds.add(eventId);
+    if (seenWildlifeEventIds.size > maxSeenWildlifeEventIds) {
+      seenWildlifeEventIds.delete(seenWildlifeEventIds.values().next().value);
+    }
+  }
+
+  function sendEsp32Command(event, payload) {
+    backendCmdSeq += 1;
+    const cmd = {
+      request_id: `backend-wildlife-${Date.now()}-${backendCmdSeq}`,
+      zone: config.esp32Zone,
+      event,
+      timestamp: new Date().toISOString(),
+      source: 'backend',
+      payload,
+    };
+    if (bus.command) {
+      bus.command('esp32', cmd);
+    } else if (mqtt) {
+      mqtt.publish('railway/commands/esp32', cmd);
     }
   }
 
@@ -37,6 +68,47 @@ export function makeIngest({ state, bus, config }) {
       if (!config.zones.includes(zone)) return;
       if (kind === 'train') state.applyTelemetry(zone, { trainPresent: message.trainPresent, speedKmh: message.speedKmh });
       else state.applyTelemetry(zone, { wildlifeDetected: message.wildlifeDetected });
+      bus.snapshot();
+      return;
+    }
+    if (topic === 'railway/wildlife') {
+      const valid = validateWildlifeObservation(message, config);
+      if (!valid.ok) {
+        state.markEvent('INVALID_WILDLIFE');
+        bus.event({ type: 'INVALID_WILDLIFE', source: message?.source || 'unknown', reason: valid.reason });
+        return;
+      }
+      if (seenWildlifeEventIds.has(valid.value.eventId)) {
+        return; // drop duplicate observation
+      }
+      rememberWildlifeEvent(valid.value.eventId);
+
+      const applied = state.applyWildlifeObservation(valid.value);
+      if (!applied.ok) {
+        return;
+      }
+
+      // Check ESP32 edge forwarding if in esp32Zone
+      const esp32Zone = config.esp32Zone || config.zones[0];
+      if (applied.zone === esp32Zone) {
+        const activeCount = Object.values(state.getBlockHazards()).filter((h) => h.zone === esp32Zone && h.active).length;
+        if (applied.active && activeCount === 1 && !esp32ZoneHazardActive) {
+          esp32ZoneHazardActive = true;
+          sendEsp32Command('WILDLIFE_DETECTED', {
+            blockId: applied.blockId,
+            line: applied.line,
+            source: valid.value.source,
+          });
+        } else if (!applied.active && activeCount === 0 && esp32ZoneHazardActive) {
+          esp32ZoneHazardActive = false;
+          sendEsp32Command('WILDLIFE_CLEARED', {
+            blockId: applied.blockId,
+            line: applied.line,
+            source: valid.value.source,
+          });
+        }
+      }
+
       bus.snapshot();
       return;
     }
