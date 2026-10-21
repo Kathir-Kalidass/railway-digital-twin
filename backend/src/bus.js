@@ -6,6 +6,9 @@ export function makeBus({ mqtt, state, events }) {
       for (const id of Object.keys(s.zones)) {
         mqtt.publish(`railway/${id}/signal`, { zone: id, signal: s.zones[id].signal, timestamp: s.updatedAt }, { retain: true });
       }
+      for (const b of s.blocks || []) {
+        mqtt.publish(`railway/signal/${b.id}`, { block: b.id, line: b.line, zone: b.zone, signal: b.signal || 'GREEN', occupiedBy: b.occupiedBy || null, timestamp: s.updatedAt }, { retain: true });
+      }
       return s;
     },
     event(e) {

@@ -19,6 +19,18 @@ test('snapshot publishes retained state and per-zone signals', () => {
   assert.ok(mqtt.published.find((m) => m.t === 'railway/zone2/signal'));
 });
 
+test('snapshot publishes retained per-block signals', () => {
+  const mqtt = fakeMqtt();
+  const state = { snapshot: () => ({ zones: { zone1: { signal: 'GREEN' } }, blocks: [{ id: 'UP-B0', line: 'UP', zone: 'zone1', occupiedBy: 'T1', signal: 'RED' }], updatedAt: 'X' }) };
+  const bus = makeBus({ mqtt, state, events: makeEvents() });
+  bus.snapshot();
+  const blockMsg = mqtt.published.find((m) => m.t === 'railway/signal/UP-B0');
+  assert.ok(blockMsg);
+  assert.equal(blockMsg.opts.retain, true);
+  assert.equal(blockMsg.o.signal, 'RED');
+  assert.equal(blockMsg.o.occupiedBy, 'T1');
+});
+
 test('events are recorded and published newest-first', () => {
   const mqtt = fakeMqtt();
   const events = makeEvents();

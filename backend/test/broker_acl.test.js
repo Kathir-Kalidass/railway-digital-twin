@@ -16,18 +16,53 @@ test('dashboard cannot publish a command (ACL denies)', async () => {
   dash.end(true); observer.end(true);
 });
 
-test('godot can publish zone telemetry', async () => {
-  const observer = connectAs('backend'); // backend may read railway/zone1/train
+test('godot can read authoritative state and per-block signals', async () => {
+  const godot = connectAs('godot');
+  await waitFor(() => godot.connected);
+  await Promise.all([
+    new Promise((r) => godot.subscribe('railway/state', r)),
+    new Promise((r) => godot.subscribe('railway/signal/UP-B0', r)),
+  ]);
+  const seen = [];
+  godot.on('message', (topic, payload) => seen.push([topic, payload.toString()]));
+
+  const backend = connectAs('backend');
+  await waitFor(() => backend.connected);
+  backend.publish('railway/state', JSON.stringify({ marker: 'godot-state-read' }));
+  backend.publish('railway/signal/UP-B0', JSON.stringify({ marker: 'godot-block-read' }));
+  await waitFor(() => seen.some(([, body]) => body.includes('godot-state-read')) && seen.some(([, body]) => body.includes('godot-block-read')));
+  assert.ok(seen.some(([topic, body]) => topic === 'railway/state' && body.includes('godot-state-read')));
+  assert.ok(seen.some(([topic, body]) => topic === 'railway/signal/UP-B0' && body.includes('godot-block-read')));
+
+  godot.end(true); backend.end(true);
+});
+
+test('godot cannot publish retired zone train telemetry', async () => {
+  const observer = connectAs('backend'); // backend may still read the retired topic
   await waitFor(() => observer.connected);
   await new Promise((r) => observer.subscribe('railway/zone1/train', r));
   const seen = [];
-  observer.on('message', (t) => seen.push(t));
+  observer.on('message', (topic, payload) => seen.push(payload.toString()));
   const godot = connectAs('godot');
   await waitFor(() => godot.connected);
-  godot.publish('railway/zone1/train', JSON.stringify({ trainPresent: true }));
-  await waitFor(() => seen.includes('railway/zone1/train'));
-  assert.ok(seen.includes('railway/zone1/train'));
+  godot.publish('railway/zone1/train', JSON.stringify({ marker: 'retired-train-write' }));
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(seen.length, 0);
   godot.end(true); observer.end(true);
+});
+
+test('esp32 cannot read per-block signals', async () => {
+  const esp32 = connectAs('esp32');
+  await waitFor(() => esp32.connected);
+  await new Promise((r) => esp32.subscribe('railway/signal/UP-B0', r));
+  const seen = [];
+  esp32.on('message', (topic, payload) => seen.push(payload.toString()));
+  const backend = connectAs('backend');
+  await waitFor(() => backend.connected);
+  backend.publish('railway/signal/UP-B0', JSON.stringify({ marker: 'esp32-signal-denied' }));
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(seen.length, 0);
+  esp32.end(true); backend.end(true);
 });
 
 test('godot cannot publish aggregate state', async () => {
