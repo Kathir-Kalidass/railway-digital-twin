@@ -10,7 +10,9 @@ class_name TerrainGenerator
 @export var water_height := -2.0
 @export var seed := 42
 @export var track_path: NodePath
-@export var flatten_radius := 15.0
+@export var track_paths: Array[NodePath] = []
+@export var track_registry_path: NodePath = NodePath("../../TrackRegistry")
+@export var flatten_radius := 9.0
 
 var _noise := FastNoiseLite.new()
 var _track_samples := PackedVector3Array()
@@ -40,15 +42,32 @@ func height_at(x: float, z: float) -> float:
 
 
 func _collect_track_samples() -> void:
-	var track := get_node_or_null(track_path) as LTSTrack
-	if track == null:
-		track = get_node_or_null("../../Track") as LTSTrack
-	if track == null:
-		return
-	var distance := 0.0
-	while distance <= track.length:
-		_track_samples.append(track.get_global_transform_at_distance(distance).origin)
-		distance += 4.0
+	_track_samples.clear()
+	for track in _resolve_tracks():
+		var distance := 0.0
+		while distance <= track.length:
+			_track_samples.append(track.get_global_transform_at_distance(distance).origin)
+			distance += 4.0
+
+
+func _resolve_tracks() -> Array[LTSTrack]:
+	var result: Array[LTSTrack] = []
+	for path in track_paths:
+		var track := get_node_or_null(path) as LTSTrack
+		if track != null:
+			result.append(track)
+	var registry := get_node_or_null(track_registry_path) as TrackRegistry
+	if registry != null:
+		for track in registry.tracks():
+			if not result.has(track):
+				result.append(track)
+	if result.is_empty():
+		var fallback := get_node_or_null(track_path) as LTSTrack
+		if fallback == null:
+			fallback = get_node_or_null("../../Track") as LTSTrack
+		if fallback != null:
+			result.append(fallback)
+	return result
 
 
 func _grass_texture() -> ImageTexture:
@@ -72,6 +91,12 @@ func _track_distance(x: float, z: float) -> float:
 		if candidate < best:
 			best = candidate
 	return sqrt(best)
+
+
+func is_flattened(x: float, z: float) -> bool:
+	if _track_samples.is_empty():
+		return false
+	return _track_distance(x, z) <= flatten_radius
 
 
 func generate() -> void:
