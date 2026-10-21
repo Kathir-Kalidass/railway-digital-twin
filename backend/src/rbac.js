@@ -1,7 +1,7 @@
 export const PERMISSIONS = {
   viewer: ['state:read', 'events:read'],
-  operator: ['state:read', 'events:read', 'control:issue', 'speed:set'],
-  admin: ['state:read', 'events:read', 'control:issue', 'speed:set', 'audit:read', 'users:manage'],
+  operator: ['state:read', 'events:read', 'control:issue', 'speed:set', 'route:set'],
+  admin: ['state:read', 'events:read', 'control:issue', 'speed:set', 'route:set', 'audit:read', 'users:manage'],
 };
 
 export function hasPermission(role, perm) {

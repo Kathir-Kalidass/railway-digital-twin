@@ -8,6 +8,8 @@ test('role permission matrix', () => {
   assert.equal(hasPermission('operator', 'control:issue'), true);
   assert.equal(hasPermission('operator', 'audit:read'), false);
   assert.equal(hasPermission('admin', 'audit:read'), true);
+  assert.equal(hasPermission('operator', 'route:set'), true);
+  assert.equal(hasPermission('viewer', 'route:set'), false);
 });
 
 test('requirePermission enforces role', () => {

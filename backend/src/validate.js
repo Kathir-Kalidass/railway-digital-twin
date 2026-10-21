@@ -22,12 +22,32 @@ export function validateCommand(body, { zones }) {
   return { ok: true, value: { request_id, zone, event, timestamp, source, payload } };
 }
 
-export function validateSpeed(body, { zones }) {
-  const zone = String(body?.zone || '').toLowerCase();
+export function validateSpeed(body, { zones, trainIds = [] }) {
   const speedKmh = Number(body?.speedKmh);
+  const trainId = String(body?.trainId || '');
+  if (trainId) {
+    if (!trainIds.includes(trainId)) return { ok: false, reason: 'unknown train' };
+    if (!Number.isFinite(speedKmh) || speedKmh < 0 || speedKmh > 80) {
+      return { ok: false, reason: 'speed must be 0..80' };
+    }
+    return { ok: true, value: { trainId, speedKmh } };
+  }
+  const zone = String(body?.zone || '').toLowerCase();
   if (!zones.includes(zone)) return { ok: false, reason: 'invalid zone' };
   if (!Number.isFinite(speedKmh) || speedKmh < 0 || speedKmh > 80) {
     return { ok: false, reason: 'speed must be 0..80' };
   }
   return { ok: true, value: { zone, speedKmh } };
+}
+
+export function validateRoute(body, { trainIds = [], routeIds = [] }) {
+  const request_id = String(body?.request_id || '');
+  const trainId = String(body?.trainId || '');
+  const routeId = String(body?.routeId || '');
+  const errors = [];
+  if (!request_id) errors.push('request_id required');
+  if (!trainIds.includes(trainId)) errors.push('unknown train');
+  if (!routeIds.includes(routeId)) errors.push('unknown route');
+  if (errors.length) return { ok: false, reason: errors.join('; ') };
+  return { ok: true, value: { request_id, trainId, routeId } };
 }

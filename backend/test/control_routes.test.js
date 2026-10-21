@@ -79,3 +79,65 @@ test('only accepted commands for the configured ESP32 zone are forwarded', async
     assert.equal(forwards().length, 1);
   });
 });
+
+test('speed route accepts per-train control and rejects unknown trains', async () => {
+  const deps = buildDeps();
+  await withServer(deps, async (url) => {
+    const operator = await tokenFor(url, 'operator');
+    const post = (body) => fetch(`${url}/api/speed`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` },
+      body: JSON.stringify(body),
+    });
+    const bad = await post({ trainId: 'NOPE', speedKmh: 30 });
+    assert.equal(bad.status, 400);
+    const ok = await post({ trainId: 'T1', speedKmh: 30 });
+    assert.equal(ok.status, 200);
+    assert.equal((await ok.json()).state.trains[0].targetSpeedKmh, 30);
+    assert.ok(deps.mqtt.published.some((m) => m.t === 'railway/speed/zone1'));
+  });
+});
+
+test('route endpoint requires auth, role and a valid crossover', async () => {
+  const fleet = { ...config, trains: [{ ...config.trains[0], startBlock: 2 }, config.trains[1]] };
+  const deps = buildDeps({ config: fleet });
+  await withServer(deps, async (url) => {
+    const body = (id, trainId, routeId) => ({ request_id: id, trainId, routeId });
+    const anon = await fetch(`${url}/api/route`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body('r0', 'T1', 'X-UP-DOWN')) });
+    assert.equal(anon.status, 401);
+
+    const viewer = await tokenFor(url, 'viewer');
+    const denied = await fetch(`${url}/api/route`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${viewer}` }, body: JSON.stringify(body('r1', 'T1', 'X-UP-DOWN')) });
+    assert.equal(denied.status, 403);
+
+    const operator = await tokenFor(url, 'operator');
+    const post = (b) => fetch(`${url}/api/route`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` },
+      body: JSON.stringify(b),
+    });
+    const unknown = await post(body('r2', 'T1', 'NOPE'));
+    assert.equal(unknown.status, 400);
+
+    const ok = await post(body('r3', 'T1', 'X-UP-DOWN'));
+    assert.equal(ok.status, 200);
+    const state = (await ok.json()).state;
+    assert.equal(state.trains[0].line, 'DOWN');
+    assert.equal(state.routes.active.routeId, 'X-UP-DOWN');
+
+    const duplicate = await post(body('r3', 'T1', 'X-UP-DOWN'));
+    assert.equal(duplicate.status, 400);
+
+    const conflict = await post(body('r4', 'T1', 'X-DOWN-UP'));
+    assert.equal(conflict.status, 409);
+    assert.ok(deps.audit.list().some((r) => r.action === 'ROUTE' && r.result === 'ACCEPTED'));
+  });
+});
+
+test('legacy POST /api/event is gone', async () => {
+  const deps = buildDeps();
+  await withServer(deps, async (url) => {
+    const res = await fetch(`${url}/api/event`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'RESET', zone: 'zone1' }) });
+    assert.equal(res.status, 404);
+  });
+});
