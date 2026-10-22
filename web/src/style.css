@@ -38,3 +38,25 @@
 .crossover-status b{color:#6fe1b8}
 .crossover-buttons{display:flex;gap:8px}
 .sm{padding:7px 11px;font-size:10px}
+
+.meet-panel { margin-top: 18px; }
+.meet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.meet-grid div {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.meet-grid small {
+  display: block;
+  color: var(--muted, #8fa3b3);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.meet-grid b { font-size: 15px; }

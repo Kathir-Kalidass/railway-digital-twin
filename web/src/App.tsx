@@ -30,6 +30,24 @@ type Block = {
   } | null;
 };
 
+type Meet = {
+  enabled: boolean;
+  seed: number;
+  phase: string;
+  nextMeetInSec: number;
+  active?: {
+    holderId?: string;
+    otherId?: string;
+    crossover?: boolean;
+    routeId?: string | null;
+  } | null;
+  last?: {
+    outcome?: string;
+    holderId?: string;
+    routeId?: string | null;
+  } | null;
+};
+
 type State = {
   zone: string;
   signal: string;
@@ -46,6 +64,7 @@ type State = {
   trains?: Train[];
   blocks?: Block[];
   routes?: { activeRoute?: { routeId: string; trainId: string; from: string; to: string } | null };
+  meets?: Meet | null;
 };
 
 type EventRow = {
@@ -166,6 +185,7 @@ function App() {
   const blocks = state.blocks || [];
   const activeTrain = trains.find(t => t.id === selectedTrain) || trains[0];
   const activeRoute = state.routes?.activeRoute;
+  const meet = state.meets;
 
   return (
     <main className="shell">
@@ -241,6 +261,26 @@ function App() {
           </div>
         ))}
       </section>
+
+      {meet && (
+        <section className="panel meet-panel">
+          <div className="panel-head">
+            <div>
+              <div className="eyebrow">RANDOMISED MEETS</div>
+              <h3>Chance-Based Crossover Scheduler</h3>
+            </div>
+            <ArrowRightLeft size={19} />
+          </div>
+          <div className="meet-grid">
+            <div><small>Phase</small><b>{meet.enabled ? meet.phase : 'DISABLED'}</b></div>
+            <div><small>Next meet</small><b>{meet.phase === 'IDLE' ? `${Math.ceil(meet.nextMeetInSec)} s` : 'ACTIVE'}</b></div>
+            <div><small>Holder</small><b>{meet.active?.holderId || '—'}</b></div>
+            <div><small>Route</small><b>{meet.active?.routeId || meet.last?.routeId || '—'}</b></div>
+            <div><small>Seed</small><b>{meet.seed}</b></div>
+            <div><small>Last outcome</small><b>{meet.last?.outcome || '—'}</b></div>
+          </div>
+        </section>
+      )}
 
       {/* Block Signalling & Occupancy Diagram */}
       <section className="panel block-diagram-panel">
