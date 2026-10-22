@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { hasPermission } from '../rbac.js';
-import { validateCommand, validateRoute, validateSpeed } from '../validate.js';
+import { validateCommand, validateMeet, validateRoute, validateSpeed } from '../validate.js';
 
 export function controlRouter({ auth, config, state, bus, audit, replay, mqtt }) {
   const router = Router();
@@ -94,6 +94,36 @@ export function controlRouter({ auth, config, state, bus, audit, replay, mqtt })
     const snapshot = bus.snapshot();
     bus.event({ type: 'ROUTE_GRANTED', trainId: check.value.trainId, routeId: check.value.routeId, actor: req.user.username, result: 'ACCEPTED' });
     return res.json({ ok: true, route: applied.route, state: snapshot });
+  });
+
+  router.post('/api/meet', auth.requireAuth, (req, res) => {
+    if (!hasPermission(req.user.role, 'route:set')) {
+      return deny(req, res, 'MEET', null, 'missing route:set');
+    }
+    const check = validateMeet(req.body);
+    if (!check.ok) {
+      audit.write({ actor: req.user.username, role: req.user.role, action: 'MEET', zone: null, result: 'REJECTED', reason: check.reason, source: 'rest' });
+      bus.security({ request_id: req.body?.request_id || null, actor: req.user.username, reason: check.reason, timestamp: new Date().toISOString() });
+      return res.status(400).json({ error: 'invalid meet control', reason: check.reason });
+    }
+    const dedupe = replay.check(check.value.request_id, { username: req.user.username, action: 'MEET' });
+    if (!dedupe.ok) {
+      audit.write({ actor: req.user.username, role: req.user.role, action: 'MEET', zone: null, result: 'REJECTED', reason: dedupe.reason, source: 'rest' });
+      bus.security({ request_id: check.value.request_id, actor: req.user.username, reason: dedupe.reason, timestamp: new Date().toISOString() });
+      return res.status(400).json({ error: 'duplicate', reason: dedupe.reason });
+    }
+    const applied = state.meetControl({
+      enabled: check.value.enabled,
+      seed: check.value.seed,
+      trigger: check.value.trigger,
+    });
+    if (!applied.ok) {
+      audit.write({ actor: req.user.username, role: req.user.role, action: 'MEET', zone: null, result: 'REJECTED', reason: applied.reason, source: 'rest' });
+      return res.status(409).json({ error: 'meet rejected', reason: applied.reason });
+    }
+    audit.write({ actor: req.user.username, role: req.user.role, action: 'MEET', zone: null, result: 'ACCEPTED', source: 'rest' });
+    bus.event({ type: 'MEET_CONTROL', result: 'ACCEPTED', actor: req.user.username });
+    return res.json({ ok: true, state: bus.snapshot() });
   });
 
   return router;

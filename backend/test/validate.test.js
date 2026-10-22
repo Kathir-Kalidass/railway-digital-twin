@@ -38,3 +38,18 @@ test('validateRoute accepts a known train and route, rejects unknown ids', () =>
   assert.equal(validateRoute({ request_id: 'r2', trainId: 'NOPE', routeId: 'X-UP-DOWN' }, { trainIds, routeIds }).ok, false);
   assert.equal(validateRoute({ request_id: 'r3', trainId: 'T1', routeId: 'NOPE' }, { trainIds, routeIds }).ok, false);
 });
+
+import { validateMeet } from '../src/validate.js';
+
+test('validateMeet accepts toggles, seeds and triggers', () => {
+  assert.equal(validateMeet({ request_id: 'm1', enabled: true }).ok, true);
+  assert.equal(validateMeet({ request_id: 'm2', seed: 42 }).ok, true);
+  assert.equal(validateMeet({ request_id: 'm3', trigger: true }).ok, true);
+});
+
+test('validateMeet rejects missing ids and bad types', () => {
+  assert.equal(validateMeet({ enabled: true }).ok, false);
+  assert.equal(validateMeet({ request_id: 'm4', enabled: 'yes' }).ok, false);
+  assert.equal(validateMeet({ request_id: 'm5', seed: 'abc' }).ok, false);
+  assert.equal(validateMeet({ request_id: 'm6', trigger: 1 }).ok, false);
+});

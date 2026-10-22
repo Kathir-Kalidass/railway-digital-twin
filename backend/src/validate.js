@@ -126,3 +126,22 @@ export function validateWildlifeObservation(body, config = {}) {
     },
   };
 }
+
+export function validateMeet(body) {
+  const request_id = String(body?.request_id || '');
+  const errors = [];
+  if (!request_id) errors.push('request_id required');
+  if (body?.enabled !== undefined && typeof body.enabled !== 'boolean') errors.push('enabled must be boolean');
+  if (body?.seed !== undefined && !Number.isFinite(Number(body.seed))) errors.push('seed must be a finite number');
+  if (body?.trigger !== undefined && typeof body.trigger !== 'boolean') errors.push('trigger must be boolean');
+  if (errors.length) return { ok: false, reason: errors.join('; ') };
+  return {
+    ok: true,
+    value: {
+      request_id,
+      enabled: body?.enabled,
+      seed: body?.seed === undefined ? undefined : Number(body.seed),
+      trigger: body?.trigger,
+    },
+  };
+}

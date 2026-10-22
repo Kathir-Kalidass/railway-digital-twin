@@ -141,3 +141,31 @@ test('legacy POST /api/event is gone', async () => {
     assert.equal(res.status, 404);
   });
 });
+
+test('meet control enforces auth, rbac, validation, replay and audit', async () => {
+  const deps = buildDeps();
+  await withServer(deps, async (url) => {
+    const body = { request_id: 'meet-1', enabled: true, seed: 99 };
+    const anon = await fetch(`${url}/api/meet`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal(anon.status, 401);
+
+    const viewer = await tokenFor(url, 'viewer');
+    const forbidden = await fetch(`${url}/api/meet`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${viewer}` }, body: JSON.stringify(body) });
+    assert.equal(forbidden.status, 403);
+
+    const operator = await tokenFor(url, 'operator');
+    const ok = await fetch(`${url}/api/meet`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` }, body: JSON.stringify(body) });
+    assert.equal(ok.status, 200);
+    const okBody = await ok.json();
+    assert.equal(okBody.state.meets.seed, 99);
+    assert.equal(okBody.state.meets.enabled, true);
+
+    const dup = await fetch(`${url}/api/meet`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` }, body: JSON.stringify(body) });
+    assert.equal(dup.status, 400);
+
+    const bad = await fetch(`${url}/api/meet`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${operator}` }, body: JSON.stringify({ request_id: 'meet-2', seed: 'abc' }) });
+    assert.equal(bad.status, 400);
+
+    assert.ok(deps.audit.list().some((row) => row.action === 'MEET' && row.result === 'ACCEPTED'));
+  });
+});
