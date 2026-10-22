@@ -27,3 +27,12 @@ test('config exposes per-line lengths and the station crossover pair', () => {
     { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
   ]);
 });
+
+test('config exposes meet scheduler defaults', () => {
+  assert.equal(typeof config.meets, 'object');
+  assert.equal(config.meets.enabled, true);
+  assert.equal(config.meets.seed, 20261022);
+  assert.ok(config.meets.minGapSec <= config.meets.maxGapSec);
+  assert.ok(config.meets.meetChance >= 0 && config.meets.meetChance <= 1);
+  assert.ok(config.meets.crossoverChance >= 0 && config.meets.crossoverChance <= 1);
+});

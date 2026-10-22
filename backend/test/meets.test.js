@@ -198,3 +198,50 @@ test('trigger starts the next meet at the next station window', () => {
   w.scheduler.tick(0.5);
   assert.equal(w.scheduler.snapshot().phase, 'HOLDING');
 });
+
+import { config } from '../src/config.js';
+import { makeState } from '../src/state.js';
+
+test('state snapshot exposes live meet state and holds a train', () => {
+  const cfg = {
+    ...config,
+    meets: {
+      ...config.meets,
+      enabled: true,
+      seed: 7,
+      minGapSec: 0.1,
+      maxGapSec: 0.1,
+      stationWaitSec: 120,
+      minHoldSec: 1,
+      maxHoldSec: 2,
+      meetChance: 1,
+      crossoverChance: 0.5,
+    },
+  };
+  const state = makeState({ config: cfg });
+  assert.ok(state.snapshot().meets, 'meets snapshot present');
+  assert.equal(state.snapshot().meets.enabled, true);
+  let meetObserved = false;
+  for (let i = 0; i < 300; i++) {
+    state.tick(0.5);
+    const snap = state.snapshot();
+    if (snap.meets.active || snap.meets.last) meetObserved = true;
+    assert.notEqual(
+      `${snap.trains[0].line}:${snap.trains[0].block}`,
+      `${snap.trains[1].line}:${snap.trains[1].block}`,
+      'no two trains in the same line and block',
+    );
+  }
+  assert.ok(meetObserved, 'a meet occurred within 150 simulated seconds');
+});
+
+test('disabled meets leave the fixed-loop simulation unchanged', () => {
+  const cfg = { ...config, meets: { ...config.meets, enabled: false } };
+  const state = makeState({ config: cfg });
+  for (let i = 0; i < 20; i++) state.tick(0.5);
+  const snap = state.snapshot();
+  assert.equal(snap.meets.enabled, false);
+  assert.equal(snap.meets.phase, 'IDLE');
+  assert.equal(snap.meets.last, null);
+  assert.ok(snap.trains.some((t) => t.targetSpeedKmh > 0));
+});

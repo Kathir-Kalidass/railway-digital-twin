@@ -2,6 +2,7 @@ import { buildTopology, blockById } from './railway.js';
 import { deriveBlockAspects, zoneSignal } from './signalling.js';
 import { occupyBlocks, stepTrains } from './simulation.js';
 import { makeRoutes } from './routes.js';
+import { makeMeetScheduler } from './meets.js';
 
 const DECEL = 2.0; // m/s^2 illustrative braking
 const DEFAULT_TARGET = 48;
@@ -29,6 +30,7 @@ export function makeState({ config, topology }) {
   const trains = [];
   const blockHazards = {};
   let routes = null;
+  let meets = null;
 
   if (topo) {
     for (const b of topo.blocks) {
@@ -62,6 +64,14 @@ export function makeState({ config, topology }) {
       zones,
       trains,
       hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
+    });
+    meets = makeMeetScheduler({
+      topology: topo,
+      trains,
+      zones,
+      routes,
+      hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
+      config,
     });
   }
 
@@ -108,6 +118,7 @@ export function makeState({ config, topology }) {
       }),
       station: { ...topo.station, blocks: { ...topo.station.blocks } },
       routes: { active: routes.activeRoute(), available: routes.list() },
+      meets: meets ? meets.snapshot() : null,
       comm: { ...comm },
       overall,
       lastEvent,
@@ -212,9 +223,20 @@ export function makeState({ config, topology }) {
     return routes.requestRoute({ trainId, routeId });
   }
 
+  function meetControl({ enabled, seed, trigger } = {}) {
+    if (!meets) return { ok: false, reason: 'meets unavailable' };
+    if (typeof enabled === 'boolean') meets.setEnabled(enabled);
+    if (seed !== undefined) {
+      if (!meets.setSeed(seed)) return { ok: false, reason: 'invalid seed' };
+    }
+    if (trigger === true && !meets.trigger()) return { ok: false, reason: 'meet not triggerable in current phase' };
+    return { ok: true, meets: meets.snapshot() };
+  }
+
   function tick(dtSec) {
     if (!topo || !comm.mqttConnected) return trains;
     tickCount += 1;
+    if (meets) meets.tick(dtSec);
     routes.tick();
     const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones, blockHazards, lookaheadBlocks: sim.lookaheadBlocks });
     stepTrains({ topology: topo, simulation: sim, zones, trains, dtSec, aspects });
@@ -289,6 +311,6 @@ export function makeState({ config, topology }) {
     getBlockHazards: () => blockHazards,
     hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
     markEvent, setBrokerConnected,
-    requestRoute, tick, getTickCount: () => tickCount,
+    requestRoute, meetControl, tick, getTickCount: () => tickCount,
   };
 }

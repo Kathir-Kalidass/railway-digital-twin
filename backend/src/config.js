@@ -34,6 +34,19 @@ export const config = {
     accelMps2: 0.6,
     defaultTargetSpeedKmh: 48,
   },
+  meets: {
+    enabled: process.env.MEETS_ENABLED !== '0',
+    seed: Number(process.env.MEET_SEED || 20261022),
+    minGapSec: 60,
+    maxGapSec: 180,
+    stationWaitSec: 90,
+    holdOffsetM: 80,
+    minHoldSec: 6,
+    maxHoldSec: 15,
+    meetChance: 0.8,
+    crossoverChance: 0.5,
+    holdTimeoutSec: 25,
+  },
   seedUsers: [
     { username: 'viewer', password: process.env.VIEWER_PASSWORD || 'viewer-dev-pass', role: 'viewer' },
     { username: 'operator', password: process.env.OPERATOR_PASSWORD || 'operator-dev-pass', role: 'operator' },
@@ -65,6 +78,14 @@ export function validateConfig(c) {
     }
   }
   if (!(c.simulation.tickMs > 0)) errors.push('simulation.tickMs must be > 0');
+  const meets = c.meets || {};
+  if (meets.minGapSec != null && meets.maxGapSec != null && !(meets.minGapSec <= meets.maxGapSec)) {
+    errors.push('meets gap range invalid');
+  }
+  for (const key of ['meetChance', 'crossoverChance']) {
+    if (meets[key] != null && (meets[key] < 0 || meets[key] > 1)) errors.push(`meets.${key} must be 0..1`);
+  }
+  if (meets.holdOffsetM != null && meets.holdOffsetM < 0) errors.push('meets.holdOffsetM must be >= 0');
   if (errors.length) throw new Error(`invalid config: ${errors.join('; ')}`);
   return true;
 }
