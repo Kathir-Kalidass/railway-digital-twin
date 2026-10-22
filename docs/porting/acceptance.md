@@ -9,21 +9,23 @@ Educational simulation only; not certified railway equipment.
 
 | Surface | Command | Result |
 |---|---|---|
-| Godot headless | `bash godot/tests/run_tests.sh` | PASS (28 suites) |
-| ESP32 host logic | `cd esp32 && pio test -e native` | PASS (14 cases) |
+| Godot headless | `bash godot/tests/run_tests.sh` | PASS (33 suites) |
+| ESP32 host logic | `cd esp32 && pio test -e native` | PASS (15 cases) |
 | Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (84 tests) |
+| Backend unit tests | `cd backend && node --test test/*.test.js` (isolated) | PASS (77 unit tests) |
 | Web build | `cd web && npm run build` | PASS |
 | ESP32 firmware | `cd esp32 && pio run -e esp32dev` | PASS (1.2 MB image, 87% flash) |
 
-Godot suites (28): `test_camera_director`, `test_catenary_double`,
+Godot suites (33): `test_camera_director`, `test_catenary_double`,
 `test_corridor_flatten`, `test_crossover_visual`, `test_e2e_safety`,
 `test_esp32_integration`, `test_fleet_controller`, `test_fleet_hud`, `test_hud`,
 `test_level_crossing_two_track`, `test_lts_full_enhance`, `test_meet_scenario`,
-`test_mqtt_bridge`, `test_parse`, `test_port_helpers`, `test_real_assets`,
+`test_mqtt_bridge`, `test_onboard_braking`, `test_onboard_camera`, `test_onboard_detector`,
+`test_parse`, `test_port_helpers`, `test_real_assets`,
 `test_river_bridges`, `test_scenario_director`, `test_scene_load`,
-`test_signal_masts`, `test_station_crossovers`, `test_station_island`,
+`test_sensor_huts`, `test_signal_masts`, `test_station_crossovers`, `test_station_island`,
 `test_track_registry`, `test_train_loop`, `test_train_reconciler`,
-`test_wildlife_dual_track`, `test_wildlife_publisher`, `test_wildlife_safety`.
+`test_wildlife_director`, `test_wildlife_dual_track`, `test_wildlife_publisher`, `test_wildlife_safety`.
 
 Notes:
 
@@ -124,7 +126,24 @@ station crossover pair, widened river bridges, and a two-track level crossing.
 | Regression | Godot 22/22, backend 84/84, ESP32 native 14/14, `pio run -e esp32dev` PASS |
 | Capture | `/tmp/opencode/double_track_overview.png` (double-track overview) |
 
-Signal masts, remote fleet rendering, and meet/pass remain in slices 2C–2D.
+## Stage 2F distributed wildlife sensing & onboard vision verification (2026-10-22)
+
+Stage 2F is fully implemented across the stack: distributed trackside sensing (10 huts),
+per-train forward simulated-ML camera detection with zero-latency local braking,
+backend dual-evidence block hazard fusion, ESP32 edge command forwarding, and
+deterministic proximity animal appearance scenarios.
+
+| Item | Evidence |
+|---|---|
+| Stopping-distance model | `test_onboard_braking.gd` PASS: pure quadratic stopping distance $d_{\text{stop}}(v) = v \cdot t + \frac{v^2}{2a} + d_{\text{margin}}$ (56 m at 36 km/h) and safe-speed limit inversion |
+| Lead carriage forward camera | `test_onboard_camera.gd` PASS: camera forward vector aligns with carriage forward tangent ($\text{dot} > 0.98$) across straight track and multiple curve apexes |
+| Simulated ML camera detector | `test_onboard_detector.gd` PASS: forward cone vision (±25° horiz, ±10° vert, 180 m range), confidence scoring (deer 0.9, elephant 1.1), analytic occlusion against terrain hill, tree trunks, and bridge decks; critical detection invokes `set_local_wildlife_limit(0)` with MQTT offline |
+| Distributed trackside huts | `test_sensor_huts.gd` PASS: 10 huts (`UP-S0`..`UP-S4`, `DOWN-S0`..`DOWN-S4`) with 75 m overlapping radius, status lamps, and observation publishing to `railway/wildlife` |
+| Deterministic wildlife director | `test_wildlife_director.gd` PASS: seed 20261022 produces identical sequence of `(trainId, distanceM, species, count)` 80–280 m ahead with 30–60 s cooldown; HUD renders `CAM clear` / `CAM detect` |
+| Backend block hazard & dual evidence | `test/wildlife_observation.test.js` PASS: observation validation, separate `trackside` and `onboard` evidence slots, block RED, approach YELLOW, opposite line unaffected, crossover rejected during hazard, clearing requires recovery + reset |
+| ESP32 edge alert forwarding | `test/wildlife_observation.test.js` and `esp32/test/test_logic/test_logic.cpp` PASS: edge-triggered `WILDLIFE_DETECTED` / `WILDLIFE_CLEARED` forwarded to `railway/commands/esp32` with `source: "backend"`, accepted by ESP32 firmware |
+| Web dashboard evidence badges | `web/src/App.tsx` and `web/src/style.css` compile cleanly with Vite; renders `CAM` / `HUT` hazard tags on block diagram |
+| Full suite regression | Godot 33/33 PASS, Backend 77/77 unit tests PASS, ESP32 native 15/15 PASS, Web build PASS |
 
 ## Manual demo
 
