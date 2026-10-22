@@ -200,14 +200,34 @@ function App() {
     if (!token) return;
     try {
       const s = await api('/api/state');
-      setState(s);
-      if (s.trains && s.trains.length > 0) {
-        const found = s.trains.find((t: Train) => t.id === selectedTrain);
-        if (found) {
+      if (s) {
+        const found = s.trains?.find((t: Train) => t.id === selectedTrain) || s.trains?.[0] || s.train;
+        const activeZone = s.zones?.[found?.zone || 'zone1'] || s.zones?.zone1;
+        const activeBlock = s.blocks?.find((b: Block) => b.id === found?.block);
+        const derivedSignal = activeBlock?.signal || activeZone?.signal || (s.overall === 'HAZARD' ? 'RED' : s.overall === 'RECOVERY_REQUIRED' ? 'YELLOW' : 'GREEN');
+        const derivedStatus = found?.status || activeZone?.status || s.overall || 'NORMAL';
+        const derivedSpeed = found?.speedKmh ?? s.speedKmh ?? 48;
+        const derivedTargetSpeed = found?.targetSpeedKmh ?? s.targetSpeedKmh ?? 48;
+        const derivedWildlife = Boolean(s.wildlifeDetected || activeZone?.wildlifeDetected || s.blocks?.some((b: Block) => b.hazard != null));
+        const derivedSensorHealthy = activeZone?.sensorHealthy ?? s.sensorHealthy ?? true;
+        const derivedMqtt = Boolean(s.comm?.mqttConnected ?? s.mqttConnected ?? true);
+
+        setState(prev => ({
+          ...prev,
+          ...s,
+          signal: derivedSignal,
+          status: derivedStatus,
+          speedKmh: derivedSpeed,
+          targetSpeedKmh: derivedTargetSpeed,
+          wildlifeDetected: derivedWildlife,
+          sensorHealthy: derivedSensorHealthy,
+          mqttConnected: derivedMqtt,
+          updatedAt: s.updatedAt || new Date().toISOString(),
+        }));
+
+        if (found?.targetSpeedKmh != null) {
           setSpeed(found.targetSpeedKmh);
         }
-      } else {
-        setSpeed(s.targetSpeedKmh);
       }
       setEvents(await api('/api/events'));
       try {
@@ -343,7 +363,7 @@ function App() {
           <div className="rail rail2" />
           <div className="sleepers" />
           <div className="train"><div className="train-window" /><div className="train-light" /></div>
-          <div className={`signal ${state.signal.toLowerCase()}`}><i /><i /><i /></div>
+          <div className={`signal ${(state.signal || 'GREEN').toLowerCase()}`}><i /><i /><i /></div>
           <div className={`hazard-marker ${hazard ? 'visible' : ''}`}>WILDLIFE ZONE</div>
           <div className="scene-label">
             <span>DOUBLE TRACK</span>
@@ -362,7 +382,7 @@ function App() {
           >
             <div className="train-card-head">
               <span className="train-badge"><TrainFront size={14} /> {t.id}</span>
-              <span className={`line-pill ${t.line.toLowerCase()}`}>{t.line} LINE</span>
+              <span className={`line-pill ${(t.line || 'UP').toLowerCase()}`}>{t.line} LINE</span>
               <span className="train-status">{t.status || 'RUNNING'}</span>
             </div>
             <div className="train-metrics">
@@ -478,8 +498,8 @@ function App() {
                           </span>
                         )}
                         {b.hazard && (
-                          <span className="hazard-pill" title={`Sources: ${b.hazard.sources?.join(', ')}`}>
-                            <Leaf size={10} /> {b.hazard.stage === 'CONFIRMED' ? 'CONFIRMED' : 'SUSPECTED'} {b.hazard.sensorSources?.map(s => s === 'trackside' ? 'HUT' : s === 'onboardSensor' ? 'CAM' : 'CAMERA').join('+')}
+                          <span className="hazard-pill" title={`Sources: ${(b.hazard.sensorSources || b.hazard.sources || []).join(', ')}`}>
+                            <Leaf size={10} /> {b.hazard.stage === 'CONFIRMED' ? 'CONFIRMED' : 'SUSPECTED'} {(b.hazard.sensorSources || b.hazard.sources || []).map(s => s === 'trackside' ? 'HUT' : s === 'onboardSensor' ? 'CAM' : 'CAMERA').join('+')}
                           </span>
                         )}
                         {b.id.includes('B2') && <small className="station-hint">Station</small>}
@@ -506,9 +526,9 @@ function App() {
         <Metric
           icon={<Radio />}
           label="ZONE SIGNAL"
-          value={state.signal}
+          value={state.signal || 'GREEN'}
           sub="Authority supervisor"
-          tone={state.signal === 'RED' ? 'red' : 'green'}
+          tone={(state.signal || 'GREEN') === 'RED' ? 'red' : 'green'}
         />
         <Metric
           icon={<Leaf />}
@@ -541,7 +561,7 @@ function App() {
               {hazard ? <AlertTriangle size={19} /> : <CheckCircle2 size={19} />}
             </span>
             <div>
-              <b>{state.status.replaceAll('_', ' ')}</b>
+              <b>{(state.status || 'NORMAL').replaceAll('_', ' ')}</b>
               <p>{hazard ? 'Restrictive state active; resolve hazard and send RESET.' : 'Simulation running within safe authority bounds.'}</p>
             </div>
           </div>
