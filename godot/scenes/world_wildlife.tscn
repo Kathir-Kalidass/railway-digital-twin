@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://world_wildlife"]
+[gd_scene load_steps=15 format=3 uid="uid://world_wildlife"]
 
 [ext_resource type="Script" path="res://src/terrain_generator.gd" id="1"]
 [ext_resource type="Script" path="res://src/bridge.gd" id="2"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://src/wildlife_safety.gd" id="11"]
 [ext_resource type="Script" path="res://src/level_crossing.gd" id="12"]
 [ext_resource type="Script" path="res://src/railway_bridge.gd" id="13"]
+[ext_resource type="Script" path="res://src/wildlife_sensor_network.gd" id="14"]
 
 [node name="WorldWildlife" type="Node3D"]
 
@@ -82,3 +83,8 @@ behaviour_path = NodePath("../WildlifeBehaviour")
 reconciler_path = NodePath("../../TrainReconciler")
 publisher_path = NodePath("../WildlifePublisher")
 crossing_path = NodePath("../LevelCrossing")
+
+[node name="SensorHuts" type="Node3D" parent="."]
+script = ExtResource("14")
+track_registry_path = NodePath("../../TrackRegistry")
+bridge_path = NodePath("../../MQTTBridge")
