@@ -41,67 +41,69 @@
 ## Tasks
 
 ### Task 1: Mosquitto ACL & Backend Wildlife Observation Ingestion & State Fusion
-- [ ] Update `mosquitto/acl_file` to grant `godot` write and `backend`/`dashboard` read on `railway/wildlife`.
-- [ ] Add `validateWildlifeObservation(msg, config)` in `backend/src/validate.js`.
-- [ ] Update `backend/src/state.js` with `setBlockWildlifeEvidence(line, distanceM, observation)` managing `blockHazards`.
-- [ ] Update `backend/src/signalling.js` to consider active `blockHazards` in `deriveBlockAspects()`.
-- [ ] Update `backend/src/routes.js` to check block hazards along route.
-- [ ] Update `backend/src/ingest.js` for `railway/wildlife` and forward edge alert to `railway/commands/esp32`.
-- [ ] Create `backend/test/wildlife_observation.test.js` and verify with `node --test`.
-- [ ] Conventional Commit: `feat(backend): block-scoped wildlife evidence fusion and esp32 alert forwarding`.
+- [x] Update `mosquitto/acl_file` to grant `godot` write and `backend`/`dashboard` read on `railway/wildlife`.
+- [x] Add `validateWildlifeObservation(msg, config)` in `backend/src/validate.js`.
+- [x] Update `backend/src/state.js` with `setBlockWildlifeEvidence(line, distanceM, observation)` managing `blockHazards`.
+- [x] Update `backend/src/signalling.js` to consider active `blockHazards` in `deriveBlockAspects()`.
+- [x] Update `backend/src/routes.js` to check block hazards along route.
+- [x] Update `backend/src/ingest.js` for `railway/wildlife` and forward edge alert to `railway/commands/esp32`.
+- [x] Create `backend/test/wildlife_observation.test.js` and verify with `node --test`.
+- [x] Conventional Commit: `feat(backend): block-scoped wildlife evidence fusion and esp32 alert forwarding`.
 
 ### Task 2: ESP32 Backend Command Source Acceptance
-- [ ] Update `esp32/src/command_logic.h` to accept `source == "backend"` for `WILDLIFE_DETECTED` and `WILDLIFE_CLEARED`.
-- [ ] Add unit test in `esp32/test/test_logic/test_logic.cpp` verifying backend source acceptance.
-- [ ] Run `cd esp32 && /home/kathir/.local/bin/pio test -e native` to verify all 15 test cases pass.
-- [ ] Conventional Commit: `feat(esp32): support backend-forwarded wildlife alert events`.
+- [x] Update `esp32/src/command_logic.h` to accept `source == "backend"` for `WILDLIFE_DETECTED` and `WILDLIFE_CLEARED`.
+- [x] Add unit test in `esp32/test/test_logic/test_logic.cpp` verifying backend source acceptance.
+- [x] Run `cd esp32 && /home/kathir/.local/bin/pio test -e native` to verify all 15 test cases pass.
+- [x] Conventional Commit: `feat(esp32): support backend-forwarded wildlife alert events`.
 
 ### Task 3: Godot Stopping Distance Model & Onboard Simulated ML Camera Detector
-- [ ] Create `godot/src/onboard_braking.gd` implementing `stopping_distance(speed_kmh)` and `safe_speed_limit(distance_m)`.
-- [ ] Create `godot/src/animal_detector.gd` (abstract interface).
-- [ ] Create `godot/src/simulated_animal_detector.gd`:
+- [x] Create `godot/src/onboard_braking.gd` implementing `stopping_distance(speed_kmh)` and `safe_speed_limit(distance_m)`.
+- [x] Create `godot/src/animal_detector.gd` (abstract interface).
+- [x] Create `godot/src/simulated_animal_detector.gd`:
   - 180m range, ±25° horizontal cone, ±10° vertical cone.
   - Occlusion checks against terrain (`TerrainGenerator`), trees (`SceneryDirector.tree_roots()`), and bridge decks.
   - Confidence calculation: `clamp01((1 - d / 180) * species_mult)`.
   - Debounce persistence: 2 positive evaluations (1 if critical `d_stop >= d`).
   - Fail-safe stop: immediate call to `TrainReconciler.set_local_wildlife_limit(0)`.
   - MQTT observation publisher to `railway/wildlife` (`source: "onboard-camera"`).
-- [ ] Attach `SimulatedAnimalDetector` to lead carriage camera in `godot/src/ltstrain.gd`.
-- [ ] Create `godot/tests/test_onboard_braking.gd` and `godot/tests/test_onboard_detector.gd`.
-- [ ] Run Godot headless test suites.
-- [ ] Conventional Commit: `feat(godot): onboard ML animal camera detector and instant braking`.
+- [x] Attach `SimulatedAnimalDetector` to lead carriage camera in `godot/src/ltstrain.gd`.
+- [x] Create `godot/tests/test_onboard_braking.gd` and `godot/tests/test_onboard_detector.gd`.
+- [x] Run Godot headless test suites.
+- [x] Conventional Commit: `feat(godot): onboard ML animal camera detector and instant braking`.
 
 ### Task 4: Godot Trackside Sensor Huts Network
-- [ ] Create `godot/src/wildlife_sensor_network.gd`:
+- [x] Create `godot/src/wildlife_sensor_network.gd`:
   - Spawns 10 visible sensor huts (5 UP, 5 DOWN) at block boundaries `k * lineLength / 5`.
   - Visuals: equipment hut box, post, antenna, indicator lamp.
   - 75m radius `Area3D` cylinder checking bodies in group `wildlife`.
   - Publishes `railway/wildlife` (`source: "trackside"`).
-- [ ] Wire `SensorHuts` under `WorldWildlife` in `lts_full.tscn`.
-- [ ] Create `godot/tests/test_sensor_huts.gd`.
-- [ ] Run Godot headless test suites.
-- [ ] Conventional Commit: `feat(godot): distributed trackside sensor huts network`.
+- [x] Wire `SensorHuts` under `WorldWildlife` in `lts_full.tscn`.
+- [x] Create `godot/tests/test_sensor_huts.gd`.
+- [x] Run Godot headless test suites.
+- [x] Conventional Commit: `feat(godot): distributed trackside sensor huts network`.
 
 ### Task 5: Godot Wildlife Director & Real-Time Proximity Spawning
-- [ ] Create `godot/src/wildlife_director.gd`:
+- [x] Create `godot/src/wildlife_director.gd`:
   - Replaces legacy fixed crossing trigger with randomized proximity spawns (80–280m ahead of trains).
   - Deterministic PRNG using exported `seed` (default 20261022).
   - Cooldown 30–60s between events.
   - Animates animal crossing with perpendicular movement and tags `line` and `track_distance_m`.
-- [ ] Update `godot/src/twin_hud.gd` to render ML camera detection status (`CAM clear` / `CAM detect 0.82`) and sensor hut status.
-- [ ] Create `godot/tests/test_wildlife_director.gd`.
-- [ ] Run Godot headless test suites.
-- [ ] Conventional Commit: `feat(godot): randomized proximity animal spawning director and HUD vision`.
+- [x] Update `godot/src/twin_hud.gd` to render ML camera detection status (`CAM clear` / `CAM detect 0.82`) and sensor hut status.
+- [x] Create `godot/tests/test_wildlife_director.gd`.
+- [x] Run Godot headless test suites.
+- [x] Conventional Commit: `feat(godot): randomized proximity animal spawning director and HUD vision`.
 
 ### Task 6: Web Dashboard Hazard Evidence Presentation
-- [ ] Update `web/src/App.tsx` to render block hazard evidence badges (`trackside` vs `onboard-camera`, confidence, sensor/train ID).
-- [ ] Update `web/src/style.css` for evidence badge styling.
-- [ ] Verify build: `cd web && npm run build`.
-- [ ] Conventional Commit: `feat(web): display block hazard evidence sources and confidence`.
+- [x] Update `web/src/App.tsx` to render block hazard evidence badges (`trackside` vs `onboard-camera`, confidence, sensor/train ID).
+- [x] Update `web/src/style.css` for evidence badge styling.
+- [x] Verify build: `cd web && npm run build`.
+- [x] Conventional Commit: `feat(web): display block hazard evidence sources and confidence`.
 
 ### Task 7: Full Verification & Delivery Record
-- [ ] Run full backend test suite (`node --test ...`).
-- [ ] Run full Godot test suite (`run_tests.sh`).
-- [ ] Run ESP32 native tests (`pio test -e native`).
+- [x] Run full backend test suite (`node --test ...`).
+- [x] Run full Godot test suite (`run_tests.sh`).
+- [x] Run ESP32 native tests (`pio test -e native`).
+- [x] Update `docs/porting/acceptance.md` with Stage 2F verification gates.
+- [x] Conventional Commit: `docs(2f): complete stage 2F verification and delivery record`.
 - [ ] Update `docs/porting/acceptance.md` with Stage 2F verification gates.
 - [ ] Conventional Commit: `docs(2f): complete stage 2F verification and delivery record`.
