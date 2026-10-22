@@ -176,6 +176,11 @@ after 2F (distributed wildlife sensing) and 2G (chance-based meet crossover).
 | Live integrated smoke | Broker 1884 + backend 3101: `/api/health` connected; state listed both trains; `POST /api/meet {seed: 4242, trigger: true}` returned seed 4242, and a station window held T3 (`commandedSpeedKmh=0`, 48 to 0 km/h) then recorded `HELD`; a trackside observation on `UP-B2` set `overall=HAZARD` with `UP-B2 RED`; clearing it left `RECOVERY_REQUIRED`; `POST /api/control RESET zone1` restored `NORMAL`; retained `railway/state` showed 2 trains and meet seed 4242 |
 | Captures | `/tmp/opencode/double_track_overview.png`, `/tmp/opencode/platform_after_topdown.png`, `/tmp/opencode/platform_after_oblique.png`, `/tmp/opencode/meet_randomized.png` |
 
+Post-gate fix (2026-10-22): backend-driven crossovers now blend the visible
+consist between tracks instead of snapping, and `test_crossover_visual.gd`
+asserts smooth carriage movement with no apply-state jump. Evidence:
+`/tmp/opencode/crossover.gif` plus `crossover_before/midway/after.png`.
+
 Environment note: the host `mosquitto` service occupies `127.0.0.1:1883`, so
 `godot/tests/regress.sh`'s compose-broker step is shadowed and its ACL tests
 fail in this environment. The gates above were run with the documented isolated

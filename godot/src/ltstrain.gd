@@ -20,6 +20,8 @@ var remote_mode := false
 var _carriages: Array[Node3D] = []
 var _wheels: Array[MeshInstance3D] = []
 var _track: LTSTrack
+var _blend_target_track: LTSTrack
+var _blend_progress := 0.0
 var _lts_math: Node
 var uses_lts_models := false
 
@@ -32,6 +34,17 @@ func set_track(new_track: LTSTrack) -> void:
 	_track = new_track
 	if is_instance_valid(_track):
 		track_path = _track.get_path()
+
+
+func set_track_blend(target_track: LTSTrack, progress: float) -> void:
+	_blend_target_track = target_track
+	_blend_progress = clampf(progress, 0.0, 1.0)
+	_update_train_pose()
+
+
+func clear_track_blend() -> void:
+	_blend_target_track = null
+	_blend_progress = 0.0
 
 
 func set_track_position_m(distance_m: float) -> void:
@@ -141,9 +154,16 @@ func _physics_process(delta: float) -> void:
 
 
 func _update_train_pose() -> void:
+	if not is_instance_valid(_track):
+		return
 	for index in _carriages.size():
 		var carriage_distance := fposmod(_track_position_m - index * 18.0, _track.length)
-		_carriages[index].global_transform = _track.get_global_transform_at_distance(carriage_distance)
+		var pose := _track.get_global_transform_at_distance(carriage_distance)
+		if is_instance_valid(_blend_target_track) and _blend_target_track != _track and _blend_progress < 1.0:
+			var target_distance := fposmod(carriage_distance * _blend_target_track.length / _track.length, _blend_target_track.length)
+			var target_pose := _blend_target_track.get_global_transform_at_distance(target_distance)
+			pose = pose.interpolate_with(target_pose, _blend_progress)
+		_carriages[index].global_transform = pose
 
 
 func _build_train() -> void:

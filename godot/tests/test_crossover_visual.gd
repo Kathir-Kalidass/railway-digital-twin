@@ -28,7 +28,7 @@ func _run() -> void:
 		scenery.set_crossover_active("CrossoverA", false)
 		a.ok(not scenery.is_crossover_active("CrossoverA"), "CrossoverA returns to normal")
 
-		# 2. Test train crossover transition on FleetController
+		# 2. Backend-driven crossover animates the visible consist
 		fleet.apply_state({
 			"trains": [
 				{
@@ -36,34 +36,62 @@ func _run() -> void:
 					"line": "UP",
 					"block": "UP-B2",
 					"offsetM": 10.0,
-					"speedKmh": 30.0,
-					"targetSpeedKmh": 30.0
+					"speedKmh": 0.0,
+					"targetSpeedKmh": 0.0
 				}
 			]
 		})
 
 		var t1 := fleet.get_train("T1")
 		a.ok(t1 != null, "T1 initialized")
-		var init_pos := t1.global_position
+		var carriage := t1.get_node_or_null("Locomotive") as Node3D
+		a.ok(carriage != null, "T1 has a visible locomotive")
+		if carriage:
+			var up_pos := carriage.global_position
 
-		# Request crossover transition from UP to DOWN
-		fleet.transition_train_line("T1", "DOWN", 0.5)
+			fleet.apply_state({
+				"trains": [
+					{
+						"id": "T1",
+						"line": "DOWN",
+						"block": "DOWN-B2",
+						"offsetM": 10.0,
+						"speedKmh": 0.0,
+						"targetSpeedKmh": 0.0
+					}
+				]
+			})
+			a.ok(fleet.is_train_crossing_over("T1"), "backend line change starts a visible crossover")
+			a.eq(fleet.get_train_line("T1"), "UP", "visual line stays on the source during the crossover")
+			a.ok(carriage.global_position.distance_to(up_pos) < 0.05, "backend line change does not snap the consist")
+			a.ok(scenery.is_crossover_active("CrossoverA"), "CrossoverA blades active during backend crossover")
+
+			fleet._process(fleet.crossover_duration_sec * 0.5)
+			var mid_pos := carriage.global_position
+			var mid_shift := mid_pos.distance_to(up_pos)
+			a.ok(mid_shift > 0.2, "consist moves smoothly toward the target track")
+			a.ok(fleet.is_train_crossing_over("T1"), "crossover still in progress at midpoint")
+
+			fleet._process(fleet.crossover_duration_sec * 0.6)
+			a.ok(not fleet.is_train_crossing_over("T1"), "backend crossover finished")
+			a.eq(fleet.get_train_line("T1"), "DOWN", "T1 line is now DOWN")
+			a.ok(not scenery.is_crossover_active("CrossoverA"), "CrossoverA blades returned to normal")
+			a.ok(carriage.global_position.distance_to(up_pos) > mid_shift + 0.2, "consist continues across the track spacing")
+
+		# 3. Manual transition also moves the visible consist
+		var down_pos := carriage.global_position if carriage else Vector3.ZERO
+		fleet.transition_train_line("T1", "UP", 0.4)
 		a.ok(fleet.is_train_crossing_over("T1"), "T1 is marked crossing over")
-		a.ok(scenery.is_crossover_active("CrossoverA"), "CrossoverA blades active during transition")
+		a.ok(scenery.is_crossover_active("CrossoverB"), "CrossoverB blades active during transition")
 
-		# Advance halfway through transition
+		fleet._process(0.2)
+		if carriage:
+			a.ok(carriage.global_position.distance_to(down_pos) > 0.2, "consist shifts back toward UP")
+
 		fleet._process(0.25)
-		await process_frame
-		var mid_pos := t1.global_position
-		# Midpoint should be between the UP position and DOWN rail
-		a.ok(mid_pos.distance_to(init_pos) > 0.2, "T1 smoothly shifts away from start")
-
-		# Advance past transition end
-		fleet._process(0.35)
-		await process_frame
 		a.ok(not fleet.is_train_crossing_over("T1"), "T1 finished crossover transition")
-		a.eq(fleet.get_train_line("T1"), "DOWN", "T1 line is now DOWN")
-		a.ok(not scenery.is_crossover_active("CrossoverA"), "CrossoverA blades returned to normal")
+		a.eq(fleet.get_train_line("T1"), "UP", "T1 line is now UP")
+		a.ok(not scenery.is_crossover_active("CrossoverB"), "CrossoverB blades returned to normal")
 
 	scene.queue_free()
 	await process_frame

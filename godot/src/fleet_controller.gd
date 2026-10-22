@@ -5,11 +5,13 @@ extends Node3D
 @export var bridge_path: NodePath = NodePath("../MQTTBridge")
 @export var reconciler_path: NodePath = NodePath("../TrainReconciler")
 @export var default_train_path: NodePath = NodePath("../Train")
+@export var crossover_duration_sec := 1.5
 
 var _trains: Dictionary = {}
 var _train_lines: Dictionary = {}
 var _train_blocks: Dictionary = {}
 var _crossovers_in_progress: Dictionary = {}
+var _pending_states: Dictionary = {}
 
 var _registry: TrackRegistry
 var _bridge: MQTTBridge
@@ -92,11 +94,23 @@ func apply_state(state: Dictionary) -> void:
 				add_child(train)
 			_trains[id] = train
 
-		if is_instance_valid(track_node) and train.get_node_or_null(train.track_path) != track_node:
-			train.set_track(track_node)
+		if is_instance_valid(track_node) and train.get_node_or_null(train.track_path) != track_node and not _crossovers_in_progress.has(id):
+			var previous_line := str(_train_lines.get(id, ""))
+			if not previous_line.is_empty() and previous_line != line:
+				transition_train_line(id, line, crossover_duration_sec)
+			else:
+				train.set_track(track_node)
 
-		train.set_remote_target(dist_m, speed_kmh, target_kmh)
-		_train_lines[id] = line
+		if _crossovers_in_progress.has(id):
+			_pending_states[id] = {
+				"line": line,
+				"dist_m": dist_m,
+				"speed_kmh": speed_kmh,
+				"target_kmh": target_kmh
+			}
+		else:
+			train.set_remote_target(dist_m, speed_kmh, target_kmh)
+			_train_lines[id] = line
 		_train_blocks[id] = block
 
 	# Safely remove trains that disappeared from backend state
@@ -154,6 +168,8 @@ func is_train_crossing_over(train_id: String) -> bool:
 
 
 func transition_train_line(train_id: String, to_line: String, duration_sec: float = 1.0) -> void:
+	if _crossovers_in_progress.has(train_id):
+		return
 	var train := get_train(train_id)
 	if not is_instance_valid(train):
 		return
@@ -178,6 +194,30 @@ func transition_train_line(train_id: String, to_line: String, duration_sec: floa
 		"crossover_name": xover_name,
 		"target_track": target_track
 	}
+	if is_instance_valid(target_track):
+		train.set_track_blend(target_track, 0.0)
+
+
+func _finish_crossover(train_id: String, info: Dictionary) -> void:
+	var train := get_train(train_id)
+	if not is_instance_valid(train):
+		return
+
+	var source_track := train.get_node_or_null(train.track_path) as LTSTrack
+	var source_distance := train.get_track_position_m()
+	var target_track: LTSTrack = info.get("target_track")
+	train.clear_track_blend()
+	if is_instance_valid(target_track):
+		var target_distance := source_distance
+		if is_instance_valid(source_track) and source_track.length > 0.0:
+			target_distance = source_distance * target_track.length / source_track.length
+		train.set_track(target_track)
+		train.set_track_position_m(target_distance)
+
+	_train_lines[train_id] = info["to_line"]
+	var scenery := get_node_or_null("../Scenery")
+	if scenery and scenery.has_method("set_crossover_active"):
+		scenery.call("set_crossover_active", info["crossover_name"], false)
 
 
 func _process(delta: float) -> void:
@@ -191,29 +231,28 @@ func _process(delta: float) -> void:
 
 		info["progress"] += delta / float(info["duration"])
 		var t: float = clampf(info["progress"], 0.0, 1.0)
-
-		if info.has("target_track") and is_instance_valid(info["target_track"]):
-			var target_track: LTSTrack = info["target_track"]
-			var source_track: LTSTrack = train.get_node_or_null(train.track_path) as LTSTrack
-			if is_instance_valid(source_track):
-				var d_source := train.get_track_position_m()
-				var d_target := d_source * target_track.length / source_track.length
-				var p_source := source_track.get_global_transform_at_distance(d_source)
-				var p_target := target_track.get_global_transform_at_distance(d_target)
-				var blend_origin := p_source.origin.lerp(p_target.origin, t)
-				train.global_position = blend_origin
+		var target_track: LTSTrack = info.get("target_track")
+		if is_instance_valid(target_track):
+			train.set_track_blend(target_track, t)
 
 		if t >= 1.0:
-			var to_line: String = info["to_line"]
-			_train_lines[train_id] = to_line
-			if info.has("target_track") and is_instance_valid(info["target_track"]):
-				train.set_track(info["target_track"])
-			var scenery := get_node_or_null("../Scenery")
-			var xover_name: String = info["crossover_name"]
-			if scenery and scenery.has_method("set_crossover_active"):
-				scenery.call("set_crossover_active", xover_name, false)
+			_finish_crossover(train_id, info)
 			done.append(train_id)
 
 	for tid in done:
 		_crossovers_in_progress.erase(tid)
+		var pending: Dictionary = _pending_states.get(tid, {})
+		if pending.is_empty():
+			continue
+		var pending_line := str(pending.get("line", ""))
+		if pending_line != str(_train_lines.get(tid, "")):
+			_pending_states.erase(tid)
+			transition_train_line(tid, pending_line, crossover_duration_sec)
+			if _crossovers_in_progress.has(tid):
+				_pending_states[tid] = pending
+			continue
+		var train := get_train(tid)
+		if is_instance_valid(train):
+			train.set_remote_target(float(pending["dist_m"]), float(pending["speed_kmh"]), float(pending["target_kmh"]))
+		_pending_states.erase(tid)
 
