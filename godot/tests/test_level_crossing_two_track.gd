@@ -20,7 +20,7 @@ func _run() -> void:
 
 	var distance_m: float = crossing.get("distance_m")
 	var up_point: Vector3 = up.get_global_transform_at_distance(distance_m).origin
-	var down_point: Vector3 = down.get_global_transform_at_distance(distance_m * down.length / up.length).origin
+	var down_point: Vector3 = down.get_global_transform_at_distance(down.map_to_parallel(distance_m)).origin
 	a.ok(points[0].distance_to(up_point) < 0.5, "first point is the UP crossing")
 	a.ok(points[1].distance_to(down_point) < 0.5, "second point is the DOWN crossing")
 	a.ok(Vector3(points[0].x, 0.0, points[0].z).distance_to(

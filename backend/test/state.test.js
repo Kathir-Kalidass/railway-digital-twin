@@ -112,6 +112,11 @@ test('fleet snapshot exposes two trains, blocks, lines, station and routes', () 
   assert.deepEqual(snap.zones.zone1.blocks.sort(), ['DOWN-B0', 'DOWN-B1', 'DOWN-B2', 'UP-B0', 'UP-B1', 'UP-B2']);
   assert.equal(snap.routes.available.length, 2);
   assert.equal(snap.routes.active, null);
+  assert.ok(snap.routes.wrongLine);
+  assert.equal(snap.routes.wrongLine.active, null);
+  assert.ok(snap.routes.wrongLine.eligibility.T1);
+  assert.ok(Number.isFinite(snap.trains[0].physicalM));
+  assert.equal(snap.trains[1].travelSign, -1);
 });
 
 test('fleet tick advances trains and respects broker connectivity', () => {

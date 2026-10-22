@@ -50,9 +50,9 @@ func _setup() -> void:
 	_station.near = 0.5
 	_station.far = 2000.0
 	_station.current = false
-	_station.position = Vector3(0.0, 22.0, 28.0)
+	_station.position = Vector3(55.0, 26.0, 55.0)
 	add_child(_station)
-	_station.look_at(Vector3(0.0, 1.0, 0.0), Vector3.UP)
+	_station.look_at(Vector3(-5.0, 2.0, 120.0), Vector3.UP)
 	_cameras.append(_station)
 
 

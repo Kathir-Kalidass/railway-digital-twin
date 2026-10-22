@@ -41,6 +41,10 @@ func _run() -> void:
 	director.cycle()
 	a.eq(director.mode_name(), "follow", "cycles back to follow")
 
+	director.set_mode("station")
+	await process_frame
+	a.ok(director.current_camera().global_position.z > 40.0, "station camera looks at the south straight")
+
 	var atmosphere := scene.get_node("WorldWildlife/Atmosphere") as Atmosphere
 	var world_environment := scene.get_node("WorldEnvironment") as WorldEnvironment
 	var environment: Environment = world_environment.environment

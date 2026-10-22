@@ -22,16 +22,17 @@ script = ExtResource("1")
 
 [node name="Track" type="Node3D" parent="."]
 script = ExtResource("2")
-length = 753.9822
-radius = 120.0
+straight_length_m = 250.0
+curve_radius_m = 120.0
+parallel_curve_radius_m = 116.0
 max_speed_kmh = 80.0
 
 [node name="InnerTrack" type="Node3D" parent="."]
 script = ExtResource("2")
-length = 728.8495
-radius = 116.0
+straight_length_m = 250.0
+curve_radius_m = 116.0
+parallel_curve_radius_m = 120.0
 max_speed_kmh = 80.0
-position = Vector3(0, 0, -4)
 
 [node name="Train" type="Node3D" parent="."]
 script = ExtResource("3")

@@ -18,8 +18,8 @@ func _run() -> void:
 	camera.fov = 58.0
 	camera.far = 2000.0
 	scene.add_child(camera)
-	camera.global_position = Vector3(0.0, 175.0, 95.0)
-	camera.look_at(Vector3(0.0, 0.0, -120.0), Vector3.UP)
+	camera.global_position = Vector3(0.0, 520.0, 0.0)
+	camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.FORWARD)
 	camera.make_current()
 	for frame in 3:
 		await process_frame

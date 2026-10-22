@@ -1,14 +1,14 @@
 import { validateWildlifeObservation } from './validate.js';
+import { makeWildlifeCommands } from './wildlife_commands.js';
 
-export function makeIngest({ state, bus, config, mqtt }) {
+export function makeIngest({ state, bus, config, mqtt, commands = null }) {
   const seenTelemetryIds = new Set();
   const maxSeenTelemetryIds = 256;
   const telemetryMaxAgeMs = 5 * 60 * 1000;
 
   const seenWildlifeEventIds = new Set();
   const maxSeenWildlifeEventIds = 256;
-  let esp32ZoneHazardActive = false;
-  let backendCmdSeq = 0;
+  const wildlifeCommands = commands || makeWildlifeCommands({ state, bus, config, mqtt });
 
   function rejectTelemetry(reason) {
     state.markEvent('INVALID_TELEMETRY');
@@ -29,23 +29,6 @@ export function makeIngest({ state, bus, config, mqtt }) {
     }
   }
 
-  function sendEsp32Command(event, payload) {
-    backendCmdSeq += 1;
-    const cmd = {
-      request_id: `backend-wildlife-${Date.now()}-${backendCmdSeq}`,
-      zone: config.esp32Zone,
-      event,
-      timestamp: new Date().toISOString(),
-      source: 'backend',
-      payload,
-    };
-    if (bus.command) {
-      bus.command('esp32', cmd);
-    } else if (mqtt) {
-      mqtt.publish('railway/commands/esp32', cmd);
-    }
-  }
-
   function validEnvelope(message) {
     const expectedZone = config.esp32Zone || config.zones[0];
     const payload = message?.payload;
@@ -56,6 +39,7 @@ export function makeIngest({ state, bus, config, mqtt }) {
     if (message.clockValid !== true || Number.isNaN(timestamp) || Math.abs(Date.now() - timestamp) > telemetryMaxAgeMs) return 'stale or clock-invalid timestamp';
     if (!payload || payload.device !== 'esp32' || typeof payload.sensorHealthy !== 'boolean') return 'invalid payload';
     if (Object.hasOwn(payload, 'wildlifeDetected') && typeof payload.wildlifeDetected !== 'boolean') return 'invalid wildlife value';
+    if (Object.hasOwn(payload, 'nearAnimal') && typeof payload.nearAnimal !== 'boolean') return 'invalid near-animal value';
     if (Object.hasOwn(payload, 'uptimeMs') && (!Number.isFinite(payload.uptimeMs) || payload.uptimeMs < 0)) return 'invalid uptime';
     if (seenTelemetryIds.has(message.request_id)) return 'duplicate request_id';
     return null;
@@ -88,27 +72,7 @@ export function makeIngest({ state, bus, config, mqtt }) {
         return;
       }
 
-      // Check ESP32 edge forwarding if in esp32Zone
-      const esp32Zone = config.esp32Zone || config.zones[0];
-      if (applied.zone === esp32Zone) {
-        const activeCount = Object.values(state.getBlockHazards()).filter((h) => h.zone === esp32Zone && h.active).length;
-        if (applied.active && activeCount === 1 && !esp32ZoneHazardActive) {
-          esp32ZoneHazardActive = true;
-          sendEsp32Command('WILDLIFE_DETECTED', {
-            blockId: applied.blockId,
-            line: applied.line,
-            source: valid.value.source,
-          });
-        } else if (!applied.active && activeCount === 0 && esp32ZoneHazardActive) {
-          esp32ZoneHazardActive = false;
-          sendEsp32Command('WILDLIFE_CLEARED', {
-            blockId: applied.blockId,
-            line: applied.line,
-            source: valid.value.source,
-          });
-        }
-      }
-
+      wildlifeCommands.sync();
       bus.snapshot();
       return;
     }
@@ -122,6 +86,9 @@ export function makeIngest({ state, bus, config, mqtt }) {
         state.setSensor(message.zone, message.payload.sensorHealthy);
         if (typeof message.payload.wildlifeDetected === 'boolean') {
           state.setWildlife(message.zone, message.payload.wildlifeDetected);
+        }
+        if (typeof message.payload.nearAnimal === 'boolean') {
+          state.setEsp32NearAnimal(message.zone, message.payload.nearAnimal);
         }
         rememberTelemetry(message.request_id);
         if (message.payload.sensorHealthy === false) {
@@ -160,5 +127,5 @@ export function makeIngest({ state, bus, config, mqtt }) {
     }
   }
 
-  return { handle, onBrokerConnected };
+  return { handle, onBrokerConnected, commands: wildlifeCommands };
 }

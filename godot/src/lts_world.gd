@@ -3,6 +3,7 @@ extends Node3D
 @onready var track: LTSTrack = $Track
 @onready var train: Node3D = $Train
 @export var initial_target_speed_kmh := 54.0
+@export var space_wildlife_lead_m := 120.0
 
 var follow_camera: Camera3D
 
@@ -29,9 +30,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_down"):
 		train.set_target_speed_kmh(train.get_target_speed_kmh() - 10.0)
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
-		var wildlife_behaviour := get_node_or_null("WorldWildlife/WildlifeBehaviour") as WildlifeBehaviour
-		if wildlife_behaviour:
-			wildlife_behaviour.trigger_crossing("deer")
+		spawn_wildlife_ahead()
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
 		var director := get_node_or_null("CameraDirector") as CameraDirector
 		if director:
@@ -48,6 +47,29 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		var hud := get_node_or_null("HUD") as TwinHUD
 		if hud:
 			hud.cycle_selected_train()
+
+
+func spawn_wildlife_ahead() -> Dictionary:
+	var selected := train as LTSTrain
+	if not is_instance_valid(selected):
+		return {}
+	var director := get_node_or_null("WorldWildlife/WildlifeDirector") as WildlifeDirector
+	if is_instance_valid(director):
+		return director.trigger_proximity_event(
+			selected.train_id,
+			selected.line_id,
+			selected.get_track_position_m(),
+			selected.travel_sign,
+			space_wildlife_lead_m,
+			"deer",
+			1
+		)
+	var behaviour := get_node_or_null("WorldWildlife/WildlifeBehaviour") as WildlifeBehaviour
+	if is_instance_valid(behaviour):
+		var track_len := selected.get_track_length_m()
+		var distance := fposmod(selected.get_track_position_m() + space_wildlife_lead_m * selected.travel_sign, track_len)
+		behaviour.trigger_crossing_at(selected.line_id, distance, "deer")
+	return {}
 
 
 func set_target_train(target_train: Node3D) -> void:

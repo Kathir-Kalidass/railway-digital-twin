@@ -47,6 +47,7 @@ func _build_huts() -> void:
 			hut.line = line
 			hut.boundary_distance_m = dist
 			hut.coverage_radius_m = sensor_coverage_m
+			hut.line_length_m = track.length
 			hut.bridge = _bridge
 
 			var hut_pos := pose.origin + pose.basis.z * side_offset

@@ -15,6 +15,10 @@ Educational simulation only; not certified railway equipment.
 | Web build | `cd web && npm run build` | PASS |
 | ESP32 firmware | `cd esp32 && pio run -e esp32dev` | PASS (1.1 MB image, 87.1% flash) |
 
+Latest rerun (2026-10-23): Godot 39/39, backend 118/118, ESP32 native
+15/15, web build PASS. The gate now includes `test_wrong_line_visual` and
+`test_wrong_line_hud`.
+
 Godot suites (34): `test_camera_director`, `test_catenary_double`,
 `test_corridor_flatten`, `test_crossover_visual`, `test_e2e_safety`,
 `test_esp32_integration`, `test_fleet_controller`, `test_fleet_hud`, `test_hud`,
@@ -198,4 +202,91 @@ host run is still required for the dashboard and physical-hardware checks.
 
 ```bash
 bash godot/tests/regress.sh; echo "exit=$?"
+```
+
+## Stadium Phase 1 verification (2026-10-22)
+
+The UP and DOWN loops now share a 250 m straight-sided stadium footprint
+(centre `z = ±120 m`, straights `x = -125..125 m`, east/west 120 m curves),
+with the island station and interlocked crossovers A/B on the south straight.
+DOWN runs operational chainage opposite physical chainage; T1 is clockwise and
+T3 anticlockwise.
+
+| Item | Evidence |
+|---|---|
+| Stadium geometry and inverse chainage | `test_stadium_track.gd`, `test_geometry.test.js`; UP 1253.9822 m, DOWN 1228.8495 m, block lengths 250.796 / 245.77 m |
+| Station and crossovers | `test_station_crossovers.gd`, `test_station_island.gd`; platform 150–198 m, X-A at 120 m, X-B at 240 m |
+| Opposite running | `test_opposite_running.gd`; T3 faces west on the south straight, moves anticlockwise, camera aligns with travel |
+| Wildlife chainage | `test_sensor_huts.gd`, `test_onboard_detector.gd`, `test_wildlife_director.gd`; DOWN operational conversion and behind-train spawning |
+| Automated gate | Godot 36/36 PASS; backend 109/109 PASS (isolated broker); ESP32 native 15/15 PASS; web build PASS |
+| Captures | `/tmp/opencode/double_track_overview.png`, `platform_after_topdown.png`, `platform_after_oblique.png`, `meet_randomized.png`, `crossover_before.png`, `crossover_after.png` |
+
+Visual acceptance: the overview shows the stadium outline and river crossings;
+the station captures show the island platform, canopy, station building and both
+tracks; T1/T3 render in opposing orientations; the crossover capture follows a
+train across the station connection.
+
+## Stadium Phase 2 wrong-line verification (2026-10-23)
+
+The operator can request an interlocked wrong-line run from the dashboard. The
+requested train crosses from UP to DOWN at A, runs against normal traffic, and
+crosses back at B; the opposing train holds at the configured point outside B.
+Meets are separate station holds and no longer request a crossover.
+
+| Item | Evidence |
+|---|---|
+| Wrong-line state/API | `backend/test/wrong_line.test.js`, `wrong_line_api.test.js`, `state.test.js`; GET/POST/cancel endpoints, RBAC, replay and audit; phases `APPROACH → CROSS_ENTRY → WRONG_LINE → CROSS_EXIT → CLEARANCE → DONE` |
+| Opposing hold point | `wrong_line.test.js` asserts the opponent keeps running while far from the hold and commands 0 only inside braking distance |
+| Live hold at B | Broker 1884 + backend 3101: request `WL-T1-1` held T3 at `holdPhysicalM=320`; T3 decelerated from 48 km/h and settled at physical 320.1 m, then released when T1 completed clearance |
+| Godot route animation | `test_wrong_line_visual.gd`: T3 stays visible on DOWN while T1 blends through A, no position snap, blades A/B activate and clear, T1 returns to UP |
+| HUD | `test_wrong_line_hud.gd`: `WRONG-LINE T1 <phase> <pct>% T3 HOLD` from backend route state |
+| Hold-only meets | `meets.test.js`: no crossover request, holder releases with outcome `HELD`; `config.meets.crossoverChance = 0` |
+| Web operator UI | `web/src/App.tsx` login/token, wrong-line eligibility panel, start/cancel, `/api/control` envelope; `npm --prefix web run build` PASS |
+| Automated gate | Godot 39/39 PASS; backend 118/118 PASS (isolated broker); ESP32 native 15/15 PASS; web build PASS |
+| Captures | `/tmp/opencode/wrong_line_before.png`, `wrong_line_midway.png`, `wrong_line_after.png` at 1440×900; numbered frames `wrong_line_frame_00..35.png` |
+
+Repeatable live scenario: T1 starts at UP physical 0 and T3 starts on DOWN-B3 at
+physical 420 m, about 100 m before the hold point. Requesting the wrong line as
+soon as the backend is healthy makes both trains visible near the station while
+T1 runs through the route.
+
+Regenerate captures:
+
+```bash
+xvfb-run -a /home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64 \
+  --path godot --resolution 1440x900 --rendering-method gl_compatibility \
+  --script res://tests/capture_crossover.gd
+```
+
+## Stadium Phase 3 camera/ML/near-animal verification (2026-10-23)
+
+Phase 3 completes the staged `NONE → SUSPECTED (30 km/h) → CONFIRMED (0
+km/h)` chain with backend-authoritative confirmation, camera evidence, a
+two-stage near warning, and operator re-arm. The stadium layout, opposite
+running and wrong-line hold/reservation evidence are recorded in the Phase 1
+and Phase 2 sections above.
+
+| Item | Evidence |
+|---|---|
+| Staged hazards and aspects | `wildlife_observation.test.js`: trackside `SUSPECTED` makes an unoccupied hazard block `YELLOW`; camera confirmation makes it `RED`; clearing evidence leaves a confirmed block latched |
+| Camera ingest | `camera.test.js`: bearer token, `X-Captured-At` freshness, duplicate event id, two-frame confirmation, and ML-degraded response |
+| Near vs confirmed policy | `near_animal.test.js` 9/9: one camera frame → `SUSPECTED`/30 km/h and one `WILDLIFE_NEAR`; second frame → `CONFIRMED`/0 and `WILDLIFE_DETECTED`; clear never downgrades confirmed; duplicate event ids are ignored; ESP32 delivery is not required for the backend stop; RESET keeps the train at 0 until `/api/speed` |
+| Camera target block | `test_camera_confirmation.gd`: a hazard in `UP-B1` while the train is in `UP-B0` uploads `X-Block: UP-B1`, not the train's block |
+| Godot near warning | `test_near_animal_warning.gd`: first detection limits to 30 km/h, second confirms 0, clear resets, duplicate detections do not republish; `test_onboard_detector.gd` still passes |
+| ESP32 near output | `esp32/test/test_logic/test_logic.cpp` 16/16: `WILDLIFE_NEAR` → `WARNING`, `ANIMAL NEAR`, buzzer pulse; `RESET` clears both flags |
+| Web operator surface | `web/src/App.tsx` camera health + staged hazard/evidence panel; `npm --prefix web run build` PASS |
+| Live near → confirmation | Broker 1884 + backend 3101 + ML stub 8001: trackside `UP-B0` observation → `SUSPECTED`, zone1 `YELLOW`, T1 target 30 km/h, ESP32 `WILDLIFE_NEAR`; two JPEG frames → `SUSPECTED` then `CONFIRMED` elephant 0.92, T1 target 0, ESP32 `WILDLIFE_DETECTED` |
+| Live evidence | `backend/data/camera-evidence/final-frame-2.jpg` (23,291 bytes) written from the confirming frame |
+| Live latch and reset | Clearing the trackside sensor left `CONFIRMED` with `sensorSources: []` and T1 at 0; `RESET zone1` returned zone1 to `NORMAL` with no hazard, sent `RESET` to ESP32, and kept T1 at `commandedSpeedKmh: 0` until `/api/speed` set 48 |
+| Live aspect nuance | While T1 occupied `UP-B0`, that block stayed `RED`; the zone1 signal showed `YELLOW` for `SUSPECTED`. Unoccupied hazard blocks are covered as `YELLOW` by `wildlife_observation.test.js` |
+| Real-model smoke | Skipped: no model weights were cached; the stub ML service returned elephant 0.92 with `modelLoaded: true`. No weights are committed |
+| Automated gate | Backend 137/137 PASS (isolated broker); Godot 41/41 PASS; ML 5/5 PASS; ESP32 native 16/16 PASS; `pio run -e esp32dev` SUCCESS (RAM 15.5%, Flash 87.1%); `web` build PASS |
+| Captures | `/tmp/opencode/camera_confirm.png` at 1440×900 shows the confirmed HUD, train, and elephant ahead; `/tmp/opencode/double_track_overview.png`, `wrong_line_before.png`, `wrong_line_midway.png`, `wrong_line_after.png` cover stadium and wrong-line views |
+
+Regenerate the camera-confirm capture:
+
+```bash
+xvfb-run -a /home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64 \
+  --path godot --resolution 1440x900 --rendering-method gl_compatibility \
+  --script res://tests/capture_camera_confirm.gd
 ```

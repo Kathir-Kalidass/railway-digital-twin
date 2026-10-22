@@ -67,6 +67,7 @@ func run_meet_scenario(step_sec: float = 1.0) -> void:
 					"line": "UP",
 					"block": "UP-B2",
 					"offsetM": 20.0,
+					"travelSign": 1,
 					"speedKmh": 0.0,
 					"targetSpeedKmh": 0.0
 				},
@@ -75,6 +76,7 @@ func run_meet_scenario(step_sec: float = 1.0) -> void:
 					"line": "DOWN",
 					"block": "DOWN-B2",
 					"offsetM": 20.0,
+					"travelSign": -1,
 					"speedKmh": 0.0,
 					"targetSpeedKmh": 0.0
 				}
@@ -90,6 +92,7 @@ func run_meet_scenario(step_sec: float = 1.0) -> void:
 					"line": "UP",
 					"block": "UP-B2",
 					"offsetM": 20.0,
+					"travelSign": 1,
 					"speedKmh": 0.0,
 					"targetSpeedKmh": 0.0
 				},
@@ -98,6 +101,7 @@ func run_meet_scenario(step_sec: float = 1.0) -> void:
 					"line": "DOWN",
 					"block": "DOWN-B3",
 					"offsetM": 10.0,
+					"travelSign": -1,
 					"speedKmh": 45.0,
 					"targetSpeedKmh": 45.0
 				}
@@ -117,6 +121,7 @@ func run_meet_scenario(step_sec: float = 1.0) -> void:
 					"line": "DOWN",
 					"block": "DOWN-B2",
 					"offsetM": 40.0,
+					"travelSign": 1,
 					"speedKmh": 45.0,
 					"targetSpeedKmh": 45.0
 				},
@@ -125,6 +130,7 @@ func run_meet_scenario(step_sec: float = 1.0) -> void:
 					"line": "DOWN",
 					"block": "DOWN-B4",
 					"offsetM": 10.0,
+					"travelSign": -1,
 					"speedKmh": 45.0,
 					"targetSpeedKmh": 45.0
 				}

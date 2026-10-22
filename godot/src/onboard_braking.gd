@@ -26,3 +26,10 @@ static func safe_speed_limit(distance_m: float, a: float = 2.0, t_latency: float
 
 static func should_stop(distance_m: float, speed_kmh: float, a: float = 2.0, t_latency: float = 0.6, d_margin: float = 25.0) -> bool:
 	return stopping_distance(speed_kmh, a, t_latency, d_margin) >= distance_m
+
+
+static func near_distance(speed_kmh: float, camera_range_m: float = 180.0,
+		lead_factor: float = 1.25, min_distance_m: float = 40.0) -> float:
+	var d_stop := stopping_distance(speed_kmh)
+	var wanted := maxf(min_distance_m, d_stop * lead_factor)
+	return minf(camera_range_m, wanted)

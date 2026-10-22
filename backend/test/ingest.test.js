@@ -46,6 +46,12 @@ test('esp32 envelope sets sensor through the narrow setter', () => {
   assert.equal(state.snapshot().zones.zone1.sensorHealthy, false);
 });
 
+test('esp32 near-animal telemetry is stored informationally', () => {
+  const { state, ingest } = setup();
+  ingest.handle('railway/telemetry/esp32', envelope({ nearAnimal: true }));
+  assert.equal(state.snapshot().zones.zone1.esp32NearAnimal, true);
+});
+
 test('esp32 out-of-zone and clock-invalid envelopes are rejected without mutation', () => {
   const { state, ingest } = setup();
   const initial = state.snapshot();

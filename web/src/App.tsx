@@ -14,6 +14,43 @@ type Train = {
   lengthM?: number;
   status?: string;
   zone?: string;
+  travelSign?: number;
+  physicalM?: number;
+  routePhase?: string | null;
+  crossingProgress?: number;
+  crossoverId?: string | null;
+  targetLine?: string | null;
+};
+
+type WrongLineEligibility = {
+  eligible: boolean;
+  reason: string | null;
+  distanceToEntryM: number;
+};
+
+type WrongLine = {
+  active: null | {
+    trainId: string;
+    routeId: string;
+    phase: string;
+    progress: number;
+    crossingProgress: number;
+    entryCrossover: string;
+    exitCrossover: string;
+    heldTrainId: string;
+  };
+  eligibility: Record<string, WrongLineEligibility>;
+  lastEvent?: string | null;
+};
+
+type Hazard = {
+  stage: 'NONE' | 'SUSPECTED' | 'CONFIRMED';
+  confirmed: boolean;
+  confidence: number | null;
+  sensorSources: string[];
+  camera?: { trainId: string; species: string; confidence: number; at: string } | null;
+  sources: string[];
+  since?: string;
 };
 
 type Block = {
@@ -24,10 +61,13 @@ type Block = {
   lengthM: number;
   occupiedBy: string | null;
   signal: string;
-  hazard?: {
-    sources: string[];
-    since?: string;
-  } | null;
+  hazard?: Hazard | null;
+};
+
+type CameraHealth = {
+  ok: boolean;
+  degraded?: boolean;
+  ml?: { modelLoaded?: boolean; stub?: boolean; model?: string };
 };
 
 type Meet = {
@@ -63,8 +103,12 @@ type State = {
   mqttConnected: boolean;
   trains?: Train[];
   blocks?: Block[];
-  routes?: { activeRoute?: { routeId: string; trainId: string; from: string; to: string } | null };
+  routes?: {
+    active?: { routeId: string; trainId: string; from: string; to: string } | null;
+    wrongLine?: WrongLine;
+  };
   meets?: Meet | null;
+  zones?: Record<string, { esp32NearAnimal?: boolean }>;
 };
 
 type EventRow = {
@@ -108,27 +152,52 @@ const initial: State = {
   ]
 };
 
-async function api(path: string, body?: unknown) {
-  const r = await fetch(`${API}${path}`, {
-    method: body ? 'POST' : 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    ...(body ? { body: JSON.stringify(body) } : {})
-  });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err.error || 'Request failed');
-  }
-  return r.json();
-}
-
 function App() {
   const [state, setState] = useState<State>(initial);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [cameraHealth, setCameraHealth] = useState<CameraHealth | null>(null);
   const [selectedTrain, setSelectedTrain] = useState<string>('T1');
   const [speed, setSpeed] = useState(48);
   const [error, setError] = useState('');
+  const [token, setToken] = useState<string>(() => localStorage.getItem('railway_token') || '');
+  const [username, setUsername] = useState('operator');
+  const [password, setPassword] = useState('operator-dev-pass');
+
+  async function api(path: string, body?: unknown) {
+    const r = await fetch(`${API}${path}`, {
+      method: body ? 'POST' : 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.reason || err.error || 'Request failed');
+    }
+    return r.json();
+  }
+
+  async function login() {
+    try {
+      const r = await fetch(`${API}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!r.ok) throw new Error('Login failed');
+      const body = await r.json();
+      localStorage.setItem('railway_token', body.token);
+      setToken(body.token);
+      setError('');
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   async function refresh() {
+    if (!token) return;
     try {
       const s = await api('/api/state');
       setState(s);
@@ -141,6 +210,11 @@ function App() {
         setSpeed(s.targetSpeedKmh);
       }
       setEvents(await api('/api/events'));
+      try {
+        setCameraHealth(await api('/api/wildlife/camera/health'));
+      } catch {
+        setCameraHealth(null);
+      }
       setError('');
     } catch {
       setError('Backend unavailable — start the Docker Compose services.');
@@ -148,14 +222,22 @@ function App() {
   }
 
   useEffect(() => {
+    if (!token) return;
     refresh();
     const id = setInterval(refresh, 1500);
     return () => clearInterval(id);
-  }, [selectedTrain]);
+  }, [selectedTrain, token]);
 
-  async function command(cmd: string) {
+  async function command(event: string) {
     try {
-      await api('/api/command', { command: cmd });
+      await api('/api/control', {
+        request_id: crypto.randomUUID(),
+        zone: 'zone1',
+        event,
+        timestamp: new Date().toISOString(),
+        source: 'dashboard',
+        payload: {},
+      });
       await refresh();
     } catch (e) {
       setError(String(e));
@@ -171,21 +253,51 @@ function App() {
     }
   }
 
-  async function requestCrossover(trainId: string, routeId: string) {
+  async function requestWrongLine(trainId: string) {
     try {
-      await api('/api/route', { trainId, routeId });
+      await api('/api/routes/wrong-line', { request_id: crypto.randomUUID(), trainId });
       await refresh();
     } catch (e) {
       setError(String(e));
     }
   }
 
-  const hazard = state.wildlifeDetected || !state.sensorHealthy;
+  async function cancelWrongLine(trainId: string) {
+    try {
+      await api('/api/routes/wrong-line/cancel', { request_id: crypto.randomUUID(), trainId });
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   const trains = state.trains || [];
   const blocks = state.blocks || [];
+  const activeHazard = blocks.find(b => b.hazard)?.hazard || null;
+  const hazard = state.wildlifeDetected || !state.sensorHealthy || activeHazard != null;
   const activeTrain = trains.find(t => t.id === selectedTrain) || trains[0];
-  const activeRoute = state.routes?.activeRoute;
+  const nearAnimal = state.zones?.[activeTrain?.zone || 'zone1']?.esp32NearAnimal === true;
   const meet = state.meets;
+  const wrongLine = state.routes?.wrongLine;
+  const wrongActive = wrongLine?.active || null;
+  const wrongEligibility = wrongLine?.eligibility?.[selectedTrain];
+
+  if (!token) {
+    return (
+      <main className="login-shell">
+        <section className="login-panel">
+          <div className="brandicon"><TrainFront size={24} /></div>
+          <div className="eyebrow">DIGITAL TWIN / SAFETY SYSTEMS</div>
+          <h1>Operator sign-in</h1>
+          <p>Authenticate to supervise routes, fleet speed and wildlife fail-safe controls.</p>
+          {error && <div className="error"><AlertTriangle size={17} />{error}</div>}
+          <label className="field">Username<input value={username} onChange={e => setUsername(e.target.value)} autoComplete="username" /></label>
+          <label className="field">Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" /></label>
+          <button className="primary full" onClick={login}>Sign in</button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="shell">
@@ -258,6 +370,7 @@ function App() {
               <div><small>Target Speed</small><b>{t.targetSpeedKmh} <small>km/h</small></b></div>
               <div><small>Block</small><b>{t.block}</b></div>
             </div>
+            <div className="train-direction">{t.travelSign === -1 ? 'ANTICLOCKWISE' : 'CLOCKWISE'}</div>
           </div>
         ))}
       </section>
@@ -267,7 +380,7 @@ function App() {
           <div className="panel-head">
             <div>
               <div className="eyebrow">RANDOMISED MEETS</div>
-              <h3>Chance-Based Crossover Scheduler</h3>
+              <h3>Station Hold Scheduler</h3>
             </div>
             <ArrowRightLeft size={19} />
           </div>
@@ -275,12 +388,64 @@ function App() {
             <div><small>Phase</small><b>{meet.enabled ? meet.phase : 'DISABLED'}</b></div>
             <div><small>Next meet</small><b>{meet.phase === 'IDLE' ? `${Math.ceil(meet.nextMeetInSec)} s` : 'ACTIVE'}</b></div>
             <div><small>Holder</small><b>{meet.active?.holderId || '—'}</b></div>
-            <div><small>Route</small><b>{meet.active?.routeId || meet.last?.routeId || '—'}</b></div>
+            <div><small>Other train</small><b>{meet.active?.otherId || '—'}</b></div>
             <div><small>Seed</small><b>{meet.seed}</b></div>
             <div><small>Last outcome</small><b>{meet.last?.outcome || '—'}</b></div>
           </div>
         </section>
       )}
+
+      {wrongLine && (
+        <section className="panel route-panel">
+          <div className="panel-head">
+            <div>
+              <div className="eyebrow">INTERLOCKED ROUTE</div>
+              <h3>Wrong-Line Run</h3>
+            </div>
+            <ArrowRightLeft size={19} />
+          </div>
+          <div className="route-grid">
+            <div><small>Train</small><b>{wrongActive?.trainId || selectedTrain}</b></div>
+            <div><small>Eligibility</small><b>{wrongEligibility?.eligible ? 'READY' : (wrongEligibility?.reason?.replaceAll('_', ' ') || 'UNKNOWN')}</b></div>
+            <div><small>Distance to entry</small><b>{wrongEligibility?.distanceToEntryM ?? '—'} m</b></div>
+            <div><small>Phase</small><b>{wrongActive?.phase || 'IDLE'}</b></div>
+            <div><small>Progress</small><b>{wrongActive ? `${Math.round(wrongActive.progress * 100)}%` : '—'}</b></div>
+            <div><small>Held</small><b>{wrongActive?.heldTrainId || '—'}</b></div>
+          </div>
+          <div className="route-actions">
+            <button className="primary" disabled={!wrongEligibility?.eligible || !!wrongActive} onClick={() => requestWrongLine(selectedTrain)}>
+              Start wrong-line run
+            </button>
+            <button
+              className="secondary"
+              disabled={!wrongActive || wrongActive.phase !== 'APPROACH' || wrongActive.trainId !== selectedTrain}
+              onClick={() => cancelWrongLine(wrongActive?.trainId || selectedTrain)}
+            >
+              Cancel approach
+            </button>
+          </div>
+          <p className="route-note">Interlocked wrong-line: X-A entry / X-B exit. The opposing train is held clear of the station section.</p>
+        </section>
+      )}
+
+      <section className="panel wildlife-panel">
+        <div className="panel-head">
+          <div>
+            <div className="eyebrow">WILDLIFE SAFETY</div>
+            <h3>Sensor → Camera → Stop</h3>
+          </div>
+          <Leaf size={19} />
+        </div>
+        <div className="wildlife-grid">
+          <div><small>Stage</small><b>{activeHazard?.stage || 'NONE'}</b></div>
+          <div><small>Sources</small><b>{activeHazard?.sensorSources?.join(' + ') || '—'}</b></div>
+          <div><small>Confidence</small><b>{activeHazard?.confidence?.toFixed(2) ?? '—'}</b></div>
+          <div><small>Species</small><b>{activeHazard?.camera?.species || '—'}</b></div>
+          <div><small>Camera</small><b>{cameraHealth?.degraded ? 'DEGRADED' : cameraHealth?.ok ? 'ONLINE' : 'UNKNOWN'}</b></div>
+          <div><small>ML</small><b>{cameraHealth?.ml?.modelLoaded ? (cameraHealth.ml.stub ? 'STUB' : 'LOADED') : 'UNAVAILABLE'}</b></div>
+          <div><small>Near warning</small><b>{nearAnimal ? '30 km/h' : '—'}</b></div>
+        </div>
+      </section>
 
       {/* Block Signalling & Occupancy Diagram */}
       <section className="panel block-diagram-panel">
@@ -314,7 +479,7 @@ function App() {
                         )}
                         {b.hazard && (
                           <span className="hazard-pill" title={`Sources: ${b.hazard.sources?.join(', ')}`}>
-                            <Leaf size={10} /> {b.hazard.sources?.map(s => s === 'onboard' ? 'CAM' : 'HUT').join('+') || 'HAZ'}
+                            <Leaf size={10} /> {b.hazard.stage === 'CONFIRMED' ? 'CONFIRMED' : 'SUSPECTED'} {b.hazard.sensorSources?.map(s => s === 'trackside' ? 'HUT' : s === 'onboardSensor' ? 'CAM' : 'CAMERA').join('+')}
                           </span>
                         )}
                         {b.id.includes('B2') && <small className="station-hint">Station</small>}
@@ -327,22 +492,6 @@ function App() {
           })}
         </div>
 
-        {/* Crossover Status & Controls */}
-        <div className="crossover-bar">
-          <div className="crossover-status">
-            <ArrowRightLeft size={16} />
-            <span>Station Crossover:</span>
-            <b>{activeRoute ? `ROUTE ACTIVE: ${activeRoute.routeId} (${activeRoute.trainId})` : 'NORMAL / LOCKED'}</b>
-          </div>
-          <div className="crossover-buttons">
-            <button className="secondary sm" onClick={() => requestCrossover('T1', 'X-UP-DOWN')}>
-              Route T1 (UP → DOWN)
-            </button>
-            <button className="secondary sm" onClick={() => requestCrossover('T3', 'X-DOWN-UP')}>
-              Route T3 (DOWN → UP)
-            </button>
-          </div>
-        </div>
       </section>
 
       {/* System Metrics Grid */}

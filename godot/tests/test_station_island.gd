@@ -19,11 +19,11 @@ func _run() -> void:
 	for module in 5:
 		var d_up: float = scenery.station_distance + module * scenery.station_module_spacing
 		var up_pose: Transform3D = up.get_global_transform_at_distance(d_up)
-		var down_pose: Transform3D = down.get_global_transform_at_distance(d_up * down.length / up.length)
+		var down_pose: Transform3D = down.get_global_transform_at_distance(down.map_to_parallel(d_up))
 		var mid := (up_pose.origin + down_pose.origin) * 0.5
-		a.ok(d_up > 301.5929 and d_up < 452.3893, "module %d is inside UP-B2" % module)
-		var d_down: float = d_up * down.length / up.length
-		a.ok(d_down > 291.5398 and d_down < 437.3097, "module %d is inside DOWN-B2" % module)
+		a.ok(d_up >= 0.0 and d_up < 250.7964, "module %d is inside UP-B0" % module)
+		var d_down: float = down.map_to_parallel(d_up)
+		a.ok(d_down >= 0.0 and d_down < 245.7699, "module %d is inside DOWN-B4" % module)
 
 		var platform := scenery.get_node_or_null("Platform%d" % module) as Node3D
 		a.ok(platform != null, "island platform module %d exists" % module)
@@ -47,7 +47,7 @@ func _run() -> void:
 			continue
 		var d_up: float = scenery.station_distance + module * scenery.station_module_spacing
 		var up_pose: Transform3D = up.get_global_transform_at_distance(d_up)
-		var down_pose: Transform3D = down.get_global_transform_at_distance(d_up * down.length / up.length)
+		var down_pose: Transform3D = down.get_global_transform_at_distance(down.map_to_parallel(d_up))
 		var mid := up_pose
 		mid.origin = (up_pose.origin + down_pose.origin) * 0.5
 		var local_box := _world_aabb_in(platform, mid.affine_inverse())

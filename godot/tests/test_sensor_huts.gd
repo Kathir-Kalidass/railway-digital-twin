@@ -78,6 +78,26 @@ func _run() -> void:
 
 		mock_animal.queue_free()
 
+	var down_hut := network.call("get_hut", "DOWN-S0") as Node3D
+	a.ok(down_hut != null, "DOWN-S0 exists")
+	if down_hut != null:
+		var down := scene.get_node("InnerTrack") as LTSTrack
+		a.ok(absf(float(down_hut.get("line_length_m")) - down.length) < 0.01, "DOWN hut knows its line length")
+		a.ok(absf(float(down_hut.call("physical_to_operational", 240.0)) - fposmod(down.length - 240.0, down.length)) < 0.01,
+			"DOWN physical 240 maps to operational L-240")
+		var down_animal := Area3D.new()
+		down_animal.add_to_group("wildlife")
+		down_animal.set_meta("species", "deer")
+		down_animal.set_meta("track_distance_m", 240.0)
+		down_animal.position = down_hut.global_position + Vector3(0.0, 0.0, 10.0)
+		scene.add_child(down_animal)
+		await process_frame
+		network.call("scan_now")
+		var down_obs: Dictionary = down_hut.call("get_last_observation")
+		a.eq(str(down_obs.get("line")), "DOWN", "DOWN observation line is DOWN")
+		a.ok(float(down_obs.get("distanceM", 0.0)) <= down.length, "DOWN distance is operational")
+		down_animal.queue_free()
+
 	scene.queue_free()
 	await process_frame
 	quit(a.report("test_sensor_huts"))

@@ -1,4 +1,7 @@
 import { once } from 'node:events';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { openDb } from '../src/db.js';
 import { makeAudit } from '../src/audit.js';
 import { makeReplay } from '../src/replay.js';
@@ -6,6 +9,8 @@ import { makeAuth } from '../src/auth.js';
 import { makeState } from '../src/state.js';
 import { makeEvents } from '../src/events.js';
 import { makeBus } from '../src/bus.js';
+import { makeIngest } from '../src/ingest.js';
+import { makeWildlifeCommands } from '../src/wildlife_commands.js';
 import { createApp } from '../src/app.js';
 import { config } from '../src/config.js';
 
@@ -14,7 +19,10 @@ export function fakeMqtt() {
 }
 
 export function buildDeps(overrides = {}) {
-  const resolvedConfig = overrides.config || config;
+  const resolvedConfig = {
+    ...(overrides.config || config),
+    cameraEvidenceDir: overrides.config?.cameraEvidenceDir || fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-')),
+  };
   const db = overrides.db || openDb(':memory:');
   const auth = makeAuth({ db, config: resolvedConfig });
   auth.seedUsers();
@@ -22,7 +30,30 @@ export function buildDeps(overrides = {}) {
   const events = makeEvents();
   const mqtt = overrides.mqtt || fakeMqtt();
   const bus = makeBus({ mqtt, state, events });
-  return { config: resolvedConfig, db, audit: makeAudit(db), replay: makeReplay(db), auth, state, bus, events, mqtt, ...overrides };
+  const commands = makeWildlifeCommands({ state, bus, config: resolvedConfig, mqtt });
+  const ingest = makeIngest({ state, bus, config: resolvedConfig, mqtt, commands });
+  const ml = overrides.ml || {
+    health: async () => ({ ok: true, stub: true, modelLoaded: true }),
+    detect: async () => ({
+      model: 'stub',
+      detections: [{ label: 'elephant', confidence: 0.92, box: [0.3, 0.3, 0.7, 0.7] }],
+    }),
+  };
+  return {
+    ...overrides,
+    config: resolvedConfig,
+    db,
+    audit: makeAudit(db),
+    replay: makeReplay(db),
+    auth,
+    state,
+    bus,
+    events,
+    mqtt,
+    ml,
+    commands,
+    ingest,
+  };
 }
 
 export async function withServer(deps, fn) {

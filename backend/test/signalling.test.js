@@ -48,6 +48,27 @@ test('zoneSignal reflects hazard layer and cross-zone caution', () => {
   assert.equal(zoneSignal('zone2', z), 'RED');
 });
 
+test('staged hazards show caution then stop aspects', () => {
+  const topo = buildTopology(config);
+  const blocks = topo.blocks.map((b) => ({ ...b, occupiedBy: null }));
+  const z = zones();
+  const suspected = {
+    'UP-B1': { blockId: 'UP-B1', line: 'UP', zone: 'zone1', stage: 'SUSPECTED', active: true, sensorSources: ['trackside'] },
+  };
+  let aspects = deriveBlockAspects({ topology: topo, blocks, zones: z, blockHazards: suspected, lookaheadBlocks: 2 });
+  assert.equal(aspects['UP-B1'], 'YELLOW');
+  assert.equal(aspects['UP-B0'], 'YELLOW');
+  assert.equal(zoneSignal('zone1', z, suspected), 'YELLOW');
+
+  const confirmed = {
+    'UP-B1': { blockId: 'UP-B1', line: 'UP', zone: 'zone1', stage: 'CONFIRMED', active: true, sensorSources: ['trackside'] },
+  };
+  aspects = deriveBlockAspects({ topology: topo, blocks, zones: z, blockHazards: confirmed, lookaheadBlocks: 2 });
+  assert.equal(aspects['UP-B1'], 'RED');
+  assert.equal(aspects['UP-B0'], 'YELLOW');
+  assert.equal(zoneSignal('zone1', z, confirmed), 'RED');
+});
+
 test('isZoneRestrictive covers wildlife, fault, recovery', () => {
   assert.equal(isZoneRestrictive({ wildlifeDetected: true, sensorHealthy: true, status: 'NORMAL' }), true);
   assert.equal(isZoneRestrictive({ wildlifeDetected: false, sensorHealthy: false, status: 'NORMAL' }), true);

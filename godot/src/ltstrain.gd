@@ -8,6 +8,10 @@ extends Node3D
 @export var service_brake_mps2 := 0.7
 @export var emergency_brake_mps2 := 1.1
 @export var use_lts_models := true
+@export var travel_sign := 1.0
+@export var train_id := "T1"
+@export var line_id := "UP"
+@export var block_id := "UP-B0"
 
 const LTS_LOCOMOTIVE := "res://assets/models/lts/wagon_locomotive.glb"
 const LTS_PASSENGER := "res://assets/models/lts/wagon_passenger.glb"
@@ -16,8 +20,10 @@ var _target_speed_mps := 0.0
 var _speed_mps := 0.0
 var _track_position_m := 0.0
 var _target_distance_m := 0.0
+var _local_speed_limit_kmh := -1.0
 var remote_mode := false
 var _carriages: Array[Node3D] = []
+var camera_confirmation: CameraConfirmation
 var _wheels: Array[MeshInstance3D] = []
 var _track: LTSTrack
 var _blend_target_track: LTSTrack
@@ -80,6 +86,20 @@ func set_remote_target(distance_m: float, speed_kmh: float, target_kmh: float) -
 		_update_train_pose()
 
 
+func set_local_speed_limit(limit_kmh: float) -> void:
+	_local_speed_limit_kmh = -1.0 if limit_kmh < 0.0 else maxf(0.0, limit_kmh)
+
+
+func get_local_speed_limit_kmh() -> float:
+	return _local_speed_limit_kmh
+
+
+func _local_limit_mps() -> float:
+	if _local_speed_limit_kmh < 0.0 or not is_instance_valid(_lts_math):
+		return INF
+	return float(_lts_math.call("kmh_to_speed", _local_speed_limit_kmh))
+
+
 func set_target_speed_kmh(speed_kmh: float) -> void:
 	var limit := 120.0
 	if is_instance_valid(_track):
@@ -89,15 +109,25 @@ func set_target_speed_kmh(speed_kmh: float) -> void:
 
 
 func get_target_speed_kmh() -> float:
-	return float(_lts_math.call("speed_to_kmh", _target_speed_mps))
+	var target := float(_lts_math.call("speed_to_kmh", _target_speed_mps))
+	if _local_speed_limit_kmh >= 0.0:
+		target = minf(target, _local_speed_limit_kmh)
+	return target
 
 
 func get_speed_kmh() -> float:
-	return float(_lts_math.call("speed_to_kmh", _speed_mps))
+	var speed := float(_lts_math.call("speed_to_kmh", _speed_mps))
+	if _local_speed_limit_kmh >= 0.0:
+		speed = minf(speed, _local_speed_limit_kmh)
+	return speed
 
 
 func get_track_position_m() -> float:
 	return _track_position_m
+
+
+func get_track_length_m() -> float:
+	return _track.length if is_instance_valid(_track) else 0.0
 
 
 func _ready() -> void:
@@ -127,28 +157,34 @@ func _physics_process(delta: float) -> void:
 	if remote_mode:
 		if is_instance_valid(_track):
 			var track_len := _track.length
-			_track_position_m = fposmod(_track_position_m + _speed_mps * delta, track_len)
+			var motion_speed := minf(_speed_mps, _local_limit_mps())
+			_track_position_m = fposmod(_track_position_m + motion_speed * travel_sign * delta, track_len)
 			var err := fposmod(_target_distance_m - _track_position_m, track_len)
 			if err > track_len * 0.5:
 				err -= track_len
-			_track_position_m = fposmod(_track_position_m + err * minf(1.0, 3.0 * delta), track_len)
+			var correction := err * minf(1.0, 3.0 * delta)
+			if motion_speed <= 0.001:
+				correction = 0.0
+			elif _speed_mps > 0.001:
+				correction *= clampf(motion_speed / _speed_mps, 0.0, 1.0)
+			_track_position_m = fposmod(_track_position_m + correction, track_len)
 			_update_train_pose()
-			var rot_delta := (_speed_mps * delta) / 0.48
+			var rot_delta := (motion_speed * delta) / 0.48 * travel_sign
 			for wheel in _wheels:
 				wheel.rotate_object_local(Vector3.UP, rot_delta)
 		return
 
-	var target_speed := _target_speed_mps
-	if _target_speed_mps < _speed_mps:
-		var braking := emergency_brake_mps2 if _target_speed_mps == 0.0 else service_brake_mps2
+	var target_speed := minf(_target_speed_mps, _local_limit_mps())
+	if target_speed < _speed_mps:
+		var braking := emergency_brake_mps2 if target_speed == 0.0 else service_brake_mps2
 		_speed_mps = move_toward(_speed_mps, target_speed, braking * delta)
 	else:
 		_speed_mps = move_toward(_speed_mps, target_speed, acceleration_mps2 * delta)
 
-	_track_position_m = fposmod(_track_position_m + _speed_mps * delta, _track.length)
+	_track_position_m = fposmod(_track_position_m + _speed_mps * travel_sign * delta, _track.length)
 
 	_update_train_pose()
-	var rotation_delta := (_speed_mps * delta) / 0.48
+	var rotation_delta := (_speed_mps * delta) / 0.48 * travel_sign
 	for wheel in _wheels:
 		wheel.rotate_object_local(Vector3.UP, rotation_delta)
 
@@ -157,11 +193,15 @@ func _update_train_pose() -> void:
 	if not is_instance_valid(_track):
 		return
 	for index in _carriages.size():
-		var carriage_distance := fposmod(_track_position_m - index * 18.0, _track.length)
+		var carriage_distance := fposmod(_track_position_m - index * 18.0 * travel_sign, _track.length)
 		var pose := _track.get_global_transform_at_distance(carriage_distance)
+		if travel_sign < 0.0:
+			pose.basis = pose.basis.rotated(Vector3.UP, PI)
 		if is_instance_valid(_blend_target_track) and _blend_target_track != _track and _blend_progress < 1.0:
-			var target_distance := fposmod(carriage_distance * _blend_target_track.length / _track.length, _blend_target_track.length)
+			var target_distance := fposmod(carriage_distance, _blend_target_track.length)
 			var target_pose := _blend_target_track.get_global_transform_at_distance(target_distance)
+			if travel_sign < 0.0:
+				target_pose.basis = target_pose.basis.rotated(Vector3.UP, PI)
 			pose = pose.interpolate_with(target_pose, _blend_progress)
 		_carriages[index].global_transform = pose
 
@@ -181,6 +221,10 @@ func _build_train() -> void:
 			_build_carriage(carriage, colors[index], index == 0)
 		if index == 0:
 			_attach_forward_camera(carriage)
+	camera_confirmation = CameraConfirmation.new()
+	camera_confirmation.name = "CameraConfirmation"
+	camera_confirmation.train = self
+	add_child(camera_confirmation)
 
 
 func _attach_forward_camera(parent: Node3D) -> void:
@@ -195,7 +239,8 @@ func _attach_forward_camera(parent: Node3D) -> void:
 
 	var detector := SimulatedAnimalDetector.new()
 	detector.name = "SimulatedAnimalDetector"
-	detector.train_id = name
+	detector.train_id = train_id
+	detector.line = line_id
 	detector.camera_path = cam.get_path()
 	var reconciler_node := get_parent().get_node_or_null("TrainReconciler") as TrainReconciler if get_parent() else null
 	if reconciler_node:
@@ -213,6 +258,15 @@ func get_detector() -> SimulatedAnimalDetector:
 	if _carriages.is_empty():
 		return null
 	return _carriages[0].get_node_or_null("SimulatedAnimalDetector") as SimulatedAnimalDetector
+
+
+func apply_camera_state(state: Dictionary) -> void:
+	if is_instance_valid(camera_confirmation):
+		camera_confirmation.apply_state(state)
+
+
+func get_camera_confirmation() -> CameraConfirmation:
+	return camera_confirmation
 
 
 func _build_lts_carriage(parent: Node3D, locomotive: bool) -> bool:

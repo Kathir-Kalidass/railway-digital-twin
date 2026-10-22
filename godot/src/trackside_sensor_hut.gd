@@ -8,6 +8,7 @@ extends Node3D
 @export var line := "UP"
 @export var boundary_distance_m := 0.0
 @export var coverage_radius_m := 75.0
+@export var line_length_m := 0.0
 
 var bridge: MQTTBridge
 var _detecting := false
@@ -85,6 +86,18 @@ func _set_lamp_color(col: Color) -> void:
 	_lamp_mesh.material_override = mat
 
 
+func physical_to_operational(physical_m: float) -> float:
+	if line_length_m <= 0.0:
+		return physical_m
+	if line == "DOWN":
+		return fposmod(line_length_m - physical_m, line_length_m)
+	return fposmod(physical_m, line_length_m)
+
+
+func _operational_distance(track_distance_m: float) -> float:
+	return physical_to_operational(track_distance_m)
+
+
 func scan_animals(animals: Array) -> void:
 	var covered: Array[Dictionary] = []
 	for node in animals:
@@ -113,7 +126,7 @@ func scan_animals(animals: Array) -> void:
 			"eventId": "trackside-%s-%d-%d" % [sensor_id, int(Time.get_unix_time_from_system()), _seq],
 			"source": "trackside",
 			"line": line,
-			"distanceM": float(nearest.get("track_distance_m", boundary_distance_m)),
+			"distanceM": _operational_distance(float(nearest.get("track_distance_m", boundary_distance_m))),
 			"wildlifeDetected": true,
 			"species": str(nearest.get("species", "deer")),
 			"count": covered.size(),
@@ -133,7 +146,7 @@ func scan_animals(animals: Array) -> void:
 				"eventId": "trackside-%s-%d-%d" % [sensor_id, int(Time.get_unix_time_from_system()), _seq],
 				"source": "trackside",
 				"line": line,
-				"distanceM": boundary_distance_m,
+				"distanceM": _operational_distance(boundary_distance_m),
 				"wildlifeDetected": false,
 				"species": "deer",
 				"count": 0,

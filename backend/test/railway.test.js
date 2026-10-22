@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTopology, blockById, nextBlockId } from '../src/railway.js';
 
-const config = { topology: { lines: ['UP', 'DOWN'], blocksPerLine: 5, blockLengthM: 300, zoneByIndex: ['zone1', 'zone1', 'zone1', 'zone2', 'zone2'], station: { id: 'station', name: 'Forest Halt', upIndex: 2, downIndex: 2, dwellSec: 20 } } };
+const config = { topology: { lines: ['UP', 'DOWN'], blocksPerLine: 5, blockLengthM: 300, zoneByIndex: ['zone1', 'zone2', 'zone2', 'zone2', 'zone1'], station: { id: 'station', name: 'Forest Halt', upIndex: 0, downIndex: 4, dwellSec: 20 }, crossovers: [{ id: 'X-A', from: 'UP-B0', fromOffsetM: 120, to: 'DOWN-B4', toOffsetM: 125.7699, atM: 120 }, { id: 'X-B', from: 'DOWN-B4', fromOffsetM: 5.7699, to: 'UP-B0', toOffsetM: 240, atM: 240 }] } };
 
 test('builds both lines with ordered blocks and zone mapping', () => {
   const topo = buildTopology(config);
@@ -14,7 +14,7 @@ test('builds both lines with ordered blocks and zone mapping', () => {
 
 test('station maps to platform blocks', () => {
   const topo = buildTopology(config);
-  assert.deepEqual(topo.station.blocks, { UP: 'UP-B2', DOWN: 'DOWN-B2' });
+  assert.deepEqual(topo.station.blocks, { UP: 'UP-B0', DOWN: 'DOWN-B4' });
 });
 
 test('nextBlockId wraps the ring', () => {
@@ -24,18 +24,25 @@ test('nextBlockId wraps the ring', () => {
 });
 
 test('per-line lengths are split evenly across blocks', () => {
-  const topo = buildTopology({ topology: { ...config.topology, lineLengthM: { UP: 753.9822, DOWN: 728.8495 } } });
-  assert.equal(blockById(topo, 'UP-B0').lengthM, 150.796);
-  assert.equal(blockById(topo, 'DOWN-B4').lengthM, 145.77);
+  const topo = buildTopology({ topology: { ...config.topology, lineLengthM: { UP: 1253.9822, DOWN: 1228.8495 } } });
+  assert.equal(blockById(topo, 'UP-B0').lengthM, 250.796);
+  assert.equal(blockById(topo, 'DOWN-B4').lengthM, 245.77);
 });
 
 test('station crossover pair is built from config', () => {
   const topo = buildTopology({ topology: { ...config.topology, crossovers: [
-    { id: 'X-UP-DOWN', from: 'UP-B2', to: 'DOWN-B2' },
-    { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
+    { id: 'X-A', from: 'UP-B0', fromOffsetM: 120, to: 'DOWN-B4', toOffsetM: 125.7699, atM: 120 },
+    { id: 'X-B', from: 'DOWN-B4', fromOffsetM: 5.7699, to: 'UP-B0', toOffsetM: 240, atM: 240 },
   ] } });
   assert.deepEqual(topo.crossovers, [
-    { id: 'X-UP-DOWN', from: 'UP-B2', to: 'DOWN-B2' },
-    { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
+    { id: 'X-A', from: 'UP-B0', fromOffsetM: 120, to: 'DOWN-B4', toOffsetM: 125.7699, atM: 120 },
+    { id: 'X-B', from: 'DOWN-B4', fromOffsetM: 5.7699, to: 'UP-B0', toOffsetM: 240, atM: 240 },
   ]);
+});
+
+test('station blocks expose stadium lengths', () => {
+  const topo = buildTopology({ topology: { ...config.topology, lineLengthM: { UP: 1253.9822, DOWN: 1228.8495 } } });
+  assert.deepEqual(topo.station.blocks, { UP: 'UP-B0', DOWN: 'DOWN-B4' });
+  assert.equal(topo.crossovers[0].fromOffsetM, 120);
+  assert.equal(topo.crossovers[1].atM, 240);
 });

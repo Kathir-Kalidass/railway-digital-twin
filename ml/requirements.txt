@@ -1,0 +1,8 @@
+fastapi==0.135.1
+uvicorn==0.41.0
+torch==2.10.0
+torchvision==0.25.0
+pillow==12.1.1
+numpy==2.2.6
+pytest==9.0.2
+httpx==0.28.1

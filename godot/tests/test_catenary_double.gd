@@ -36,7 +36,7 @@ func _run() -> void:
 			var up_sample := up.get_global_transform_at_distance(direction).origin
 			a.ok(Vector2(position.x - up_sample.x, position.z - up_sample.z).length() > 5.0,
 				"no tree within 5 m of the UP centre line")
-			var down_sample := down.get_global_transform_at_distance(direction * down.length / up.length).origin
+			var down_sample := down.get_global_transform_at_distance(down.map_to_parallel(direction)).origin
 			a.ok(Vector2(position.x - down_sample.x, position.z - down_sample.z).length() > 5.0,
 				"no tree within 5 m of the DOWN centre line")
 			direction += 8.0

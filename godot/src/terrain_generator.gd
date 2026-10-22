@@ -1,10 +1,10 @@
 extends Node3D
 class_name TerrainGenerator
 
-@export var size := 500.0
+@export var size := 800.0
 @export var height := 10.0
 @export var stream_width := 30.0
-@export var river_z := -120.0
+@export var river_z := 0.0
 @export var river_width := 24.0
 @export var river_depth := 3.4
 @export var water_height := -2.0

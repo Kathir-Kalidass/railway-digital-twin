@@ -28,14 +28,14 @@ func _run() -> void:
 		scenery.set_crossover_active("CrossoverA", false)
 		a.ok(not scenery.is_crossover_active("CrossoverA"), "CrossoverA returns to normal")
 
-		# 2. Backend-driven crossover animates the visible consist
+		# 2. Backend route phase drives the visible crossing
 		fleet.apply_state({
 			"trains": [
 				{
 					"id": "T1",
 					"line": "UP",
-					"block": "UP-B2",
-					"offsetM": 10.0,
+					"block": "UP-B0",
+					"offsetM": 120.0,
 					"speedKmh": 0.0,
 					"targetSpeedKmh": 0.0
 				}
@@ -54,28 +54,65 @@ func _run() -> void:
 					{
 						"id": "T1",
 						"line": "DOWN",
-						"block": "DOWN-B2",
-						"offsetM": 10.0,
+						"block": "DOWN-B0",
+						"offsetM": 120.0,
+						"physicalM": 120.0,
 						"speedKmh": 0.0,
-						"targetSpeedKmh": 0.0
+						"targetSpeedKmh": 0.0,
+						"routePhase": "CROSS_ENTRY",
+						"crossingProgress": 0.0,
+						"crossoverId": "X-A",
+						"targetLine": "DOWN"
 					}
 				]
 			})
-			a.ok(fleet.is_train_crossing_over("T1"), "backend line change starts a visible crossover")
+			a.ok(fleet.is_train_crossing_over("T1"), "route entry starts a visible crossover")
 			a.eq(fleet.get_train_line("T1"), "UP", "visual line stays on the source during the crossover")
-			a.ok(carriage.global_position.distance_to(up_pos) < 0.05, "backend line change does not snap the consist")
-			a.ok(scenery.is_crossover_active("CrossoverA"), "CrossoverA blades active during backend crossover")
+			a.ok(carriage.global_position.distance_to(up_pos) < 0.05, "route entry does not snap the consist")
+			a.ok(scenery.is_crossover_active("CrossoverA"), "CrossoverA blades active during route entry")
 
-			fleet._process(fleet.crossover_duration_sec * 0.5)
+			fleet.apply_state({
+				"trains": [
+					{
+						"id": "T1",
+						"line": "DOWN",
+						"block": "DOWN-B0",
+						"offsetM": 130.0,
+						"physicalM": 130.0,
+						"speedKmh": 0.0,
+						"targetSpeedKmh": 0.0,
+						"routePhase": "CROSS_ENTRY",
+						"crossingProgress": 0.5,
+						"crossoverId": "X-A",
+						"targetLine": "DOWN"
+					}
+				]
+			})
+			fleet._process(0.25)
 			var mid_pos := carriage.global_position
 			var mid_shift := mid_pos.distance_to(up_pos)
 			a.ok(mid_shift > 0.2, "consist moves smoothly toward the target track")
 			a.ok(fleet.is_train_crossing_over("T1"), "crossover still in progress at midpoint")
 
-			fleet._process(fleet.crossover_duration_sec * 0.6)
-			a.ok(not fleet.is_train_crossing_over("T1"), "backend crossover finished")
+			fleet.apply_state({
+				"trains": [
+					{
+						"id": "T1",
+						"line": "DOWN",
+						"block": "DOWN-B0",
+						"offsetM": 140.0,
+						"physicalM": 140.0,
+						"speedKmh": 0.0,
+						"targetSpeedKmh": 0.0,
+						"routePhase": "WRONG_LINE",
+						"crossingProgress": 1.0
+					}
+				]
+			})
+			a.ok(not fleet.is_train_crossing_over("T1"), "route entry crossover finished")
 			a.eq(fleet.get_train_line("T1"), "DOWN", "T1 line is now DOWN")
 			a.ok(not scenery.is_crossover_active("CrossoverA"), "CrossoverA blades returned to normal")
+			await process_frame
 			a.ok(carriage.global_position.distance_to(up_pos) > mid_shift + 0.2, "consist continues across the track spacing")
 
 		# 3. Manual transition also moves the visible consist

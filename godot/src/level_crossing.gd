@@ -35,9 +35,10 @@ func _place() -> void:
 	var tracks := _resolve_tracks()
 	if tracks.is_empty():
 		return
-	var base_length := tracks[0].length
+	var base := tracks[0]
 	for track in tracks:
-		_track_poses.append(track.get_global_transform_at_distance(distance_m * track.length / base_length))
+		var track_distance := distance_m if track == base else track.map_to_parallel(distance_m)
+		_track_poses.append(track.get_global_transform_at_distance(track_distance))
 	global_transform = _track_poses[0]
 
 

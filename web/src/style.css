@@ -60,3 +60,75 @@
   margin-bottom: 4px;
 }
 .meet-grid b { font-size: 15px; }
+
+.route-panel { margin-bottom: 16px; }
+.wildlife-panel { margin-bottom: 16px; }
+.wildlife-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.wildlife-grid div {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.wildlife-grid small {
+  display: block;
+  color: var(--muted, #8fa3b3);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.wildlife-grid b { font-size: 15px; }
+.route-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.route-grid div {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.route-grid small {
+  display: block;
+  color: var(--muted, #8fa3b3);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.route-grid b { font-size: 15px; }
+.route-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+.route-note { color: #7e96a8; font-size: 11px; line-height: 1.5; margin: 11px 0 0; }
+.train-direction { margin-top: 11px; font: 500 9px 'DM Mono', monospace; letter-spacing: 1px; color: #678294; }
+button:disabled { cursor: not-allowed; filter: grayscale(0.5); opacity: 0.45; transform: none; }
+.login-shell { min-height: 100vh; display: grid; place-items: center; padding: 26px; }
+.login-panel {
+  width: min(420px, 100%);
+  background: #0c1a28;
+  border: 1px solid #1a3042;
+  border-radius: 16px;
+  padding: 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+}
+.login-panel h1 { font: 800 28px Manrope, sans-serif; letter-spacing: -1px; margin: 15px 0 0; }
+.login-panel p { color: #8ba2b7; font-size: 12px; line-height: 1.6; margin: 0 0 10px; }
+.field { display: flex; flex-direction: column; gap: 6px; width: 100%; color: #9eb4c4; font: 500 10px 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
+.field input {
+  width: 100%;
+  background: #102536;
+  border: 1px solid #2a4559;
+  border-radius: 8px;
+  color: #e6eef6;
+  font: 500 13px 'DM Sans', sans-serif;
+  padding: 11px 12px;
+}
+.field input:focus { outline: 1px solid #69dfb9; border-color: #69dfb9; }

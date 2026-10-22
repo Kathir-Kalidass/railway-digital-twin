@@ -102,19 +102,13 @@ export function makeMeetScheduler({ topology, trains, zones, routes, hasActiveHa
     return Boolean(stationBlock && train.block === stationBlock && train.offsetM <= cfg.holdOffsetM);
   }
 
-  function crossoverFor(line) {
-    const from = stations[line];
-    if (!from) return null;
-    return (topology.crossovers || []).find((route) => route.from === from) || null;
-  }
-
   function beginHold(holder, other) {
     active = {
       holderId: holder.id,
       otherId: other.id,
       savedCommandedSpeed: holder.commandedSpeedKmh ?? null,
       holdRemainingSec: rng.nextRange(cfg.minHoldSec, cfg.maxHoldSec),
-      crossover: rng.chance(cfg.crossoverChance),
+      crossover: false,
       routeId: null,
       tick: tickCount,
     };
@@ -182,40 +176,20 @@ export function makeMeetScheduler({ topology, trains, zones, routes, hasActiveHa
       holdRemaining -= dtSec;
       holdTimeoutRemaining -= dtSec;
 
-      if (active.crossover && !active.routeId) {
-        const definition = crossoverFor(holder.line);
-        if (definition) {
-          const result = routes.requestRoute({ trainId: holder.id, routeId: definition.id });
-          if (result.ok) active.routeId = definition.id;
-        }
-      }
-
       const restricted = blockRestricted(holder.block);
-      if (holdRemaining <= 0 && !restricted && (!active.crossover || active.routeId)) {
+      if (holdRemaining <= 0 && !restricted) {
         releaseHold();
-        if (active.crossover) {
-          phase = 'CROSSING';
-        } else {
-          record('HELD');
-          toIdle();
-        }
+        record('HELD');
+        toIdle();
         return;
       }
 
       if (holdTimeoutRemaining <= 0 && !restricted) {
         releaseHold();
-        record(active.crossover && !active.routeId ? 'SAFETY_HELD' : 'HELD');
+        record('HELD');
         toIdle();
       }
       return;
-    }
-
-    if (phase === 'CROSSING') {
-      const current = routes.activeRoute();
-      if (!current || current.routeId !== active.routeId) {
-        record('COMPLETED');
-        toIdle();
-      }
     }
   }
 
@@ -251,7 +225,7 @@ export function makeMeetScheduler({ topology, trains, zones, routes, hasActiveHa
       seed: seedValue,
       phase,
       nextMeetInSec: phase === 'IDLE' ? Math.max(0, Math.round(gapRemaining * 10) / 10) : 0,
-      config: { meetChance: cfg.meetChance, crossoverChance: cfg.crossoverChance },
+      config: { meetChance: cfg.meetChance, crossoverChance: 0 },
       active: active
         ? {
             tick: active.tick,

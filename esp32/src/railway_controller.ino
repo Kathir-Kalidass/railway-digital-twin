@@ -46,6 +46,7 @@ Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 bool localWildlifeDetected = false;
 bool localFaultDetected = false;
 bool backendWildlifeDetected = false;
+bool backendNearDetected = false;
 bool backendFaultDetected = false;
 bool backendContextFresh = false;
 bool localPirDetected = false;
@@ -71,14 +72,17 @@ const unsigned long RETRY_MAX_MS = 30000;
 void applyOutputs() {
   const bool backendRestrictive = backendWildlifeDetected || backendFaultDetected;
   const bool commOk = mqtt.connected() && backendContextFresh;
-  const Output output = decide_output(localWildlifeDetected, localFaultDetected, commOk, backendRestrictive);
+  const Output output = decide_output(localWildlifeDetected, localFaultDetected, commOk,
+                                      backendRestrictive, backendNearDetected);
   const bool restrictive = output != Output::RENDER_BACKEND || backendRestrictive;
   digitalWrite(RED_LED, restrictive ? HIGH : LOW);
   digitalWrite(GREEN_LED, restrictive ? LOW : HIGH);
-  // Communication loss remains restrictive but is distinguishable by a pulse.
-  digitalWrite(BUZZER, output == Output::COMM_LOSS ? ((millis() / 250) % 2) : (restrictive ? HIGH : LOW));
+  // Communication loss and the near warning remain restrictive but pulse.
+  const bool pulse = output == Output::COMM_LOSS || output == Output::WARNING;
+  digitalWrite(BUZZER, pulse ? ((millis() / 250) % 2) : (restrictive ? HIGH : LOW));
   barrier.write(barrier_angle(restrictive));
-  const char *status = status_line(localWildlifeDetected, localFaultDetected, commOk, backendRestrictive);
+  const char *status = status_line(localWildlifeDetected, localFaultDetected, commOk,
+                                   backendRestrictive, backendNearDetected);
   if (lastStatusLine != status) {
     lastStatusLine = status;
     Serial.print("STATE ");
@@ -150,12 +154,23 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   if (effect == CmdEffect::NONE) return;
   rememberCommand(requestId);
   backendContextFresh = true;
-  if (effect == CmdEffect::WILDLIFE_SET) backendWildlifeDetected = true;
-  else if (effect == CmdEffect::WILDLIFE_CLEAR) backendWildlifeDetected = false;
-  else if (effect == CmdEffect::FAULT_SET) backendFaultDetected = true;
-  else if (effect == CmdEffect::FAULT_RESTORE) backendFaultDetected = false;
-  else if (effect == CmdEffect::RESET && !localWildlifeDetected && !localFaultDetected) {
+  if (effect == CmdEffect::WILDLIFE_SET) {
+    backendWildlifeDetected = true;
+    backendNearDetected = false;
+  } else if (effect == CmdEffect::WILDLIFE_CLEAR) {
     backendWildlifeDetected = false;
+    backendNearDetected = false;
+  } else if (effect == CmdEffect::WILDLIFE_NEAR) {
+    backendNearDetected = true;
+  } else if (effect == CmdEffect::WILDLIFE_NEAR_CLEAR) {
+    if (!backendWildlifeDetected) backendNearDetected = false;
+  } else if (effect == CmdEffect::FAULT_SET) {
+    backendFaultDetected = true;
+  } else if (effect == CmdEffect::FAULT_RESTORE) {
+    backendFaultDetected = false;
+  } else if (effect == CmdEffect::RESET && !localWildlifeDetected && !localFaultDetected) {
+    backendWildlifeDetected = false;
+    backendNearDetected = false;
     backendFaultDetected = false;
   }
   applyOutputs();
@@ -198,7 +213,7 @@ void publishTelemetry() {
   const std::string payload = build_telemetry(DEVICE_ID, DEVICE_ZONE, requestId, timestamp,
                                               clockValid, localWildlifeDetected, !localFaultDetected,
                                               millis(), distance_cm_to_m(localDistanceCm),
-                                              localPirDetected, localVibration);
+                                              localPirDetected, localVibration, backendNearDetected);
   mqtt.publish(TOPIC_TELEMETRY, payload.c_str(), false);
 }
 

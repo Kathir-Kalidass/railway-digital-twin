@@ -10,11 +10,17 @@ export function occupyBlocks(topology, trains) {
     let idx = line.blocks.indexOf(t.block);
     let remaining = t.lengthM;
     let first = true;
+    const direction = t.operationalSign === -1 ? -1 : 1;
     while (remaining > 0) {
       const block = topology.blocks.find((b) => b.id === line.blocks[idx]);
-      if (first) { block.occupiedBy = t.id; remaining -= block.lengthM - t.offsetM; first = false; }
-      else { block.occupiedBy = t.id; remaining -= block.lengthM; }
-      idx = (idx + 1) % n;
+      block.occupiedBy = t.id;
+      if (first) {
+        remaining -= direction > 0 ? block.lengthM - t.offsetM : t.offsetM;
+        first = false;
+      } else {
+        remaining -= block.lengthM;
+      }
+      idx = (idx + direction + n) % n;
       if (remaining <= 0) break;
     }
   }
@@ -35,8 +41,10 @@ function permittedTarget({ topology, simulation, zones, aspects, t }) {
   return target;
 }
 
-export function stepTrains({ topology, simulation, zones, trains, dtSec, aspects }) {
+export function stepTrains({ topology, simulation, zones, trains, dtSec, aspects, blockHazards = {}, skipTrainIds = [] }) {
+  const skip = new Set(skipTrainIds);
   for (const t of trains) {
+    if (skip.has(t.id)) continue;
     const line = topology.lines.find((l) => l.id === t.line);
     const block = topology.blocks.find((b) => b.id === t.block);
     t.zone = block.zone;
@@ -46,6 +54,13 @@ export function stepTrains({ topology, simulation, zones, trains, dtSec, aspects
 
     const target = t.status === 'EMERGENCY' ? 0 : permittedTarget({ topology, simulation, zones, aspects, t });
     t.targetSpeedKmh = clampSpeed(target);
+    const ownHazard = blockHazards[t.block];
+    if (ownHazard?.active) {
+      if (ownHazard.stage === 'CONFIRMED' || !ownHazard.stage) t.targetSpeedKmh = 0;
+      else if (ownHazard.stage === 'SUSPECTED') {
+        t.targetSpeedKmh = Math.min(t.targetSpeedKmh, simulation.cautionSpeedKmh ?? 30);
+      }
+    }
     const rate = t.speedKmh > t.targetSpeedKmh ? simulation.brakeMps2 : simulation.accelMps2;
     const deltaKmh = rate * 3.6 * dtSec;
     t.speedKmh = clampSpeed(t.speedKmh < t.targetSpeedKmh ? Math.min(t.targetSpeedKmh, t.speedKmh + deltaKmh) : Math.max(t.targetSpeedKmh, t.speedKmh - deltaKmh));

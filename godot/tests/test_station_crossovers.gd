@@ -16,12 +16,12 @@ func _run() -> void:
 	var up := scene.get_node("Track") as LTSTrack
 	var down := scene.get_node("InnerTrack") as LTSTrack
 
-	for entry in [["CrossoverA", scenery.crossover_a_up_distance], ["CrossoverB", scenery.crossover_b_up_distance]]:
+	for entry in [["CrossoverA", 120.0, "UP-B0", "DOWN-B4"], ["CrossoverB", 240.0, "UP-B0", "DOWN-B4"]]:
 		var node_name: String = entry[0]
 		var d_up: float = entry[1]
-		var d_down: float = d_up * down.length / up.length
-		a.ok(d_up > 301.5929 and d_up < 452.3893, "%s is inside UP-B2" % node_name)
-		a.ok(d_down > 291.5398 and d_down < 437.3097, "%s is inside DOWN-B2" % node_name)
+		var d_down: float = down.map_to_parallel(d_up)
+		a.ok(d_up >= 0.0 and d_up < 250.7964, "%s is on the UP station block" % node_name)
+		a.ok(d_down >= 0.0 and d_down < 245.7699, "%s is on the DOWN station block" % node_name)
 
 		var node := scenery.get_node_or_null(node_name) as Node3D
 		a.ok(node != null, "%s exists" % node_name)

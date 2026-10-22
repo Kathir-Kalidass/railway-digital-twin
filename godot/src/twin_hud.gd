@@ -15,6 +15,7 @@ var _metrics: Label
 var _help: Label
 var _elapsed := 0.0
 var _meet: Dictionary = {}
+var _wrong_line: Dictionary = {}
 
 
 func _ready() -> void:
@@ -72,6 +73,11 @@ func apply_state(state: Dictionary) -> void:
 	var meet_var: Variant = state.get("meets")
 	if meet_var is Dictionary:
 		_meet = meet_var
+	var routes_var: Variant = state.get("routes")
+	if routes_var is Dictionary:
+		var wrong_var: Variant = routes_var.get("wrongLine")
+		if wrong_var is Dictionary:
+			_wrong_line = wrong_var
 	refresh()
 
 
@@ -91,6 +97,22 @@ func _meet_text() -> String:
 			extra = " via %s" % route
 		return "MEET %s %s%s" % [phase, holder, extra]
 	return "MEET %s" % phase
+
+
+func _wrong_line_text() -> String:
+	var active_var: Variant = _wrong_line.get("active")
+	if not (active_var is Dictionary) or active_var.is_empty():
+		return ""
+	var active: Dictionary = active_var
+	var phase := str(active.get("phase", ""))
+	var progress_value := float(active.get("progress", active.get("crossingProgress", 0.0)))
+	var progress := int(round(progress_value * 100.0))
+	return "WRONG-LINE %s  %s  %d%%  %s HOLD" % [
+		str(active.get("trainId", "?")),
+		phase,
+		progress,
+		str(active.get("heldTrainId", "?")),
+	]
 
 
 func refresh() -> void:
@@ -116,10 +138,12 @@ func refresh() -> void:
 
 	var cam_detector: SimulatedAnimalDetector = current_train.call("get_detector") if is_instance_valid(current_train) and current_train.has_method("get_detector") else null
 	var cam_status := "CAM clear"
-	if is_instance_valid(cam_detector) and cam_detector.is_detection_active():
+	if is_instance_valid(cam_detector) and cam_detector.is_confirmed():
 		var last_det: Dictionary = cam_detector.get_last_detection()
 		var conf := float(last_det.get("confidence", 0.0))
-		cam_status = "CAM detect %.2f" % conf
+		cam_status = "WILDLIFE STOP %.2f" % conf
+	elif is_instance_valid(cam_detector) and cam_detector.is_near_active():
+		cam_status = "ANIMAL NEAR - 30 km/h"
 
 	if fleet and fleet.train_count() > 1:
 		var fleet_info := "fleet %d trains" % fleet.train_count()
@@ -129,6 +153,18 @@ func refresh() -> void:
 
 	_status.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45) if wildlife != "clear" or sensor == "FAULT" else Color(0.92, 0.96, 1.0))
 
+	var cam_node: CameraConfirmation = current_train.get_camera_confirmation() if is_instance_valid(current_train) and current_train.has_method("get_camera_confirmation") else null
+	var camera_line := "camera: idle"
+	if cam_node != null:
+		var cam_result := cam_node.get_last_result()
+		if cam_result.has("degraded") and bool(cam_result.get("degraded")):
+			camera_line = "camera: degraded"
+		elif cam_result.get("confirmed", false):
+			camera_line = "camera: CONFIRMED %s %.2f" % [str(cam_result.get("species", "wildlife")), float(cam_result.get("confidence", 0.0))]
+		elif not cam_result.is_empty():
+			camera_line = "camera: %s" % str(cam_result.get("stage", "waiting"))
+	_status.text = "%s | %s" % [_status.text, camera_line]
+
 	var speed := current_train.get_speed_kmh() if current_train else 0.0
 	var target := current_train.get_target_speed_kmh() if current_train else 0.0
 	var limit := reconciler.get_current_limit_kmh() if reconciler else 0.0
@@ -136,10 +172,15 @@ func refresh() -> void:
 
 	var meet_text := _meet_text()
 	var meet_suffix := "" if meet_text.is_empty() else "   %s" % meet_text
+	var wrong_line_text := _wrong_line_text()
+	var wrong_suffix := "" if wrong_line_text.is_empty() else "   %s" % wrong_line_text
+	if not wrong_line_text.is_empty():
+		_status.text = "%s | %s" % [_status.text, wrong_line_text]
+		_status.add_theme_color_override("font_color", Color(1.0, 0.82, 0.38))
 	if fleet and fleet.train_count() > 1:
-		_metrics.text = "train %s [%s] speed %.1f km/h (target %.1f, limit %.1f)   camera: %s%s" % [selected_train_id, current_block, speed, target, limit, mode, meet_suffix]
+		_metrics.text = "train %s [%s] speed %.1f km/h (target %.1f, limit %.1f)   camera: %s%s%s" % [selected_train_id, current_block, speed, target, limit, mode, meet_suffix, wrong_suffix]
 	else:
-		_metrics.text = "speed %.1f km/h (target %.1f, limit %.1f)   camera: %s%s" % [speed, target, limit, mode, meet_suffix]
+		_metrics.text = "speed %.1f km/h (target %.1f, limit %.1f)   camera: %s%s%s" % [speed, target, limit, mode, meet_suffix, wrong_suffix]
 
 
 func _make_label(size: int, color: Color, position: Vector2) -> Label:

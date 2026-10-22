@@ -61,18 +61,26 @@ func _physics_process(delta: float) -> void:
 			var t := _fleet.get_train(str(tid))
 			if is_instance_valid(t) and t.get_speed_kmh() > 2.0:
 				var line_id := "UP" if str(tid) == "T1" else "DOWN"
-				trigger_proximity_event(str(tid), line_id, t.get_track_position_m())
+				if is_instance_valid(_fleet):
+					line_id = _fleet.get_train_line(str(tid))
+				var sign_value := t.travel_sign if is_instance_valid(t) else (-1.0 if line_id == "DOWN" else 1.0)
+				trigger_proximity_event(str(tid), line_id, t.get_track_position_m(), sign_value)
 				return
 
 	if is_instance_valid(_train) and _train.get_speed_kmh() > 2.0:
 		trigger_proximity_event("T1", "UP", _train.get_track_position_m())
 
 
-func trigger_proximity_event(train_id: String, line_id: String, train_pos: float) -> Dictionary:
-	var lead_m := _rng.randf_range(spawn_lead_min_m, spawn_lead_max_m)
-	var crossing_d := train_pos + lead_m
-	var species := "elephant" if _rng.randf() > 0.5 else "deer"
-	var count := 2 if _rng.randf() > 0.7 else 1
+func trigger_proximity_event(train_id: String, line_id: String, train_pos: float, direction := 1.0, lead_override := -1.0, species_override := "", count_override := -1) -> Dictionary:
+	var lead_m := lead_override if lead_override >= 0.0 else _rng.randf_range(spawn_lead_min_m, spawn_lead_max_m)
+	var track_len := 1253.9822
+	if is_instance_valid(_registry):
+		var found := _registry.length_m(line_id)
+		if found > 0.0:
+			track_len = found
+	var crossing_d := fposmod(train_pos + lead_m * direction, track_len)
+	var species := species_override if not species_override.is_empty() else ("elephant" if _rng.randf() > 0.5 else "deer")
+	var count := count_override if count_override >= 0 else (2 if _rng.randf() > 0.7 else 1)
 
 	if is_instance_valid(_behaviour):
 		for i in count:

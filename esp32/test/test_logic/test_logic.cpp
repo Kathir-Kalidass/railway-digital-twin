@@ -29,6 +29,13 @@ void test_backend_state_is_rendered_when_safe() {
                     static_cast<int>(decide_output(false, false, true, true)));
 }
 
+void test_backend_near_warning_is_local() {
+  TEST_ASSERT_EQUAL(static_cast<int>(Output::WARNING),
+                    static_cast<int>(decide_output(false, false, true, false, true)));
+  TEST_ASSERT_EQUAL(static_cast<int>(Output::RENDER_BACKEND),
+                    static_cast<int>(decide_output(false, false, true, true, true)));
+}
+
 void test_debounce_ignores_bounce() {
   Debouncer d;
   TEST_ASSERT_FALSE(d.update(false, 0));
@@ -85,6 +92,16 @@ void test_command_accepts_backend_source_for_wildlife() {
   TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::NONE),
                     static_cast<int>(parse_command(fault_from_backend, "zone1", 0)));
 
+  const std::string near =
+      "{\"event\":\"WILDLIFE_NEAR\",\"zone\":\"zone1\",\"source\":\"backend\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::WILDLIFE_NEAR),
+                    static_cast<int>(parse_command(near, "zone1", 0)));
+
+  const std::string near_clear =
+      "{\"event\":\"WILDLIFE_NEAR_CLEAR\",\"zone\":\"zone1\",\"source\":\"backend\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
+  TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::WILDLIFE_NEAR_CLEAR),
+                    static_cast<int>(parse_command(near_clear, "zone1", 0)));
+
   const std::string reset_from_backend =
       "{\"event\":\"RESET\",\"zone\":\"zone1\",\"source\":\"backend\",\"timestamp\":\"2026-10-22T00:00:00.000Z\"}";
   TEST_ASSERT_EQUAL(static_cast<int>(CmdEffect::NONE),
@@ -116,16 +133,18 @@ void test_barrier_and_status() {
   TEST_ASSERT_EQUAL_STRING("SENSOR FAULT", status_line(false, true, true, false));
   TEST_ASSERT_EQUAL_STRING("COMM LOSS", status_line(false, false, false, false));
   TEST_ASSERT_EQUAL_STRING("WILDLIFE", status_line(false, false, true, true));
+  TEST_ASSERT_EQUAL_STRING("ANIMAL NEAR", status_line(false, false, true, false, true));
   TEST_ASSERT_EQUAL_STRING("CLEAR", status_line(false, false, true, false));
 }
 
 void test_telemetry_extended_fields() {
   const std::string json =
       build_telemetry("esp32", "zone1", "req-1", "2026-10-19T12:00:00.000Z", true,
-                      true, true, 7000, 0.42f, true, 700);
+                      true, true, 7000, 0.42f, true, 700, true);
   TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"distanceM\":0.42"));
   TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"motion\":true"));
   TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"vibration\":700"));
+  TEST_ASSERT_NOT_NULL(strstr(json.c_str(), "\"nearAnimal\":true"));
 }
 
 int main(int, char **) {
@@ -134,6 +153,7 @@ int main(int, char **) {
   RUN_TEST(test_local_fault_dominates_command);
   RUN_TEST(test_comm_loss_restrictive);
   RUN_TEST(test_backend_state_is_rendered_when_safe);
+  RUN_TEST(test_backend_near_warning_is_local);
   RUN_TEST(test_debounce_ignores_bounce);
   RUN_TEST(test_telemetry_envelope);
   RUN_TEST(test_telemetry_clock_invalid);

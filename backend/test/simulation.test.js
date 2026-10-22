@@ -65,6 +65,22 @@ test('holds the train at the boundary of a RED block instead of entering it', ()
   assert.equal(t.speedKmh, 0);
 });
 
+test('occupyBlocks respects reverse operational movement', () => {
+  const topo = buildTopology(config);
+  const t = train({ block: 'UP-B1', offsetM: 40, lengthM: 60, operationalSign: -1 });
+  occupyBlocks(topo, [t]);
+  assert.equal(topo.blocks.find((b) => b.id === 'UP-B1').occupiedBy, 'T1');
+  assert.equal(topo.blocks.find((b) => b.id === 'UP-B0').occupiedBy, 'T1');
+  assert.equal(topo.blocks.find((b) => b.id === 'UP-B2').occupiedBy, null);
+});
+
+test('stepTrains skips a route-controlled train', () => {
+  const topo = buildTopology(config);
+  const t = train({ block: 'DOWN-B4', offsetM: 100, travelSign: -1 });
+  stepTrains({ topology: topo, simulation: sim, zones: zones(), trains: [t], dtSec: 1, skipTrainIds: ['T1'] });
+  assert.equal(t.offsetM, 100);
+});
+
 test('deterministic for a fixed number of equal steps', () => {
   const run = () => {
     const topo = buildTopology(config);
@@ -75,4 +91,20 @@ test('deterministic for a fixed number of equal steps', () => {
   const a = run(); const b = run();
   assert.equal(a.offsetM, b.offsetM);
   assert.equal(a.speedKmh, b.speedKmh);
+});
+
+test('SUSPECTED caps at caution and CONFIRMED stops', () => {
+  const topo = buildTopology(config);
+  const t = train({ block: 'UP-B0', offsetM: 0, speedKmh: 48 });
+  stepTrains({
+    topology: topo, simulation: sim, zones: zones(), trains: [t], dtSec: 1,
+    blockHazards: { 'UP-B0': { stage: 'SUSPECTED', active: true } },
+  });
+  assert.ok(t.targetSpeedKmh <= 30);
+  t.speedKmh = 20;
+  stepTrains({
+    topology: topo, simulation: sim, zones: zones(), trains: [t], dtSec: 1,
+    blockHazards: { 'UP-B0': { stage: 'CONFIRMED', active: true } },
+  });
+  assert.equal(t.targetSpeedKmh, 0);
 });

@@ -16,3 +16,7 @@ esp32/.pio/
 
 # Local Libre-TrainSim upstream checkout (GPL asset tree, ~1.5GB)
 Libre-TrainSim-master/
+
+ml/.cache/
+__pycache__/
+.pytest_cache/

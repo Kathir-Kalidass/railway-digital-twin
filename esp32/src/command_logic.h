@@ -3,7 +3,7 @@
 #include <cctype>
 #include <string>
 
-enum class CmdEffect { NONE, WILDLIFE_SET, WILDLIFE_CLEAR, FAULT_SET, FAULT_RESTORE, RESET };
+enum class CmdEffect { NONE, WILDLIFE_SET, WILDLIFE_CLEAR, WILDLIFE_NEAR, WILDLIFE_NEAR_CLEAR, FAULT_SET, FAULT_RESTORE, RESET };
 
 // This small parser intentionally accepts only a JSON object with exact string
 // fields. The sketch performs full ArduinoJson envelope/freshness/dedup checks
@@ -33,7 +33,7 @@ inline bool command_json_string(const std::string &json, const char *key, std::s
 
 inline bool is_valid_command_source(const std::string &source, const std::string &event) {
   if (source == "dashboard") return true;
-  if (source == "backend" && (event == "WILDLIFE_DETECTED" || event == "WILDLIFE_CLEARED")) return true;
+  if (source == "backend" && (event == "WILDLIFE_DETECTED" || event == "WILDLIFE_CLEARED" || event == "WILDLIFE_NEAR" || event == "WILDLIFE_NEAR_CLEAR")) return true;
   return false;
 }
 
@@ -53,6 +53,8 @@ inline CmdEffect parse_command(const std::string &json, const char *expected_zon
   }
   if (event == "WILDLIFE_DETECTED") return CmdEffect::WILDLIFE_SET;
   if (event == "WILDLIFE_CLEARED") return CmdEffect::WILDLIFE_CLEAR;
+  if (event == "WILDLIFE_NEAR") return CmdEffect::WILDLIFE_NEAR;
+  if (event == "WILDLIFE_NEAR_CLEAR") return CmdEffect::WILDLIFE_NEAR_CLEAR;
   if (event == "SENSOR_FAULT") return CmdEffect::FAULT_SET;
   if (event == "SENSOR_RESTORED") return CmdEffect::FAULT_RESTORE;
   if (event == "RESET") return CmdEffect::RESET;

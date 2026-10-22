@@ -12,6 +12,7 @@ class_name WildlifeSafety
 @export var warning_distance_m := 10.0
 @export var stop_distance_m := 4.0
 @export var caution_speed_kmh := 30.0
+@export var sensor_lookahead_m := 150.0
 
 var _behaviour: WildlifeBehaviour
 var _reconciler: TrainReconciler
@@ -19,7 +20,6 @@ var _publisher: WildlifePublisher
 var _crossing: Node3D
 var _state := "CLEAR"
 var _last_species := "deer"
-var _last_limit := -2.0
 var _external_active := false
 var _external_species := "wildlife"
 var _external_count := 1
@@ -44,24 +44,7 @@ func refresh() -> void:
 	var next_state := str(snapshot.get("state", "CLEAR"))
 	if _external_active:
 		next_state = "STOP"
-	var limit := -1.0
-	if next_state == "STOP":
-		limit = 0.0
-	elif next_state == "WARN":
-		limit = caution_speed_kmh
-	if not is_equal_approx(limit, _last_limit):
-		_reconciler.set_local_wildlife_limit(limit)
-		_last_limit = limit
-
-		var fleet := get_node_or_null(fleet_path) as FleetController
-		if is_instance_valid(fleet):
-			for tid in fleet.train_ids():
-				var tr := fleet.get_train(str(tid))
-				if is_instance_valid(tr):
-					if limit >= 0.0:
-						tr.set_target_speed_kmh(minf(tr.get_target_speed_kmh(), limit))
-					else:
-						tr.set_target_speed_kmh(tr.initial_speed_kmh)
+	_apply_train_limits()
 
 	if is_instance_valid(_crossing) and _crossing.has_method("set_alarm"):
 		_crossing.call("set_alarm", next_state != "CLEAR")
@@ -79,6 +62,41 @@ func refresh() -> void:
 			_publisher.report(_last_species, 0, false)
 
 	_state = next_state
+
+
+func _apply_train_limits() -> void:
+	var trains: Array[LTSTrain] = []
+	var fleet := get_node_or_null(fleet_path) as FleetController
+	if is_instance_valid(fleet):
+		for tid in fleet.train_ids():
+			var tr := fleet.get_train(str(tid))
+			if is_instance_valid(tr):
+				trains.append(tr)
+	elif is_instance_valid(_reconciler):
+		var tr := _reconciler.get_node_or_null(_reconciler.train_path) as LTSTrain
+		if is_instance_valid(tr):
+			trains.append(tr)
+
+	for tr in trains:
+		if _external_active:
+			tr.set_local_speed_limit(0.0)
+			continue
+		var hazard := _behaviour.get_train_hazard_snapshot(
+			tr.line_id,
+			tr.get_track_position_m(),
+			tr.travel_sign,
+			warning_distance_m,
+			stop_distance_m,
+			sensor_lookahead_m,
+			tr.get_speed_kmh()
+		)
+		match str(hazard.get("state", "CLEAR")):
+			"STOP":
+				tr.set_local_speed_limit(0.0)
+			"WARN":
+				tr.set_local_speed_limit(caution_speed_kmh)
+			_:
+				tr.set_local_speed_limit(-1.0)
 
 
 func set_external_hazard(active: bool, species := "wildlife", count := 1) -> void:

@@ -29,12 +29,14 @@ export function deriveBlockAspects({ topology, blocks, zones, blockHazards = {},
       }
       if (isZoneRestrictive(zones[block.zone])) aspect = mostRestrictive(aspect, 'RED');
 
-      if (blockHazards[block.id]?.active) {
-        aspect = mostRestrictive(aspect, 'RED');
+      const hazard = blockHazards[block.id];
+      if (hazard?.active) {
+        const stage = hazard.stage || 'CONFIRMED';
+        aspect = mostRestrictive(aspect, stage === 'CONFIRMED' ? 'RED' : 'YELLOW');
       }
       for (let k = 1; k <= 1; k++) {
-        const aheadId = ids[(i + k) % n];
-        if (blockHazards[aheadId]?.active) {
+        const ahead = blockHazards[ids[(i + k) % n]];
+        if (ahead?.active) {
           aspect = mostRestrictive(aspect, 'YELLOW');
           break;
         }
@@ -47,8 +49,14 @@ export function deriveBlockAspects({ topology, blocks, zones, blockHazards = {},
 
 export function zoneSignal(zoneId, zones, blockHazards = {}) {
   if (isZoneRestrictive(zones[zoneId])) return 'RED';
-  const hasActiveHazardHere = Object.values(blockHazards).some((h) => h.zone === zoneId && h.active);
-  if (hasActiveHazardHere) return 'YELLOW';
+  const confirmed = Object.values(blockHazards).some(
+    (h) => h.zone === zoneId && h.active && (h.stage || 'CONFIRMED') === 'CONFIRMED',
+  );
+  if (confirmed) return 'RED';
+  const suspected = Object.values(blockHazards).some(
+    (h) => h.zone === zoneId && h.active && h.stage === 'SUSPECTED',
+  );
+  if (suspected) return 'YELLOW';
   const otherRestrictive = Object.keys(zones).some((id) => id !== zoneId && (isZoneRestrictive(zones[id]) || Object.values(blockHazards).some((h) => h.zone === id && h.active)));
   return otherRestrictive ? 'YELLOW' : 'GREEN';
 }

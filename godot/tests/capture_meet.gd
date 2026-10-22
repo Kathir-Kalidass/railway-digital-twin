@@ -43,12 +43,16 @@ func _run() -> void:
 			}
 		})
 
+	var crossing := scene.get_node_or_null("WorldWildlife/LevelCrossing") as Node3D
+	var target := Vector3(-5.0, 1.0, 120.0)
+	if crossing and crossing.has_method("get_crossing_point"):
+		target = crossing.call("get_crossing_point")
 	var camera := Camera3D.new()
 	camera.fov = 55.0
 	camera.far = 2000.0
 	scene.add_child(camera)
-	camera.global_position = Vector3(70.0, 26.0, -268.0)
-	camera.look_at(Vector3(32.0, 1.0, -231.0), Vector3.UP)
+	camera.global_position = target + Vector3(42.0, 24.0, 20.0)
+	camera.look_at(target, Vector3.UP)
 	camera.make_current()
 	for frame in 4:
 		await process_frame

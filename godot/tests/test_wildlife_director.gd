@@ -44,6 +44,12 @@ func _run() -> void:
 	var lead_dist := float(first_ev.get("distanceM", 0.0)) - 0.0 # train was at 0m
 	a.ok(lead_dist >= 80.0 and lead_dist <= 280.0, "spawn point is within 80-280m ahead (got %.1fm)" % lead_dist)
 
+	# 2b. T3 anticlockwise event spawns behind its physical position.
+	director.call("reset_seed", 20261022)
+	var down_event: Dictionary = director.call("trigger_proximity_event", "T3", "DOWN", 500.0, -1.0)
+	a.ok(float(down_event.get("distanceM")) < 500.0 or float(down_event.get("distanceM")) > 1228.8495 - 5.0,
+		"T3 spawns behind its physical position")
+
 	# 3. Cooldown check: 30s <= cooldown <= 60s
 	var cd: float = float(director.get("_cooldown_remaining"))
 	a.ok(cd >= 30.0 and cd <= 60.0, "cooldown is within 30-60s (got %.1fs)" % cd)

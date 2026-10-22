@@ -152,6 +152,67 @@ func get_crossing_pose() -> Transform3D:
 	return Transform3D(Basis(), get_crossing_point())
 
 
+func get_train_hazard_snapshot(line_id: String, physical_position_m: float, travel_sign: float, warning_distance_m: float, stop_distance_m: float, lookahead_m: float, speed_kmh: float) -> Dictionary:
+	var track_len := _line_length_m(line_id)
+	if track_len <= 0.0:
+		return {"state": "CLEAR", "species": "deer", "count": 0, "nearest_m": INF}
+	var nearest := INF
+	var nearest_species := "deer"
+	var count := 0
+	var state := "CLEAR"
+
+	for animal in _active_animals:
+		if not is_instance_valid(animal):
+			continue
+		if str(animal.get_meta("line", "UP")) != line_id:
+			continue
+		if not animal.has_meta("crossing_point"):
+			continue
+		var point: Vector3 = animal.get_meta("crossing_point")
+		var lateral := Vector2(animal.global_position.x - point.x, animal.global_position.z - point.z).length()
+		if lateral > warning_distance_m:
+			continue
+		var animal_distance := float(animal.get_meta("track_distance_m", 0.0))
+		var forward := fposmod((animal_distance - physical_position_m) * travel_sign, track_len)
+		if forward > lookahead_m:
+			continue
+		count += 1
+		if forward < nearest:
+			nearest = forward
+			nearest_species = str(animal.get_meta("species", "deer"))
+		if lateral <= stop_distance_m and OnboardBraking.should_stop(forward, speed_kmh):
+			state = "STOP"
+		elif state != "STOP":
+			state = "WARN"
+
+	return {
+		"state": state,
+		"species": nearest_species,
+		"count": count,
+		"on_track": state == "STOP",
+		"nearest_m": nearest,
+	}
+
+
+func _line_length_m(line_id: String) -> float:
+	var registry := get_node_or_null("../../TrackRegistry") as TrackRegistry
+	if is_instance_valid(registry):
+		var length_m := registry.length_m(line_id)
+		if length_m > 0.0:
+			return length_m
+	var line_track := _track_for_line(line_id)
+	return line_track.length if is_instance_valid(line_track) and line_track.length > 0.0 else 0.0
+
+
+func _track_for_line(line_id: String) -> LTSTrack:
+	var registry := get_node_or_null("../../TrackRegistry") as TrackRegistry
+	if is_instance_valid(registry):
+		var found := registry.track(line_id)
+		if is_instance_valid(found):
+			return found
+	return _track
+
+
 func get_hazard_snapshot(warning_distance_m: float, stop_distance_m: float) -> Dictionary:
 	var nearest := INF
 	var nearest_species := "deer"

@@ -55,6 +55,38 @@ test('validateWildlifeObservation accepts valid trackside and onboard observatio
   assert.equal(r2.ok, true);
   assert.equal(r2.value.trainId, 'T3');
   assert.equal(r2.value.confidence, 0.85);
+
+  const sensorObs = {
+    eventId: 's1',
+    source: 'onboard-sensor',
+    line: 'UP',
+    distanceM: 310,
+    wildlifeDetected: true,
+    trainId: 'T1',
+    timestamp: now / 1000,
+  };
+  assert.equal(validateWildlifeObservation(sensorObs, cfg).ok, true);
+
+  const near = {
+    ...onboard,
+    eventId: 'near-1',
+    nearAnimal: true,
+    confirmed: false,
+  };
+  const r3 = validateWildlifeObservation(near, cfg);
+  assert.equal(r3.ok, true);
+  assert.equal(r3.value.nearAnimal, true);
+  assert.equal(r3.value.confirmed, false);
+
+  const confirmed = {
+    ...onboard,
+    eventId: 'confirm-1',
+    nearAnimal: false,
+    confirmed: true,
+  };
+  const r4 = validateWildlifeObservation(confirmed, cfg);
+  assert.equal(r4.ok, true);
+  assert.equal(r4.value.confirmed, true);
 });
 
 test('validateWildlifeObservation rejects invalid, incomplete, or stale payloads', () => {
@@ -76,19 +108,22 @@ test('validateWildlifeObservation rejects invalid, incomplete, or stale payloads
   assert.equal(validateWildlifeObservation({ eventId: 'e6', source: 'onboard-camera', line: 'UP', distanceM: 100, wildlifeDetected: true, confidence: 0.9, timestamp: now / 1000 }, cfg).ok, false);
   // Onboard missing confidence
   assert.equal(validateWildlifeObservation({ eventId: 'e7', source: 'onboard-camera', line: 'UP', distanceM: 100, wildlifeDetected: true, trainId: 'T1', timestamp: now / 1000 }, cfg).ok, false);
+  // Confirmation is only accepted from the onboard camera with a train id.
+  assert.equal(validateWildlifeObservation({ eventId: 'e8', source: 'trackside', line: 'UP', distanceM: 100, wildlifeDetected: true, confirmed: true, sensorId: 'S1', timestamp: now / 1000 }, cfg).ok, false);
+  assert.equal(validateWildlifeObservation({ eventId: 'e9', source: 'onboard-camera', line: 'UP', distanceM: 100, wildlifeDetected: true, confirmed: true, trainId: 'T1', confidence: 0.9, nearAnimal: 'yes', timestamp: now / 1000 }, cfg).ok, false);
 });
 
 test('state manages dual evidence on block hazards independently and enforces recovery', () => {
   const state = makeState({ config: defaultConfig });
   state.setBrokerConnected(true);
 
-  // UP line length is 753.9822, 5 blocks per line -> block length ~150.796m
-  // distance 310m is in block UP-B2 (indices 0: 0-150.8, 1: 150.8-301.6, 2: 301.6-452.4)
+  // UP line length is 1253.9822, 5 blocks per line -> block length ~250.796m
+  // distance 620m is in block UP-B2 (indices 0: 0-250.8, 1: 250.8-501.6, 2: 501.6-752.4)
   const tracksideObs = {
     eventId: 'e-track-1',
     source: 'trackside',
     line: 'UP',
-    distanceM: 310,
+    distanceM: 620,
     wildlifeDetected: true,
     species: 'deer',
     count: 1,
@@ -113,7 +148,7 @@ test('state manages dual evidence on block hazards independently and enforces re
     eventId: 'e-cam-1',
     source: 'onboard-camera',
     line: 'UP',
-    distanceM: 320,
+    distanceM: 640,
     wildlifeDetected: true,
     species: 'deer',
     count: 1,
@@ -127,7 +162,7 @@ test('state manages dual evidence on block hazards independently and enforces re
   assert.equal(res2.ok, true);
   snap = state.snapshot();
   const upB2Dual = snap.blocks.find((b) => b.id === 'UP-B2');
-  assert.deepEqual(upB2Dual.hazard.sources.sort(), ['onboard', 'trackside']);
+  assert.deepEqual(upB2Dual.hazard.sources.sort(), ['camera', 'onboard', 'trackside']);
 
   // Trackside clears: hazard must remain active because onboard is still active!
   const tracksideClear = {
@@ -141,11 +176,11 @@ test('state manages dual evidence on block hazards independently and enforces re
   snap = state.snapshot();
   const upB2StillActive = snap.blocks.find((b) => b.id === 'UP-B2');
   assert.ok(upB2StillActive.hazard);
-  assert.deepEqual(upB2StillActive.hazard.sources, ['onboard']);
+  assert.deepEqual(upB2StillActive.hazard.sources.sort(), ['camera', 'onboard']);
   assert.equal(snap.overall, 'HAZARD');
 
   // RESET attempted while onboard is still active must be rejected
-  const resetAttempt = state.applyCommand({ zone: 'zone1', event: 'RESET' });
+  const resetAttempt = state.applyCommand({ zone: 'zone2', event: 'RESET' });
   assert.equal(resetAttempt.ok, false);
 
   // Onboard clears: all evidence clear -> block enters recovery, zone enters RECOVERY_REQUIRED
@@ -160,15 +195,66 @@ test('state manages dual evidence on block hazards independently and enforces re
   snap = state.snapshot();
   const upB2Cleared = snap.blocks.find((b) => b.id === 'UP-B2');
   assert.equal(upB2Cleared.hazard, null);
-  assert.equal(snap.zones.zone1.status, 'RECOVERY_REQUIRED');
+  assert.equal(snap.zones.zone2.status, 'RECOVERY_REQUIRED');
   assert.equal(snap.overall, 'RECOVERY_REQUIRED');
 
   // Now RESET succeeds
-  const resetSuccess = state.applyCommand({ zone: 'zone1', event: 'RESET' });
+  const resetSuccess = state.applyCommand({ zone: 'zone2', event: 'RESET' });
   assert.equal(resetSuccess.ok, true);
   snap = state.snapshot();
   assert.equal(snap.zones.zone1.status, 'NORMAL');
   assert.equal(snap.overall, 'NORMAL');
+});
+
+test('sensor evidence is SUSPECTED, camera confirmation is CONFIRMED', () => {
+  const cfg = {
+    ...defaultConfig,
+    trains: [
+      { ...defaultConfig.trains[0], startBlock: 2, startOffsetM: 50 },
+      defaultConfig.trains[1],
+    ],
+  };
+  const state = makeState({ config: cfg });
+  state.setBrokerConnected(true);
+  const now = Date.now();
+
+  state.applyWildlifeObservation({
+    eventId: 's1', source: 'trackside', line: 'UP', distanceM: 300,
+    wildlifeDetected: true, species: 'deer', count: 1, sensorId: 'UP-S1', timestamp: now,
+  });
+  let snap = state.snapshot();
+  let hazard = snap.blocks.find((b) => b.id === 'UP-B1').hazard;
+  assert.equal(hazard.stage, 'SUSPECTED');
+  assert.equal(hazard.confirmed, false);
+  assert.deepEqual(hazard.sensorSources, ['trackside']);
+  assert.equal(snap.blocks.find((b) => b.id === 'UP-B1').signal, 'YELLOW');
+
+  state.applyCameraConfirmation({
+    line: 'UP', blockId: 'UP-B1', trainId: 'T1', species: 'elephant',
+    confidence: 0.91, bbox: [0.1, 0.2, 0.5, 0.6], model: 'stub',
+  });
+  snap = state.snapshot();
+  hazard = snap.blocks.find((b) => b.id === 'UP-B1').hazard;
+  assert.equal(hazard.stage, 'CONFIRMED');
+  assert.equal(hazard.confirmed, true);
+  assert.equal(hazard.confidence, 0.91);
+  assert.equal(hazard.camera.trainId, 'T1');
+  assert.equal(snap.blocks.find((b) => b.id === 'UP-B1').signal, 'RED');
+  assert.equal(snap.trains[0].targetSpeedKmh, 0);
+
+  state.applyWildlifeObservation({
+    eventId: 's2', source: 'trackside', line: 'UP', distanceM: 300,
+    wildlifeDetected: false, species: 'deer', count: 0, sensorId: 'UP-S1', timestamp: now + 1000,
+  });
+  snap = state.snapshot();
+  hazard = snap.blocks.find((b) => b.id === 'UP-B1').hazard;
+  assert.equal(hazard.stage, 'CONFIRMED', 'confirmation stays latched after sensors clear');
+
+  state.applyCommand({ zone: 'zone2', event: 'RESET' });
+  snap = state.snapshot();
+  hazard = snap.blocks.find((b) => b.id === 'UP-B1').hazard;
+  assert.equal(hazard, null);
+  assert.equal(snap.zones.zone2.status, 'NORMAL');
 });
 
 test('signalling sets hazard block RED, approach YELLOW, leaving other line unaffected', () => {
@@ -184,7 +270,8 @@ test('signalling sets hazard block RED, approach YELLOW, leaving other line unaf
       line: 'UP',
       zone: 'zone1',
       active: true,
-      evidence: { trackside: { active: true }, onboard: null },
+      stage: 'CONFIRMED',
+      evidence: { trackside: { active: true }, onboardSensor: null, camera: null },
     },
   };
 
@@ -200,29 +287,29 @@ test('signalling sets hazard block RED, approach YELLOW, leaving other line unaf
     assert.equal(aspects[`DOWN-B${i}`], 'GREEN');
   }
 
-  // zoneSignal for zone1 with block hazard alone is YELLOW (informational, not RED)
-  assert.equal(zoneSignal('zone1', zones, blockHazards), 'YELLOW');
-  assert.equal(zoneSignal('zone2', zones, blockHazards), 'YELLOW'); // cross-zone caution
+  // A confirmed block hazard makes its zone RED and the other zone cautious.
+  assert.equal(zoneSignal('zone1', zones, blockHazards), 'RED');
+  assert.equal(zoneSignal('zone2', zones, blockHazards), 'YELLOW');
 });
 
 test('routes through hazard block are rejected', () => {
   const state = makeState({ config: defaultConfig });
   state.setBrokerConnected(true);
 
-  // Position T1 at UP-B2
+  // Put a hazard on the route's station block.
   const obs = {
     eventId: 'e-haz-1',
     source: 'trackside',
     line: 'UP',
-    distanceM: 310, // UP-B2
+    distanceM: 100, // UP-B0
     wildlifeDetected: true,
-    sensorId: 'UP-S2',
+    sensorId: 'UP-S0',
     timestamp: Date.now() / 1000,
   };
   state.applyWildlifeObservation(obs);
 
-  // Request crossover X-UP-DOWN (from UP-B2 to DOWN-B2)
-  const routeRes = state.requestRoute({ trainId: 'T1', routeId: 'X-UP-DOWN' });
+  // Request crossover X-A (from UP-B0 to DOWN-B4)
+  const routeRes = state.requestRoute({ trainId: 'T1', routeId: 'X-A' });
   assert.equal(routeRes.ok, false);
   assert.ok(routeRes.reason.includes('hazard'));
 });
@@ -238,7 +325,7 @@ test('ingest forwards edge-triggered alert to railway/commands/esp32 when hazard
     eventId: 'e-track-edge-1',
     source: 'trackside',
     line: 'UP',
-    distanceM: 310, // UP-B2 is in zone1 (esp32Zone)
+    distanceM: 100, // UP-B0 is in zone1 (esp32Zone)
     wildlifeDetected: true,
     species: 'deer',
     count: 1,
@@ -251,16 +338,16 @@ test('ingest forwards edge-triggered alert to railway/commands/esp32 when hazard
 
   const espCmds = mqtt.published.filter((m) => m.t === 'railway/commands/esp32');
   assert.ok(espCmds.length >= 1);
-  const detectedCmd = espCmds[espCmds.length - 1].o;
-  assert.equal(detectedCmd.event, 'WILDLIFE_DETECTED');
-  assert.equal(detectedCmd.source, 'backend');
-  assert.equal(detectedCmd.payload.blockId, 'UP-B2');
+  const nearCmd = espCmds[espCmds.length - 1].o;
+  assert.equal(nearCmd.event, 'WILDLIFE_NEAR');
+  assert.equal(nearCmd.source, 'backend');
+  assert.equal(nearCmd.payload.blockId, 'UP-B0');
 
   // Duplicate observation with same eventId is dropped without second edge
   ingest.handle('railway/wildlife', obs);
   assert.equal(mqtt.published.filter((m) => m.t === 'railway/commands/esp32').length, 1);
 
-  // Clear hazard: sends WILDLIFE_CLEARED
+  // Clear near warning: sends WILDLIFE_NEAR_CLEAR
   const clearObs = {
     ...obs,
     eventId: 'e-track-edge-2',
@@ -273,6 +360,6 @@ test('ingest forwards edge-triggered alert to railway/commands/esp32 when hazard
   const clearCmds = mqtt.published.filter((m) => m.t === 'railway/commands/esp32');
   assert.equal(clearCmds.length, 2);
   const clearedCmd = clearCmds[1].o;
-  assert.equal(clearedCmd.event, 'WILDLIFE_CLEARED');
+  assert.equal(clearedCmd.event, 'WILDLIFE_NEAR_CLEAR');
   assert.equal(clearedCmd.source, 'backend');
 });

@@ -99,15 +99,15 @@ test('speed route accepts per-train control and rejects unknown trains', async (
 });
 
 test('route endpoint requires auth, role and a valid crossover', async () => {
-  const fleet = { ...config, trains: [{ ...config.trains[0], startBlock: 2 }, config.trains[1]] };
+  const fleet = { ...config, trains: [{ ...config.trains[0], startBlock: 0 }, config.trains[1]] };
   const deps = buildDeps({ config: fleet });
   await withServer(deps, async (url) => {
     const body = (id, trainId, routeId) => ({ request_id: id, trainId, routeId });
-    const anon = await fetch(`${url}/api/route`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body('r0', 'T1', 'X-UP-DOWN')) });
+    const anon = await fetch(`${url}/api/route`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body('r0', 'T1', 'X-A')) });
     assert.equal(anon.status, 401);
 
     const viewer = await tokenFor(url, 'viewer');
-    const denied = await fetch(`${url}/api/route`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${viewer}` }, body: JSON.stringify(body('r1', 'T1', 'X-UP-DOWN')) });
+    const denied = await fetch(`${url}/api/route`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${viewer}` }, body: JSON.stringify(body('r1', 'T1', 'X-A')) });
     assert.equal(denied.status, 403);
 
     const operator = await tokenFor(url, 'operator');
@@ -119,16 +119,16 @@ test('route endpoint requires auth, role and a valid crossover', async () => {
     const unknown = await post(body('r2', 'T1', 'NOPE'));
     assert.equal(unknown.status, 400);
 
-    const ok = await post(body('r3', 'T1', 'X-UP-DOWN'));
+    const ok = await post(body('r3', 'T1', 'X-A'));
     assert.equal(ok.status, 200);
     const state = (await ok.json()).state;
     assert.equal(state.trains[0].line, 'DOWN');
-    assert.equal(state.routes.active.routeId, 'X-UP-DOWN');
+    assert.equal(state.routes.active.routeId, 'X-A');
 
-    const duplicate = await post(body('r3', 'T1', 'X-UP-DOWN'));
+    const duplicate = await post(body('r3', 'T1', 'X-A'));
     assert.equal(duplicate.status, 400);
 
-    const conflict = await post(body('r4', 'T1', 'X-DOWN-UP'));
+    const conflict = await post(body('r4', 'T1', 'X-B'));
     assert.equal(conflict.status, 409);
     assert.ok(deps.audit.list().some((r) => r.action === 'ROUTE' && r.result === 'ACCEPTED'));
   });

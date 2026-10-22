@@ -14,8 +14,8 @@ func _run() -> void:
 
 	var terrain := scene.get_node("WorldWildlife/TerrainGenerator") as TerrainGenerator
 	var track := scene.get_node("Track") as LTSTrack
-	var river_y := terrain.height_at(0.0, -120.0)
-	var bank_y := terrain.height_at(0.0, -90.0)
+	var river_y := terrain.height_at(0.0, 0.0)
+	var bank_y := terrain.height_at(0.0, 40.0)
 	a.ok(river_y < -2.0, "river channel is carved below the water line")
 	a.ok(bank_y > river_y + 1.5, "river banks rise above the channel")
 	a.ok(terrain.get_node_or_null("RiverWater") is MeshInstance3D, "river has a visible water surface")
@@ -23,7 +23,7 @@ func _run() -> void:
 	var road_bridge := scene.get_node_or_null("WorldWildlife/Bridge") as Node3D
 	a.ok(road_bridge != null, "road bridge is present")
 	if road_bridge:
-		a.ok(absf(road_bridge.global_position.z + 120.0) < 10.0, "road bridge spans the river")
+		a.ok(absf(road_bridge.global_position.z) < 10.0, "road bridge spans the river")
 		a.ok(road_bridge.find_children("*", "MeshInstance3D", true, false).size() > 2,
 			"road bridge has deck, supports, and railings")
 
@@ -33,10 +33,10 @@ func _run() -> void:
 	a.ok(railway_b != null, "second railway bridge is present")
 	if railway_a and railway_a.has_method("get_bridge_pose"):
 		var pose_a: Transform3D = railway_a.call("get_bridge_pose")
-		a.ok(absf(pose_a.origin.z + 120.0) < 10.0, "first railway bridge sits on the river crossing")
+		a.ok(absf(pose_a.origin.z) < 10.0, "first railway bridge sits on the river crossing")
 	if railway_b and railway_b.has_method("get_bridge_pose"):
 		var pose_b: Transform3D = railway_b.call("get_bridge_pose")
-		a.ok(absf(pose_b.origin.z + 120.0) < 10.0, "second railway bridge sits on the river crossing")
+		a.ok(absf(pose_b.origin.z) < 10.0, "second railway bridge sits on the river crossing")
 
 	var crossing := scene.get_node_or_null("WorldWildlife/LevelCrossing") as Node3D
 	a.ok(crossing != null, "level crossing is present")
@@ -51,7 +51,7 @@ func _run() -> void:
 			continue
 		var fraction: float = bridge.get("distance_fraction")
 		var up_point: Vector3 = track.get_global_transform_at_distance(track.length * fraction).origin
-		var down_point: Vector3 = down.get_global_transform_at_distance(down.length * fraction).origin
+		var down_point: Vector3 = down.get_global_transform_at_distance(down.map_to_parallel(track.length * fraction)).origin
 		var deck := bridge.get_node_or_null("Deck") as MeshInstance3D
 		a.ok(deck != null, "bridge has a named deck")
 		if deck:

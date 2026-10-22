@@ -10,11 +10,11 @@ extends Node3D
 @export var inner_track_path: NodePath = NodePath("../InnerTrack")
 @export var seed := 17
 @export var tree_count := 280
-@export var station_distance := 322.0
+@export var station_distance := 150.0
 @export var station_module_spacing := 9.6
 @export var station_modules := 5
-@export var crossover_a_up_distance := 312.0
-@export var crossover_b_up_distance := 434.0
+@export var crossover_a_up_distance := 120.0
+@export var crossover_b_up_distance := 240.0
 @export var use_lts_models := true
 
 var _crossover_states: Dictionary = {}
@@ -64,7 +64,7 @@ func _pose_pair(up_distance: float) -> Dictionary:
 	var down := _inner_track()
 	if down == null:
 		return {"up": up_pose, "down": null, "mid": up_pose}
-	var down_pose := down.get_global_transform_at_distance(clampf(up_distance * down.length / _track.length, 0.0, down.length))
+	var down_pose := down.get_global_transform_at_distance(down.map_to_parallel(up_distance))
 	var mid := up_pose
 	mid.origin = (up_pose.origin + down_pose.origin) * 0.5
 	return {"up": up_pose, "down": down_pose, "mid": mid}
@@ -419,7 +419,7 @@ func _build_crossover(node_name: String, up_distance: float) -> void:
 	root.global_transform = pair["mid"]
 	var down: LTSTrack = _inner_track()
 	root.set_meta("up_distance", up_distance)
-	root.set_meta("down_distance", up_distance * down.length / _track.length)
+	root.set_meta("down_distance", down.map_to_parallel(up_distance))
 
 	var ballast := MeshInstance3D.new()
 	var ballast_mesh := BoxMesh.new()
@@ -465,7 +465,7 @@ func _build_crossover(node_name: String, up_distance: float) -> void:
 
 
 func _build_speed_signs() -> void:
-	for entry in [[130.0, "80"], [260.0, "60"], [390.0, "80"]]:
+	for entry in [[60.0, "40"], [260.0, "60"], [700.0, "80"]]:
 		var pose := _pose(entry[0], 5.4)
 		var root := Node3D.new()
 		add_child(root)
@@ -569,7 +569,7 @@ func _scatter_trees() -> void:
 		var side := -1.0 if _rng.randf() < 0.5 else 1.0
 		var offset := _rng.randf_range(12.0, 62.0)
 		var pose := _pose(distance, side * offset)
-		if absf(pose.origin.x) > 238.0 or absf(pose.origin.z) > 238.0:
+		if absf(pose.origin.x) > 380.0 or absf(pose.origin.z) > 380.0:
 			continue
 		var ground := 0.0
 		if is_instance_valid(_terrain):

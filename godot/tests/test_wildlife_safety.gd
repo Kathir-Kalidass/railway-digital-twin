@@ -40,6 +40,7 @@ func _run() -> void:
 
 		var point: Vector3 = crossing.call("get_crossing_point")
 		animal.global_position = Vector3(point.x, 0.0, point.z)
+		train.set_track_position_m(240.0)
 		safety.call("refresh")
 		a.eq(str(safety.call("get_state")), "STOP", "animal on track is a stop hazard")
 		a.ok(train.get_target_speed_kmh() <= 0.01, "on-track animal forces the local target to zero")
@@ -65,6 +66,7 @@ func _run() -> void:
 			a.eq(str(safety.call("get_state")), "CLEAR", "external hazard clear releases the stop")
 			a.ok(train.get_target_speed_kmh() > 0.0, "train target resumes after external clear")
 
+	train.set_track_position_m(40.0)
 	behavior.set("auto_crossing_enabled", true)
 	behavior.set("_delay_remaining", 0.0)
 	behavior.set("_cooldown_remaining", 0.0)

@@ -8,13 +8,13 @@ export function buildTopology(config) {
     const blockLengthM = Math.round((lineLengthM / t.blocksPerLine) * 1000) / 1000;
     for (let i = 0; i < t.blocksPerLine; i++) {
       const id = `${line}-B${i}`;
-      blocks.push({ id, line, index: i, zone: t.zoneByIndex[i], lengthM: blockLengthM, occupiedBy: null });
+      blocks.push({ id, line, index: i, zone: t.zoneByIndex[i], lengthM: blockLengthM, occupiedBy: null, reservedBy: null });
       ids.push(id);
     }
-    lines.push({ id: line, blocks: ids });
+    lines.push({ id: line, blocks: ids, lengthM: lineLengthM });
   }
   const station = { ...t.station, blocks: { UP: `UP-B${t.station.upIndex}`, DOWN: `DOWN-B${t.station.downIndex}` } };
-  const crossovers = (t.crossovers || []).map((r) => ({ id: r.id, from: r.from, to: r.to }));
+  const crossovers = (t.crossovers || []).map((route) => ({ ...route }));
   return { blocks, lines, station, crossovers };
 }
 

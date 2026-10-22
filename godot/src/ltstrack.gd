@@ -4,9 +4,60 @@ extends Rail
 @export var max_speed_kmh := 80.0
 @export var sleeper_spacing_m := 2.5
 @export var track_gauge_m := 1.435
+@export var straight_length_m := 250.0
+@export var curve_radius_m := 120.0
+@export var parallel_curve_radius_m := 116.0
 
 func _ready() -> void:
+	length = 2.0 * straight_length_m + TAU * curve_radius_m
+	radius = curve_radius_m
 	_build_track_visuals()
+
+
+func map_to_parallel(distance_m: float) -> float:
+	var s := straight_length_m
+	var r := curve_radius_m
+	var pr := parallel_curve_radius_m if parallel_curve_radius_m > 0.0 else r
+	var parallel_length := 2.0 * s + TAU * pr
+	var d := fposmod(distance_m, parallel_length)
+	if d <= s:
+		return d
+	if d <= s + PI * pr:
+		return s + (d - s) * r / pr
+	if d <= 2.0 * s + PI * pr:
+		return d - PI * (pr - r)
+	var west_offset := d - (2.0 * s + PI * pr)
+	return fposmod(2.0 * s + PI * r + west_offset * r / pr, length)
+
+
+func get_local_transform_at_distance(distance_m: float) -> Transform3D:
+	var s := straight_length_m
+	var r := curve_radius_m
+	var d := fposmod(distance_m, length)
+	var origin := Vector3.ZERO
+	var forward := Vector3.RIGHT
+	if d <= s:
+		origin = Vector3(-s * 0.5 + d, 0.0, r)
+		forward = Vector3.RIGHT
+	elif d <= s + PI * r:
+		var theta := PI * 0.5 - (d - s) / r
+		origin = Vector3(s * 0.5 + r * cos(theta), 0.0, r * sin(theta))
+		forward = Vector3(sin(theta), 0.0, -cos(theta))
+	elif d <= 2.0 * s + PI * r:
+		var along := d - (s + PI * r)
+		origin = Vector3(s * 0.5 - along, 0.0, -r)
+		forward = Vector3.LEFT
+	else:
+		var theta := -PI * 0.5 - (d - (2.0 * s + PI * r)) / r
+		origin = Vector3(-s * 0.5 + r * cos(theta), 0.0, r * sin(theta))
+		forward = Vector3(sin(theta), 0.0, -cos(theta))
+	var basis := Basis(forward.normalized(), Vector3.UP, forward.cross(Vector3.UP).normalized())
+	return Transform3D(basis, origin)
+
+
+func get_shifted_local_pos_at_distance(distance_m: float, shift: float) -> Vector3:
+	var pose := get_local_transform_at_distance(distance_m)
+	return pose.origin + pose.basis.z * shift
 
 
 func get_track_info_at(distance_m: float) -> Dictionary:

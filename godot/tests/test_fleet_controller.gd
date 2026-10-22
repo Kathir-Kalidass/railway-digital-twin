@@ -23,11 +23,11 @@ func _run() -> void:
 		a.ok(absf(d_up_b0 - 40.0) < 0.05, "UP-B0 offset 40m is 40m")
 
 		var d_up_b1: float = fleet.calculate_track_distance("UP", "UP-B1", 10.0)
-		var expected_up_b1: float = (753.9822 / 5.0) + 10.0
+		var expected_up_b1: float = 250.7964 + 10.0
 		a.ok(absf(d_up_b1 - expected_up_b1) < 0.1, "UP-B1 offset 10m maps to ~160.8m")
 
 		var d_down_b2: float = fleet.calculate_track_distance("DOWN", "DOWN-B2", 0.0)
-		var expected_down_b2: float = (728.8495 / 5.0) * 2.0
+		var expected_down_b2: float = 1228.8495 - (245.7699 * 2.0)
 		a.ok(absf(d_down_b2 - expected_down_b2) < 0.1, "DOWN-B2 offset 0m maps to ~291.5m")
 
 		# 2. Test applying state snapshot
@@ -64,7 +64,7 @@ func _run() -> void:
 			a.eq(fleet.get_train_line("T1"), "UP", "T1 is on UP line")
 			a.eq(fleet.get_train_line("T3"), "DOWN", "T3 is on DOWN line")
 			a.ok(absf(t1.get_track_position_m() - 40.0) < 1.0, "T1 initial track position ~40m")
-			a.ok(absf(t3.get_track_position_m() - 20.0) < 1.0, "T3 initial track position ~20m")
+			a.ok(absf(t3.get_track_position_m() - (1228.8495 - 20.0)) < 1.0, "T3 initial track position is operational 20m")
 
 		# 3. Simulate process frames to verify smooth movement without snapping
 		var initial_t1_pos: float = t1.get_track_position_m() if t1 else 0.0

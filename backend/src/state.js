@@ -3,6 +3,8 @@ import { deriveBlockAspects, zoneSignal } from './signalling.js';
 import { occupyBlocks, stepTrains } from './simulation.js';
 import { makeRoutes } from './routes.js';
 import { makeMeetScheduler } from './meets.js';
+import { makeWrongLine } from './wrong_line.js';
+import { blockOffsetToPhysical } from './geometry.js';
 
 const DECEL = 2.0; // m/s^2 illustrative braking
 const DEFAULT_TARGET = 48;
@@ -12,6 +14,7 @@ function newZone(id) {
   return {
     id, trainPresent: false, wildlifeDetected: false, sensorHealthy: true,
     signal: 'GREEN', status: 'NORMAL', targetSpeedKmh: DEFAULT_TARGET, blocks: [],
+    esp32NearAnimal: false,
   };
 }
 
@@ -31,6 +34,7 @@ export function makeState({ config, topology }) {
   const blockHazards = {};
   let routes = null;
   let meets = null;
+  let wrongLine = null;
 
   if (topo) {
     for (const b of topo.blocks) {
@@ -39,10 +43,19 @@ export function makeState({ config, topology }) {
         blockId: b.id,
         line: b.line,
         zone: b.zone,
+        stage: 'NONE',
+        confirmed: false,
+        confidence: null,
+        confirmedAt: null,
+        confirmedBy: null,
+        model: null,
+        camera: null,
         evidence: {
           trackside: null,
-          onboard: null,
+          onboardSensor: null,
+          camera: null,
         },
+        sensorSources: [],
         active: false,
         since: null,
       };
@@ -56,6 +69,7 @@ export function makeState({ config, topology }) {
         speedKmh: 0, targetSpeedKmh: zones[block.zone].targetSpeedKmh,
         commandedSpeedKmh: null, lengthM: t.lengthM,
         status: 'RUNNING', zone: block.zone,
+        travelSign: t.line === 'DOWN' ? -1 : 1, operationalSign: 1,
       });
     }
     occupyBlocks(topo, trains);
@@ -72,6 +86,14 @@ export function makeState({ config, topology }) {
       routes,
       hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
       config,
+    });
+    wrongLine = makeWrongLine({
+      topology: topo,
+      trains,
+      zones,
+      config,
+      hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
+      isMeetActive: () => Boolean(meets?.snapshot().active),
     });
   }
 
@@ -101,6 +123,27 @@ export function makeState({ config, topology }) {
       zones[id].blockHazards = Object.values(blockHazards).filter((h) => h.zone === id && h.active).map((h) => h.blockId);
     }
     const overall = recompute();
+    const activeWrongLine = wrongLine ? wrongLine.snapshot().active : null;
+    for (const t of trains) {
+      const physical = Number.isFinite(t.physicalM) && t.routePhase
+        ? t.physicalM
+        : blockOffsetToPhysical(topo, t.line, t.block, t.offsetM);
+      t.physicalM = physical;
+      t.travelSign = Number.isFinite(t.travelSign) ? t.travelSign : (t.line === 'DOWN' ? -1 : 1);
+      t.crossingProgress = t.routePhase === 'CROSS_ENTRY' || t.routePhase === 'CROSS_EXIT'
+        ? (activeWrongLine?.crossingProgress ?? 0)
+        : 0;
+      t.crossoverId = t.routePhase === 'CROSS_ENTRY'
+        ? activeWrongLine?.entryCrossover
+        : t.routePhase === 'CROSS_EXIT'
+          ? activeWrongLine?.exitCrossover
+          : null;
+      t.targetLine = t.routePhase === 'CROSS_ENTRY'
+        ? activeWrongLine?.destinationLine
+        : t.routePhase === 'CROSS_EXIT'
+          ? activeWrongLine?.originalLine
+          : null;
+    }
     const outTrains = trains.map((t) => ({ ...t, stoppingDistanceM: stoppingDistanceM(t.speedKmh) }));
     return {
       zones: JSON.parse(JSON.stringify(zones)),
@@ -109,15 +152,33 @@ export function makeState({ config, topology }) {
       lines: topo.lines.map((l) => ({ id: l.id, blocks: [...l.blocks] })),
       blocks: topo.blocks.map((b) => {
         const h = blockHazards[b.id];
-        const activeSources = h?.active ? ['trackside', 'onboard'].filter((s) => h.evidence[s]?.active) : [];
+        const activeSources = [];
+        if (h?.active && h.evidence.trackside?.active) activeSources.push('trackside');
+        if (h?.active && h.evidence.onboardSensor?.active) activeSources.push('onboard');
+        if (h?.active && h.evidence.camera?.active) activeSources.push('camera');
         return {
           ...b,
           signal: aspects[b.id] || 'GREEN',
-          hazard: h?.active ? { sources: activeSources, since: h.since } : null,
+          hazard: h?.active ? {
+            stage: h.stage,
+            confirmed: h.confirmed,
+            sources: activeSources,
+            sensorSources: [...h.sensorSources],
+            confidence: h.confidence,
+            confirmedAt: h.confirmedAt,
+            confirmedBy: h.confirmedBy,
+            model: h.model,
+            camera: h.camera,
+            since: h.since,
+          } : null,
         };
       }),
       station: { ...topo.station, blocks: { ...topo.station.blocks } },
-      routes: { active: routes.activeRoute(), available: routes.list() },
+      routes: {
+        active: routes.activeRoute(),
+        available: routes.list(),
+        wrongLine: wrongLine ? wrongLine.snapshot() : { active: null, eligibility: {} },
+      },
       meets: meets ? meets.snapshot() : null,
       comm: { ...comm },
       overall,
@@ -157,11 +218,38 @@ export function makeState({ config, topology }) {
         z.trainPresent = true; if (legacy) legacyTrain.zone = env.zone; break;
       case 'TRAIN_LEFT_ZONE':
         z.trainPresent = false; break;
-      case 'RESET':
-        const hasActiveInZone = Object.values(blockHazards).some((h) => h.zone === env.zone && h.active);
-        if (z.sensorHealthy && !z.wildlifeDetected && !hasActiveInZone) { z.status = 'NORMAL'; z.targetSpeedKmh = DEFAULT_TARGET; }
-        else return { ok: false, reason: 'reset rejected: active hazard or sensor fault' };
+      case 'RESET': {
+        const activeSensor = Object.values(blockHazards).some(
+          (h) => h.zone === env.zone && h.sensorSources.length > 0,
+        );
+        if (z.sensorHealthy && !activeSensor && !z.wildlifeDetected) {
+          z.status = 'NORMAL';
+          z.targetSpeedKmh = DEFAULT_TARGET;
+          z.wildlifeDetected = false;
+          for (const h of Object.values(blockHazards)) {
+            if (h.zone !== env.zone) continue;
+            h.stage = 'NONE';
+            h.confirmed = false;
+            h.confidence = null;
+            h.confirmedAt = null;
+            h.confirmedBy = null;
+            h.model = null;
+            h.camera = null;
+            h.sensorSources = [];
+            h.evidence = { trackside: null, onboardSensor: null, camera: null };
+            h.active = false;
+            h.since = null;
+          }
+          for (const t of trains) {
+            if (t.zone !== env.zone) continue;
+            t.targetSpeedKmh = 0;
+            t.commandedSpeedKmh = 0;
+          }
+        } else {
+          return { ok: false, reason: 'reset rejected: active hazard or sensor fault' };
+        }
         break;
+      }
       default:
         return { ok: false, reason: 'unsupported event' };
     }
@@ -234,14 +322,20 @@ export function makeState({ config, topology }) {
   }
 
   function tick(dtSec) {
-    if (!topo || !comm.mqttConnected) return trains;
+    if (!topo || !comm.mqttConnected) return [];
     tickCount += 1;
     if (meets) meets.tick(dtSec);
+    const routeEvents = wrongLine ? wrongLine.tick(dtSec) : [];
     routes.tick();
     const aspects = deriveBlockAspects({ topology: topo, blocks: topo.blocks, zones, blockHazards, lookaheadBlocks: sim.lookaheadBlocks });
-    stepTrains({ topology: topo, simulation: sim, zones, trains, dtSec, aspects });
+    stepTrains({
+      topology: topo, simulation: sim, zones, trains, dtSec, aspects, blockHazards,
+      skipTrainIds: wrongLine ? wrongLine.skipIds() : [],
+    });
     occupyBlocks(topo, trains);
-    return trains;
+    if (wrongLine) wrongLine.afterStep();
+    for (const type of routeEvents) lastEvent = type;
+    return routeEvents.map((type) => ({ type, ...(wrongLine?.snapshot().active || {}), time: new Date().toISOString() }));
   }
 
   function applyWildlifeObservation(obs) {
@@ -255,7 +349,8 @@ export function makeState({ config, topology }) {
     if (!hazard) return { ok: false, reason: `unknown block ${blockId}` };
 
     const wasActive = hazard.active;
-    const slot = obs.source === 'onboard-camera' ? 'onboard' : obs.source;
+    const wasStage = hazard.stage;
+    const slot = obs.source === 'trackside' ? 'trackside' : 'onboardSensor';
     if (obs.wildlifeDetected) {
       hazard.evidence[slot] = {
         active: true,
@@ -266,20 +361,74 @@ export function makeState({ config, topology }) {
         ...(obs.sensorId ? { sensorId: obs.sensorId } : {}),
         ...(obs.trainId ? { trainId: obs.trainId, confidence: obs.confidence } : {}),
       };
+      if (obs.source === 'onboard-camera' && obs.trainId) {
+        hazard.camera = {
+          trainId: obs.trainId,
+          species: obs.species,
+          confidence: Number(obs.confidence),
+          at: new Date(obs.timestamp).toISOString(),
+        };
+        hazard.evidence.camera = { active: true, ...hazard.camera };
+      }
     } else {
       if (hazard.evidence[slot]) {
         hazard.evidence[slot] = { ...hazard.evidence[slot], active: false, at: obs.timestamp };
-      } else {
-        hazard.evidence[slot] = { active: false, at: obs.timestamp };
+      }
+      if (obs.source === 'onboard-camera' && hazard.evidence.camera) {
+        hazard.evidence.camera = { ...hazard.evidence.camera, active: false, at: obs.timestamp };
       }
     }
 
-    const nowActive = Boolean(hazard.evidence.trackside?.active || hazard.evidence.onboard?.active);
-    hazard.active = nowActive;
-    if (nowActive && !wasActive) {
+    hazard.sensorSources = Object.entries(hazard.evidence)
+      .filter(([key, value]) => key !== 'camera' && value?.active)
+      .map(([key]) => key);
+    const sensorActive = hazard.sensorSources.length > 0;
+    if (obs.wildlifeDetected) {
+      const near = obs.nearAnimal === true || hazard.stage === 'SUSPECTED';
+      if (obs.confirmed === true) {
+        hazard.confirmed = true;
+        hazard.confidence = Number(obs.confidence);
+        hazard.confirmedAt = new Date(obs.timestamp).toISOString();
+        hazard.confirmedBy = obs.trainId || null;
+      }
+      if (hazard.confirmed) hazard.stage = 'CONFIRMED';
+      else if (near && hazard.stage === 'NONE') hazard.stage = 'SUSPECTED';
+      if (!hazard.confirmed && sensorActive) hazard.stage = 'SUSPECTED';
+      hazard.active = hazard.confirmed || sensorActive || hazard.stage === 'SUSPECTED';
+    } else {
+      hazard.stage = hazard.confirmed ? 'CONFIRMED' : sensorActive ? 'SUSPECTED' : 'NONE';
+      hazard.active = hazard.confirmed || sensorActive;
+    }
+
+    if (hazard.active && hazard.stage === 'SUSPECTED') {
+      const z = zones[hazard.zone];
+      const caution = config.nearAnimal?.serviceSpeedKmh ?? sim.cautionSpeedKmh ?? 30;
+      if (z) {
+        if (z.sensorHealthy) z.status = 'HAZARD';
+        z.targetSpeedKmh = Math.min(z.targetSpeedKmh, caution);
+      }
+      for (const t of trains) {
+        if (t.zone !== hazard.zone) continue;
+        t.targetSpeedKmh = Math.min(t.targetSpeedKmh, caution);
+      }
+    }
+    if (hazard.active && hazard.stage === 'CONFIRMED') {
+      const z = zones[hazard.zone];
+      if (z) {
+        if (z.sensorHealthy) z.status = 'HAZARD';
+        z.targetSpeedKmh = 0;
+      }
+      for (const t of trains) {
+        if (t.zone === hazard.zone) t.targetSpeedKmh = 0;
+      }
+    }
+
+    if (hazard.stage === 'CONFIRMED' && wasStage !== 'CONFIRMED') {
+      lastEvent = 'WILDLIFE_CONFIRMED';
+    } else if (hazard.active && !wasActive) {
       hazard.since = new Date().toISOString();
-      lastEvent = 'WILDLIFE_DETECTED';
-    } else if (wasActive && !nowActive) {
+      lastEvent = hazard.stage === 'SUSPECTED' ? 'WILDLIFE_NEAR' : 'WILDLIFE_DETECTED';
+    } else if (!hazard.active && wasActive) {
       const z = zones[hazard.zone];
       if (z && z.sensorHealthy && z.status !== 'SENSOR_FAULT') {
         z.status = 'RECOVERY_REQUIRED';
@@ -292,9 +441,123 @@ export function makeState({ config, topology }) {
       blockId,
       line: hazard.line,
       zone: hazard.zone,
+      stage: hazard.stage,
+      confirmed: hazard.confirmed,
       active: hazard.active,
-      changed: wasActive !== nowActive,
+      changed: wasActive !== hazard.active,
     };
+  }
+
+  function applyCameraNear({ line, blockId, trainId, species, confidence, bbox, capturedAt }) {
+    const hazard = blockHazards[blockId];
+    if (!hazard) return { ok: false, reason: `unknown block ${blockId}` };
+    if (hazard.line !== line) return { ok: false, reason: 'line/block mismatch' };
+    if (hazard.confirmed || hazard.stage === 'CONFIRMED') {
+      return { ok: true, stage: 'CONFIRMED', changed: false, blockId };
+    }
+    const wasStage = hazard.stage;
+    const at = capturedAt ? new Date(capturedAt).toISOString() : new Date().toISOString();
+    hazard.active = true;
+    hazard.stage = 'SUSPECTED';
+    hazard.confidence = Number(confidence);
+    hazard.camera = {
+      trainId,
+      species,
+      confidence: Number(confidence),
+      bbox: bbox || null,
+      at,
+    };
+    hazard.evidence.camera = { active: true, ...hazard.camera };
+    if (wasStage === 'NONE') hazard.since = at;
+    const caution = config.nearAnimal?.serviceSpeedKmh ?? sim.cautionSpeedKmh ?? 30;
+    const z = zones[hazard.zone];
+    if (z) {
+      if (z.sensorHealthy) z.status = 'HAZARD';
+      z.targetSpeedKmh = Math.min(z.targetSpeedKmh, caution);
+    }
+    for (const t of trains) {
+      if (t.zone !== hazard.zone) continue;
+      t.targetSpeedKmh = Math.min(t.targetSpeedKmh, caution);
+      if (t.commandedSpeedKmh != null) t.commandedSpeedKmh = Math.min(t.commandedSpeedKmh, caution);
+    }
+    lastEvent = 'WILDLIFE_NEAR';
+    return { ok: true, stage: hazard.stage, changed: wasStage !== 'SUSPECTED', blockId, zone: hazard.zone };
+  }
+
+  function applyCameraConfirmation({ line, blockId, trainId, species, confidence, bbox, model, capturedAt }) {
+    const hazard = blockHazards[blockId];
+    if (!hazard) return { ok: false, reason: `unknown block ${blockId}` };
+    if (hazard.line !== line) return { ok: false, reason: 'line/block mismatch' };
+    if (!hazard.active && hazard.stage === 'NONE') return { ok: false, reason: 'stale hazard' };
+    hazard.confirmed = true;
+    hazard.active = true;
+    hazard.stage = 'CONFIRMED';
+    hazard.confidence = Number(confidence);
+    hazard.confirmedAt = capturedAt ? new Date(capturedAt).toISOString() : new Date().toISOString();
+    hazard.confirmedBy = trainId;
+    hazard.model = model || null;
+    hazard.camera = {
+      trainId,
+      species,
+      confidence: Number(confidence),
+      bbox: bbox || null,
+      at: hazard.confirmedAt,
+      frameId: null,
+    };
+    hazard.evidence.camera = {
+      active: true,
+      trainId,
+      species,
+      confidence: Number(confidence),
+      bbox: bbox || null,
+      at: hazard.confirmedAt,
+      model: model || null,
+    };
+    const z = zones[hazard.zone];
+    if (z) {
+      if (z.sensorHealthy) z.status = 'HAZARD';
+      z.targetSpeedKmh = 0;
+    }
+    for (const t of trains) {
+      if (t.zone === hazard.zone) {
+        t.targetSpeedKmh = 0;
+        if (t.commandedSpeedKmh != null) t.commandedSpeedKmh = 0;
+      }
+    }
+    lastEvent = 'WILDLIFE_CONFIRMED';
+    return { ok: true, stage: hazard.stage, blockId };
+  }
+
+  function requestWrongLine({ trainId }) {
+    if (!wrongLine) return { ok: false, reason: 'wrong-line unavailable' };
+    const result = wrongLine.request({ trainId });
+    if (result.ok) lastEvent = 'WRONG_LINE_GRANTED';
+    return result;
+  }
+
+  function cancelWrongLine({ trainId }) {
+    if (!wrongLine) return { ok: false, reason: 'wrong-line unavailable' };
+    const result = wrongLine.cancel({ trainId });
+    if (result.ok) lastEvent = 'WRONG_LINE_CANCELLED';
+    return result;
+  }
+
+  function getWrongLine() {
+    return wrongLine ? wrongLine.snapshot() : { active: null, eligibility: {}, lastEvent: null };
+  }
+
+  function getBlockHazard(blockId) {
+    const h = blockHazards[blockId];
+    return h ? { ...h, evidence: { ...h.evidence }, sensorSources: [...h.sensorSources] } : null;
+  }
+
+  function setEsp32NearAnimal(zone, value) {
+    const z = zones[zone];
+    if (z) z.esp32NearAnimal = Boolean(value);
+  }
+
+  function getCameraHealth() {
+    return { enabled: Boolean(config.cameraConfirm?.enabled), ml: config.ml?.url || null };
   }
 
   function markEvent(event) {
@@ -307,10 +570,13 @@ export function makeState({ config, topology }) {
 
   return {
     snapshot, applyCommand, applySpeed, applyTelemetry,
-    setSensor, setWildlife, applyWildlifeObservation,
+    setSensor, setWildlife, setEsp32NearAnimal, applyWildlifeObservation, applyCameraNear, applyCameraConfirmation,
     getBlockHazards: () => blockHazards,
+    getBlockHazard,
+    getCameraHealth,
     hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
     markEvent, setBrokerConnected,
     requestRoute, meetControl, tick, getTickCount: () => tickCount,
+    requestWrongLine, cancelWrongLine, getWrongLine,
   };
 }

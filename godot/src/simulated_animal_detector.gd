@@ -7,6 +7,7 @@ extends Node
 
 @export var train_id := "T1"
 @export var line := "UP"
+@export var source := "onboard-camera"
 @export var reconciler_path: NodePath
 @export var bridge_path: NodePath
 @export var camera_path: NodePath
@@ -26,9 +27,13 @@ var _terrain: Object
 var _consecutive_detections := 0
 var _clear_timer := 0.0
 var _active_detection := false
+var _near_active := false
+var _confirmed := false
+var publish_override: Callable
 var _last_detection: Dictionary = {}
 var _tick_count := 0
 var _event_seq := 0
+var _chainage_m := 0.0
 
 
 func _ready() -> void:
@@ -45,6 +50,24 @@ func _ready() -> void:
 		_terrain = world.get_node_or_null("TerrainGenerator")
 
 
+func _owner_train() -> LTSTrain:
+	var node := get_parent()
+	while node != null:
+		if node is LTSTrain:
+			return node as LTSTrain
+		node = node.get_parent()
+	return null
+
+
+func _to_operational(physical_m: float, train: LTSTrain) -> float:
+	var line_len := train.get_track_length_m()
+	if line_len <= 0.0:
+		return physical_m
+	if train.line_id == "DOWN":
+		return fposmod(line_len - physical_m, line_len)
+	return fposmod(physical_m, line_len)
+
+
 func _physics_process(delta: float) -> void:
 	_tick_count += 1
 	if _tick_count % camera_interval_ticks != 0:
@@ -52,10 +75,13 @@ func _physics_process(delta: float) -> void:
 			_tick_clear_timer(delta)
 		return
 
+	var train := _owner_train()
 	var cam_trans := _camera.global_transform if is_instance_valid(_camera) else (get_parent() as Node3D).global_transform if get_parent() is Node3D else Transform3D.IDENTITY
 	var speed_kmh := 0.0
-	var train := get_parent() as LTSTrain
 	if is_instance_valid(train):
+		train_id = train.train_id
+		line = train.line_id
+		_chainage_m = _to_operational(train.get_track_position_m(), train)
 		speed_kmh = train.get_speed_kmh()
 
 	var animals_list: Array[Dictionary] = []
@@ -152,18 +178,17 @@ func process_detections(snapshot: Dictionary, delta: float) -> void:
 	if not detections.is_empty():
 		var best: Dictionary = detections[0]
 		_last_detection = best
-		var critical: bool = bool(best.get("critical", false))
-		if critical:
-			_consecutive_detections = detection_persistence
-		else:
-			_consecutive_detections += 1
-
-		if _consecutive_detections >= detection_persistence:
-			_clear_timer = detection_clear_hold_s
-			if not _active_detection:
-				_active_detection = true
-				_apply_stop()
-				_publish_observation(true, best)
+		_consecutive_detections += 1
+		_clear_timer = detection_clear_hold_s
+		if not _near_active:
+			_active_detection = true
+			_near_active = true
+			_apply_near()
+			_publish_observation(true, best, true, false)
+		if not _confirmed and _consecutive_detections >= detection_persistence:
+			_confirmed = true
+			_apply_stop()
+			_publish_observation(true, best, true, true)
 	else:
 		_consecutive_detections = 0
 		_tick_clear_timer(delta)
@@ -174,8 +199,15 @@ func _tick_clear_timer(delta: float) -> void:
 		_clear_timer -= delta
 		if _clear_timer <= 0.0:
 			_active_detection = false
+			_near_active = false
+			_confirmed = false
 			_lift_stop()
-			_publish_observation(false, _last_detection)
+			_publish_observation(false, _last_detection, false, false)
+
+
+func _apply_near() -> void:
+	if is_instance_valid(reconciler):
+		reconciler.set_local_wildlife_limit(30.0)
 
 
 func _apply_stop() -> void:
@@ -188,17 +220,18 @@ func _lift_stop() -> void:
 		reconciler.set_local_wildlife_limit(-1.0)
 
 
-func _publish_observation(detected: bool, det_info: Dictionary) -> void:
-	if not is_instance_valid(_bridge) or not _bridge.is_broker_connected():
-		return
+func _publish_observation(detected: bool, det_info: Dictionary, near := false, confirmed := false) -> void:
 	_event_seq += 1
 	var event_id := "onboard-%s-%d-%d" % [train_id, int(Time.get_unix_time_from_system()), _event_seq]
 	var payload := {
 		"eventId": event_id,
-		"source": "onboard-camera",
+		"source": source,
 		"line": line,
-		"distanceM": float(det_info.get("distance_m", 0.0)),
+		"distanceM": _chainage_m,
+		"distanceToAnimalM": float(det_info.get("distance_m", 0.0)) if detected else 0.0,
 		"wildlifeDetected": detected,
+		"nearAnimal": near if detected else false,
+		"confirmed": confirmed if detected else false,
 		"species": str(det_info.get("species", "deer")),
 		"count": 1 if detected else 0,
 		"onTrack": detected,
@@ -206,11 +239,22 @@ func _publish_observation(detected: bool, det_info: Dictionary) -> void:
 		"confidence": float(det_info.get("confidence", 0.0)) if detected else 0.0,
 		"timestamp": Time.get_unix_time_from_system(),
 	}
-	_bridge.publish("railway/wildlife", payload)
+	if publish_override.is_valid():
+		publish_override.call(payload)
+	if is_instance_valid(_bridge) and _bridge.is_broker_connected():
+		_bridge.publish("railway/wildlife", payload)
 
 
 func is_detection_active() -> bool:
 	return _active_detection
+
+
+func is_near_active() -> bool:
+	return _near_active
+
+
+func is_confirmed() -> bool:
+	return _confirmed
 
 
 func get_last_detection() -> Dictionary:

@@ -3,7 +3,8 @@ export function makeLoop({ state, bus, config, intervalMs = config.simulation?.t
   let timer = null;
 
   function step() {
-    state.tick(dtSec);
+    const events = state.tick(dtSec);
+    for (const event of events || []) bus.event(event);
     return bus.snapshot();
   }
 

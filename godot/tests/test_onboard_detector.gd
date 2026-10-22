@@ -23,6 +23,7 @@ func _run() -> void:
 	var detector: Node = detector_class.new()
 	detector.set("train_id", "T1")
 	detector.set("line", "UP")
+	a.eq(str(detector.get("source")), "onboard-camera", "ML detector identifies as the onboard camera")
 
 	# Camera at (0, 2, 0), looking down -Z axis
 	# Basis: X right, Y up, -Z forward
@@ -119,7 +120,7 @@ func _run() -> void:
 	var res_bridge: Array = detector.call("detect", snap_bridge)
 	a.eq(res_bridge.size(), 0, "bridge structure occludes animal")
 
-	# 8. Immediate local stop test with MQTT disconnected (Safety Principle 2)
+	# 8. Local caution command with MQTT disconnected (Safety Principle 2)
 	var reconciler := TrainReconciler.new()
 	detector.set("reconciler", reconciler)
 	# Critical detection (animal at 30m with speed 36kmh where d_stop is 56m)
@@ -131,11 +132,28 @@ func _run() -> void:
 		]
 	}
 	detector.call("process_detections", snap_crit, 0.1)
-	a.ok(reconciler.is_local_wildlife_active(), "critical detection immediately activates local stop")
-	a.eq(reconciler.get_local_wildlife_limit(), 0.0, "local wildlife limit forced to 0 km/h with no MQTT")
+	a.ok(reconciler.is_local_wildlife_active(), "critical detection activates local caution")
+	a.eq(reconciler.get_local_wildlife_limit(), 30.0, "sensor detection commands caution, not stop")
 
 	detector.queue_free()
 	reconciler.queue_free()
 	tree_node.queue_free()
+
+	var scene: Node3D = load("res://scenes/lts_full.tscn").instantiate()
+	scene.get_node("MQTTBridge").connect_on_ready = false
+	root.add_child(scene)
+	await process_frame
+	var fleet := scene.get_node("FleetController") as FleetController
+	fleet.apply_state({"trains": [
+		{"id": "T3", "line": "DOWN", "block": "DOWN-B0", "offsetM": 0.0, "speedKmh": 0.0, "targetSpeedKmh": 0.0}
+	]})
+	var t3 := fleet.get_train("T3")
+	var t3_detector := t3.get_detector() if t3 else null
+	a.ok(t3_detector != null, "T3 detector exists")
+	if t3_detector:
+		a.eq(str(t3_detector.get("line")), "DOWN", "detector line follows its train")
+		a.eq(str(t3_detector.get("train_id")), "T3", "detector train id follows its train")
+	scene.queue_free()
+	await process_frame
 
 	quit(a.report("test_onboard_detector"))

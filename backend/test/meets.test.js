@@ -100,28 +100,26 @@ test('a meet holds one train at the station while the other moves', () => {
   assert.equal(snap.last.outcome, 'HELD');
 });
 
-test('crossover meets request the valid station route and complete after release', () => {
+test('meet holds the holder and releases without a crossover', () => {
   const w = makeWorld({ meets: { crossoverChance: 1, minHoldSec: 0.5, maxHoldSec: 0.5 } });
   w.scheduler.tick(0.5);
   w.scheduler.tick(0.5);
   const holderId = w.scheduler.snapshot().active.holderId;
-  w.scheduler.tick(0.1);
   let snap = w.scheduler.snapshot();
   assert.equal(snap.phase, 'HOLDING');
-  assert.equal(snap.active.routeId, 'X-UP-DOWN');
-  assert.ok(w.routeCalls.some((call) => call.routeId === 'X-UP-DOWN'));
+  assert.equal(snap.active.crossover, false);
+  assert.equal(snap.active.routeId, null);
+  assert.equal(snap.config.crossoverChance, 0);
+  const holder = w.trains.find((t) => t.id === holderId);
+  assert.equal(holder.commandedSpeedKmh, 0);
 
   w.scheduler.tick(0.6);
   snap = w.scheduler.snapshot();
-  assert.equal(snap.phase, 'CROSSING');
-  const holder = w.trains.find((t) => t.id === holderId);
-  assert.equal(holder.line, 'DOWN');
-
-  w.routes.clear();
-  w.scheduler.tick(0.1);
-  snap = w.scheduler.snapshot();
   assert.equal(snap.phase, 'IDLE');
-  assert.equal(snap.last.outcome, 'COMPLETED');
+  assert.equal(snap.last.outcome, 'HELD');
+  assert.equal(snap.last.crossed, false);
+  assert.equal(holder.commandedSpeedKmh, null);
+  assert.equal(w.routeCalls.length, 0);
 });
 
 test('a hold is not released while the block has an active hazard', () => {
@@ -141,17 +139,17 @@ test('a hold is not released while the block has an active hazard', () => {
   assert.equal(holder.commandedSpeedKmh, null);
 });
 
-test('skips a crossover when the interlock rejects the route', () => {
-  const w = makeWorld({ rejectRoutes: true, meets: { crossoverChance: 1, holdTimeoutSec: 1.0 } });
-  let guard = 0;
-  while (!w.scheduler.snapshot().last && guard < 20) {
-    w.scheduler.tick(0.5);
-    guard += 1;
-  }
+test('releases the holder on timeout without requesting a route', () => {
+  const w = makeWorld({ meets: { crossoverChance: 1, minHoldSec: 10, maxHoldSec: 10, holdTimeoutSec: 1.0 } });
+  w.scheduler.tick(0.5);
+  w.scheduler.tick(0.5);
+  assert.equal(w.scheduler.snapshot().phase, 'HOLDING');
+  w.scheduler.tick(1.1);
   const snap = w.scheduler.snapshot();
   assert.equal(snap.phase, 'IDLE');
-  assert.equal(snap.last.outcome, 'SAFETY_HELD');
+  assert.equal(snap.last.outcome, 'HELD');
   assert.equal(w.routes.activeRoute(), null);
+  assert.equal(w.routeCalls.length, 0);
 });
 
 test('same seed reproduces the same meet history; a different seed changes it', () => {
