@@ -1,7 +1,7 @@
 # Stadium Double Track, Interlocked Wrong-Line Route, and Camera-Confirmed Wildlife Stop — Design
 
 **Date:** 2026-10-22
-**Status:** Approved design, amended with camera confirmation, ready for implementation planning
+**Status:** Closed — implemented and accepted 2026-10-23. Two-frame camera confirmation supersedes the earlier one-frame shortcut.
 **Supersedes:** the circular-loop assumptions in the 2G meet crossover design only where described below.
 
 ## 1. Purpose
@@ -313,8 +313,9 @@ moves the zone to `RECOVERY_REQUIRED`, which is already restrictive.
   body size (1 MB max), and rate (5 fps max per train).
 - Forward the raw JPEG to the ML service with a 2 s timeout.
 - Apply confirmation using this policy:
-  - two consecutive detections at confidence ≥ `0.5` within a 2 s window, or
-  - one detection at confidence ≥ `0.75`.
+  - two consecutive detections at confidence ≥ `0.5` within a 2 s window.
+  - There is no single-frame or high-confidence shortcut; one strong frame is
+    still only `SUSPECTED` and commands caution.
 - On confirmation: set `stage = CONFIRMED`, `confirmed = true`, update
   confidence/species/bbox, set the block aspect RED, command the train target to
   0, emit `WILDLIFE_CONFIRMED`, store the confirming frame under
@@ -381,8 +382,8 @@ moves the zone to `RECOVERY_REQUIRED`, which is already restrictive.
   `sensorSources`, `camera`, and evidence.
 - Config adds `cameraConfirm` and `ml` blocks:
   - `cameraConfirm`: `{enabled, minConfidence, confirmFrames, confirmWindowSec,
-    singleFrameConfidence, cameraRangeM, captureFps, frameWidth, frameHeight,
-    jpegQuality, evidenceTtlSec}`
+    cameraRangeM, captureFps, frameWidth, frameHeight, jpegQuality,
+    evidenceTtlSec}`
   - `ml`: `{url, timeoutMs}`
 
 ## 8. Godot Rendering, Camera, and HUD
@@ -448,7 +449,7 @@ moves the zone to `RECOVERY_REQUIRED`, which is already restrictive.
 - Staged wildlife: sensor → `SUSPECTED` YELLOW/caution; camera → `CONFIRMED`
   RED/0; latched confirmation; reset; wrong-line rejection for both stages.
 - Camera endpoint: token, size/rate limits, stale/unknown event, degraded ML,
-  confirmation policy (one high-confidence frame and two consecutive frames),
+  confirmation policy (two consecutive frames; no single-frame shortcut),
   idempotency, audit, evidence file cap.
 
 ### 11.2 ML service
@@ -582,6 +583,6 @@ moves the zone to `RECOVERY_REQUIRED`, which is already restrictive.
   `CONFIRMED` and stop.
 - Camera is each train's forward view; ML is FastAPI + torchvision SSDLite320
   MobileNetV3, CPU, COCO animal classes, stub mode for tests.
-- Confirmation policy: two consecutive frames ≥0.5 within 2 s, or one frame
-  ≥0.75; backend-authoritative; latched stop until reset.
+- Confirmation policy: two consecutive frames ≥0.5 within 2 s only; no
+  single-frame shortcut; backend-authoritative; latched stop until reset.
 - No ESP32-CAM hardware, custom training, or cloud streaming in this scope.

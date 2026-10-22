@@ -1,7 +1,7 @@
 # Stage C — Libre-TrainSim-based Godot 4.7 Wildlife Digital Twin (rewrite)
 
 Date: 2026-10-20
-Status: Phase 1 implemented 2026-10-21; Phase 2 proposed
+Status: Closed — Phase 1 & 2 implemented and accepted
 Parent design: [`2026-10-18-railway-digital-twin-enhancement-design.md`](./2026-10-18-railway-digital-twin-enhancement-design.md)
 Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19-stage-a2-block-signalling-design.md) (paused), [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md) (extended), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md) (extended)
 

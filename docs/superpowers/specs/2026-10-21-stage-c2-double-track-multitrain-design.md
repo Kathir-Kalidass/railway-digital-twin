@@ -1,7 +1,7 @@
 # Stage C2 — Double Track, Track Interchange, and Multi-Train Meet/Pass Signalling
 
 Date: 2026-10-21
-Status: approved 2026-10-21; implementation begins with slice 2A
+Status: Closed — implemented and accepted
 Parent design: [`2026-10-20-stage-c-libretrainsim-wildlife-design.md`](./2026-10-20-stage-c-libretrainsim-wildlife-design.md)
 Related designs: [`2026-10-19-stage-a2-block-signalling-design.md`](./2026-10-19-stage-a2-block-signalling-design.md) (core modules only), [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md)
 

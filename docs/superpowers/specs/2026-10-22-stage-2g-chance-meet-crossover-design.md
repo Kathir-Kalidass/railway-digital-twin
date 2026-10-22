@@ -1,6 +1,6 @@
 # Stage 2G — Chance-Based Meet Crossover (Design)
 
-**Status:** approved for implementation (2026-10-22)
+**Status:** Closed — implemented in 2G and refined into the hold-only stadium meet model (`2026-10-22-stadium-wrong-line-route-design.md`)
 **Prerequisites:** Stage C2 slices 2B–2E complete (double-track world, fleet rendering, meet/pass, integrated delivery) and Stage 2F complete (wildlife sensing). This spec extends C2 and must not break its exit gates.
 **Related:**
 - `docs/superpowers/specs/2026-10-21-stage-c2-double-track-multitrain-design.md` (§3.3 station crossovers, §3.4 demo scenario, §4.2 live state, §4.3 routes)

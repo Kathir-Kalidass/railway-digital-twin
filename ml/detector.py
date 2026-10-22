@@ -60,8 +60,11 @@ class WildlifeDetector:
         from PIL import Image
         from torchvision.transforms.functional import pil_to_tensor
 
+        try:
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        except Exception as exc:
+            raise ValueError("invalid image") from exc
         self._load()
-        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         tensor = pil_to_tensor(image).float().div(255.0).unsqueeze(0).to(self.device)
         started = time.time()
         with torch.no_grad():

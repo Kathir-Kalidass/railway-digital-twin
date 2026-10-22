@@ -290,3 +290,20 @@ xvfb-run -a /home/kathir/apps/godot/Godot_v4.7.2-stable_linux.x86_64 \
   --path godot --resolution 1440x900 --rendering-method gl_compatibility \
   --script res://tests/capture_camera_confirm.gd
 ```
+
+### Spec closure audit and reconciliation (2026-10-23)
+
+A complete post-implementation audit reconciled the spec, plan, and test suites, closing out all remaining edge cases:
+
+| Item | Evidence |
+|---|---|
+| Camera range filtering | `godot/src/camera_confirmation.gd`: `_hazard_for_train()` filters hazards by operational distance ahead within `camera_range_m` (200 m). Hazards behind the train or beyond 200 m are ignored. Tested in `test_camera_confirmation.gd`. |
+| Camera timestamp formatting | `godot/src/camera_confirmation.gd`: `X-Captured-At` appends `"Z"` suffix so UTC timestamps are parsed correctly without local timezone bias. Tested in `test_camera_confirmation.gd`. |
+| Route duplicate order | `backend/src/routes/wildlife.js`: `seenEventIds` duplicate check relocated after hazard block validation and before rate limiting, preventing invalid block attempts from poisoning event IDs. |
+| Ingest edge tests | `backend/test/camera.test.js` (+4 tests, total 9/9): payload limit (413), rate limit (429 at >5 fps), unknown block / line mismatch (409), evidence file cap (pruned to 50) + `WILDLIFE_CONFIRMED` audit log. |
+| ML validation & edge cases | `ml/detector.py`: image decoded before model loading; `ml/tests/test_detector.py` (+1) validates non-stub image rejection before model load; `ml/tests/test_api.py` (+2) covers 413 oversized body and 503 detector crash. |
+| Confirmation policy reconciliation | The two-frame confirmation policy is authoritative. Single-frame shortcuts were removed from `2026-10-22-stadium-wrong-line-route-design.md` (Sections 7.3, 7.6, 11.1, 15) and plan Task 18. |
+| Visual artifacts | `/tmp/opencode/wrong_line.gif` (7.6M, 36-frame animation of crossover run) and `/tmp/opencode/camera_detection_box.jpg` (annotated bounding box overlay on evidence capture). |
+| Live Godot upload | Live Godot `CameraConfirmation` uploads verified to reach backend and ML stub (`SUSPECTED` returned). Consecutive frame timing under llvmpipe software rendering (~10s frame intervals) exceeds the 2s confirmation window; two-frame confirmation is verified via live HTTP sequence. |
+| Final automated gate | Backend **141/141** PASS; Godot **42/42** PASS; ML **8/8** PASS; ESP32 native **16/16** PASS; `pio run -e esp32dev` SUCCESS (Flash 87.1%); Web build PASS. |
+

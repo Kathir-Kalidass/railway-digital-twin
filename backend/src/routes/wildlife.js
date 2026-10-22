@@ -52,6 +52,11 @@ export function wildlifeRouter({ config, state, bus, audit, ml, commands }) {
       if (Number.isNaN(capturedMs) || Math.abs(Date.now() - capturedMs) > 10_000) {
         return res.status(409).json({ ok: false, stale: true, stage: 'STALE_CAPTURE' });
       }
+      const hazard = state.getBlockHazard(blockId);
+      if (!hazard || hazard.line !== line) {
+        return res.status(409).json({ ok: false, stale: true, stage: hazard?.stage || 'NONE' });
+      }
+
       if (seenEventIds.has(eventId)) {
         return res.json({ ok: true, duplicate: true, confirmed: false });
       }
@@ -65,11 +70,6 @@ export function wildlifeRouter({ config, state, bus, audit, ml, commands }) {
       }
       recent.push(now);
       frameTimes.set(trainId, recent);
-
-      const hazard = state.getBlockHazard(blockId);
-      if (!hazard || hazard.line !== line) {
-        return res.status(409).json({ ok: false, stale: true, stage: hazard?.stage || 'NONE' });
-      }
 
       let result;
       try {

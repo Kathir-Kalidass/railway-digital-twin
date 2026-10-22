@@ -53,14 +53,44 @@ func _hazard_for_train() -> Dictionary:
 	if not is_instance_valid(train):
 		return {}
 	var blocks: Array = _state.get("blocks", [])
+	var train_entry: Dictionary = {}
+	var trains: Array = _state.get("trains", [])
+	for item in trains:
+		if item is Dictionary and str(item.get("id", "")) == train.train_id:
+			train_entry = item
+			break
+	var train_block_id := str(train_entry.get("block", train.block_id))
+	var train_index := -1
+	for block in blocks:
+		if not (block is Dictionary):
+			continue
+		if str(block.get("line", "")) != train.line_id:
+			continue
+		if str(block.get("id", "")) == train_block_id:
+			train_index = int(block.get("index", -1))
+			break
+	if train_index < 0:
+		return {}
+	var offset_m := float(train_entry.get("offsetM", 0.0))
 	for block in blocks:
 		if not (block is Dictionary):
 			continue
 		if str(block.get("line", "")) != train.line_id:
 			continue
 		var hazard: Variant = block.get("hazard")
-		if hazard is Dictionary and str(hazard.get("stage", "NONE")) in ["SUSPECTED", "CONFIRMED"]:
-			return {"blockId": str(block.get("id", "")), "hazard": hazard}
+		if not (hazard is Dictionary):
+			continue
+		if not str(hazard.get("stage", "NONE")) in ["SUSPECTED", "CONFIRMED"]:
+			continue
+		var index := int(block.get("index", -1))
+		if index < train_index:
+			continue
+		var distance_m := 0.0
+		if index > train_index:
+			distance_m = (index - train_index) * float(block.get("lengthM", 0.0)) - offset_m
+		if distance_m > camera_range_m:
+			continue
+		return {"blockId": str(block.get("id", "")), "hazard": hazard}
 	return {}
 
 
@@ -86,7 +116,7 @@ func headers(event_id: String, block_id: String) -> PackedStringArray:
 		"X-Line: %s" % train.line_id,
 		"X-Block: %s" % block_id,
 		"X-Event-Id: %s" % event_id,
-		"X-Captured-At: %s" % Time.get_datetime_string_from_system(true),
+		"X-Captured-At: %sZ" % Time.get_datetime_string_from_system(true),
 	])
 
 

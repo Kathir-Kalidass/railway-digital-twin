@@ -1,7 +1,7 @@
 # Stage A2 (S0) — Multi-Train Block Signalling (Backend Extension) Design
 
 Date: 2026-10-19  
-Status: core modules implemented and tested; not yet wired into the live server (Phase 2 completion)
+Status: Closed — implemented and accepted (wired in Stage C2 and Stadium phases)
 Parent design: [`2026-10-18-railway-digital-twin-enhancement-design.md`](./2026-10-18-railway-digital-twin-enhancement-design.md)  
 Related designs: [`2026-10-19-stage-b-dashboard-design.md`](./2026-10-19-stage-b-dashboard-design.md), [`2026-10-19-stage-c-godot-digital-twin-design.md`](./2026-10-19-stage-c-godot-digital-twin-design.md), [`2026-10-19-stage-d-esp32-wokwi-design.md`](./2026-10-19-stage-d-esp32-wokwi-design.md), [`2026-10-19-stage-e-integrated-delivery-design.md`](./2026-10-19-stage-e-integrated-delivery-design.md), [`2026-10-21-stage-c2-double-track-multitrain-design.md`](./2026-10-21-stage-c2-double-track-multitrain-design.md)
 

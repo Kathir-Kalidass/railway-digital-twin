@@ -1,5 +1,8 @@
 # Stadium Double Track, Interlocked Wrong-Line Route, and Camera-Confirmed Wildlife Stop — Implementation Plan
 
+> **Status:** Complete — implemented, verified, and committed as `ef797dc`
+> (2026-10-23). The two-frame confirmation policy in Task 19 is authoritative.
+
 > **For the implementing engineer:** Use `superpowers:executing-plans` to work through this plan phase by phase. Use `superpowers:test-driven-development` for every task. Do not skip the failing-test step. Do not commit unless the user explicitly asks; the repository currently has an untracked approved spec and the user has not authorized commits.
 
 **Goal:** Replace the circular test loop with a 250 m-straight stadium double track, run T1 clockwise and T3 anticlockwise, add an operator-triggered interlocked A→B→A wrong-line movement, and add the sensor-slow → camera/ML-confirm → stop chain.
@@ -3750,7 +3753,8 @@ Expected: all green. If the ML tests import torchvision before `ML_STUB` is set,
    - block aspect YELLOW;
    - train target drops to 30 km/h;
    - Godot `CameraConfirmation` starts uploading frames.
-3. In stub mode, the first frame at 0.92 confirms:
+3. In stub mode, the first frame at 0.92 is `SUSPECTED`; the second consecutive
+   frame confirms:
    - state shows `CONFIRMED`, `confirmed: true`, species `elephant`, confidence 0.92;
    - block aspect RED;
    - train target 0;
@@ -3809,3 +3813,15 @@ Update `docs/porting/acceptance.md` with:
 - No test may require downloading model weights.
 
 
+
+## Completion Record
+
+- **Status:** Complete and closed on 2026-10-23.
+- **Commit:** `ef797dc feat: complete stadium camera and near-animal phases`.
+- **Acceptance:** `docs/porting/acceptance.md`, Phase 3 section, including the
+  live near → camera → confirm → latch → reset chain and evidence frame.
+- **Policy reconciliation:** the implemented and tested policy is two
+  consecutive qualifying frames within 2 s. All one-frame confirmation
+  shortcuts were removed from the spec and this plan.
+- **Remaining work:** none in scope. The real-model smoke test remains optional
+  and was skipped because no weights were cached; stub ML is verified.

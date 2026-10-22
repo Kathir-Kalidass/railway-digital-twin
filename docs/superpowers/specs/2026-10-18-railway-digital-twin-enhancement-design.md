@@ -1,6 +1,6 @@
 # Railway Digital Twin — Advanced Animation & Realistic IoT Connection
 
-**Design spec** · 2026-10-18 · Status: for review
+**Design spec** · 2026-10-18 · Status: Closed — implemented and accepted
 
 > **Safety:** This is a classroom digital-twin simulation, not railway safety
 > equipment. Signals, braking and "stopping distance" are visualizations of

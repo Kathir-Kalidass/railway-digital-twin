@@ -1,7 +1,7 @@
 # Stage B — Authenticated Operations Dashboard (design)
 
 Date: 2026-10-19
-Status: approved (contracts verified against backend source)
+Status: Closed — implemented and accepted
 Parent design: `docs/superpowers/specs/2026-10-18-railway-digital-twin-enhancement-design.md` (§7 Dashboard, §12 Delivery stages B)
 
 ## 1. Purpose

@@ -26,3 +26,21 @@ def test_detect_returns_detections():
     body = res.json()
     assert body["model"] == "stub"
     assert body["detections"]
+
+
+def test_detect_rejects_oversized_body():
+    res = client.post(
+        "/detect", content=b"x" * 1_000_001, headers={"content-type": "image/jpeg"}
+    )
+    assert res.status_code == 413
+
+
+def test_detect_returns_503_when_the_model_fails(monkeypatch):
+    import app as app_module
+
+    def fail(_image):
+        raise RuntimeError("model crashed")
+
+    monkeypatch.setattr(app_module.detector, "detect", fail)
+    res = client.post("/detect", content=b"jpeg", headers={"content-type": "image/jpeg"})
+    assert res.status_code == 503

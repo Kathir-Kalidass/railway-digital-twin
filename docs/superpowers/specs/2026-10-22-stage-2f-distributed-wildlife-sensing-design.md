@@ -1,6 +1,6 @@
 # Stage 2F — Distributed Wildlife Sensing and Onboard Camera Detection (Design)
 
-**Status:** approved for implementation (2026-10-22)
+**Status:** Closed — implemented and accepted
 **Prerequisites:** Stage C2 slices 2B–2E complete (double-track world, fleet rendering, meet/pass, integrated delivery). This spec extends C2 and must not break its exit gates.
 **Deferred:** Stage 2G (chance-based meet crossover) is out of scope here and gets its own spec.
 **Related:**

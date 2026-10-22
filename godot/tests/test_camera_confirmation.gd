@@ -39,22 +39,82 @@ func _run() -> void:
 	var headers := cam.headers("evt-1", "UP-B0")
 	a.ok(headers.has("X-Camera-Token: test-token"), "headers include the token")
 	a.ok(headers.has("X-Train-Id: T1"), "headers include the train id")
+	var captured_at := ""
+	for header in headers:
+		if header.begins_with("X-Captured-At: "):
+			captured_at = header.trim_prefix("X-Captured-At: ")
+	a.ok(captured_at.ends_with("Z"), "capture timestamp is UTC with a Z suffix")
 	var result := cam.handle_response({"ok": true, "confirmed": true, "stage": "CONFIRMED"}, 200)
 	a.ok(result.get("confirmed", false), "confirmation response is recorded")
 	a.ok(cam.get_last_result().get("confirmed", false), "latest result is exposed to the HUD")
 
 	fleet.apply_state({
 		"trains": [
-			{"id": "T1", "line": "UP", "block": "UP-B0", "offsetM": 40.0, "physicalM": 40.0, "travelSign": 1, "speedKmh": 30.0, "targetSpeedKmh": 30.0}
+			{"id": "T1", "line": "UP", "block": "UP-B1", "offsetM": 80.0, "physicalM": 330.7964, "travelSign": 1, "speedKmh": 30.0, "targetSpeedKmh": 30.0}
 		],
 		"blocks": [
-			{"id": "UP-B0", "line": "UP", "index": 0, "zone": "zone1", "lengthM": 250.7964, "hazard": null},
+			{"id": "UP-B1", "line": "UP", "index": 1, "zone": "zone2", "lengthM": 250.7964, "hazard": null},
+			{"id": "UP-B2", "line": "UP", "index": 2, "zone": "zone2", "lengthM": 250.7964, "hazard": {"stage": "SUSPECTED", "sources": ["trackside"]}}
+		]
+	})
+	a.ok(cam.should_capture(), "capture starts for a hazard inside the camera range")
+	var target := cam._hazard_for_train()
+	a.eq(str(target.get("blockId", "")), "UP-B2", "camera targets the hazard block, not the train block")
+
+	fleet.apply_state({
+		"trains": [
+			{"id": "T1", "line": "UP", "block": "UP-B1", "offsetM": 80.0, "physicalM": 330.7964, "travelSign": 1, "speedKmh": 30.0, "targetSpeedKmh": 30.0}
+		],
+		"blocks": [
+			{"id": "UP-B1", "line": "UP", "index": 1, "zone": "zone2", "lengthM": 250.7964, "hazard": null},
+			{"id": "UP-B2", "line": "UP", "index": 2, "zone": "zone2", "lengthM": 250.7964, "hazard": null},
+			{"id": "UP-B3", "line": "UP", "index": 3, "zone": "zone2", "lengthM": 250.7964, "hazard": {"stage": "SUSPECTED", "sources": ["trackside"]}}
+		]
+	})
+	a.ok(not cam.should_capture(), "capture ignores hazards beyond the camera range")
+	a.ok(cam._hazard_for_train().is_empty(), "cameras do not target hazards beyond range")
+
+	fleet.apply_state({
+		"trains": [
+			{"id": "T1", "line": "UP", "block": "UP-B1", "offsetM": 80.0, "physicalM": 330.7964, "travelSign": 1, "speedKmh": 30.0, "targetSpeedKmh": 30.0}
+		],
+		"blocks": [
+			{"id": "UP-B0", "line": "UP", "index": 0, "zone": "zone1", "lengthM": 250.7964, "hazard": {"stage": "SUSPECTED", "sources": ["trackside"]}},
+			{"id": "UP-B1", "line": "UP", "index": 1, "zone": "zone2", "lengthM": 250.7964, "hazard": null}
+		]
+	})
+	a.ok(not cam.should_capture(), "capture ignores hazards behind the train")
+
+	fleet.apply_state({
+		"trains": [
+			{"id": "T1", "line": "UP", "block": "UP-B1", "offsetM": 80.0, "physicalM": 330.7964, "travelSign": 1, "speedKmh": 30.0, "targetSpeedKmh": 30.0}
+		],
+		"blocks": [
 			{"id": "UP-B1", "line": "UP", "index": 1, "zone": "zone2", "lengthM": 250.7964, "hazard": {"stage": "SUSPECTED", "sources": ["trackside"]}}
 		]
 	})
-	a.ok(cam.should_capture(), "capture starts for a hazard in the block ahead")
-	var target := cam._hazard_for_train()
-	a.eq(str(target.get("blockId", "")), "UP-B1", "camera targets the hazard block, not the train block")
+	cam.enabled = false
+	a.ok(not cam.should_capture(), "capture stops when the feature is disabled")
+	cam.enabled = true
+	cam.set("_pending", true)
+	a.ok(not cam.should_capture(), "capture drops frames while an upload is pending")
+	cam.set("_pending", false)
+	a.ok(cam.should_capture(), "capture resumes after the pending upload completes")
+
+	var target_before := t1.get_target_speed_kmh()
+	cam.handle_response({"ok": true, "degraded": true, "stage": "SUSPECTED"}, 200)
+	a.ok(bool(cam.get_last_result().get("degraded", false)), "degraded camera responses are exposed")
+	a.eq(t1.get_target_speed_kmh(), target_before, "camera failures never change train control")
+
+	fleet.apply_state({
+		"trains": [
+			{"id": "T1", "line": "UP", "block": "UP-B1", "offsetM": 80.0, "physicalM": 330.7964, "travelSign": 1, "speedKmh": 30.0, "targetSpeedKmh": 30.0}
+		],
+		"blocks": [
+			{"id": "UP-B1", "line": "UP", "index": 1, "zone": "zone2", "lengthM": 250.7964, "hazard": null}
+		]
+	})
+	a.ok(not cam.should_capture(), "capture stops when the hazard clears")
 
 	scene.queue_free()
 	await process_frame
