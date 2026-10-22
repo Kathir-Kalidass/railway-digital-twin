@@ -24,6 +24,10 @@ type Block = {
   lengthM: number;
   occupiedBy: string | null;
   signal: string;
+  hazard?: {
+    sources: string[];
+    since?: string;
+  } | null;
 };
 
 type State = {
@@ -258,7 +262,7 @@ function App() {
                   {lineBlocks.map(b => {
                     const aspect = (b.signal || 'GREEN').toLowerCase();
                     return (
-                      <div key={b.id} className={`block-cell ${b.occupiedBy ? 'occupied' : ''}`}>
+                      <div key={b.id} className={`block-cell ${b.occupiedBy ? 'occupied' : ''} ${b.hazard ? 'hazard' : ''}`}>
                         <div className="block-cell-head">
                           <span className="block-name">{b.id}</span>
                           <span className={`signal-light ${aspect}`} title={`Signal: ${b.signal}`} />
@@ -266,6 +270,11 @@ function App() {
                         {b.occupiedBy && (
                           <span className="occupancy-pill">
                             <TrainFront size={10} /> {b.occupiedBy}
+                          </span>
+                        )}
+                        {b.hazard && (
+                          <span className="hazard-pill" title={`Sources: ${b.hazard.sources?.join(', ')}`}>
+                            <Leaf size={10} /> {b.hazard.sources?.map(s => s === 'onboard' ? 'CAM' : 'HUT').join('+') || 'HAZ'}
                           </span>
                         )}
                         {b.id.includes('B2') && <small className="station-hint">Station</small>}

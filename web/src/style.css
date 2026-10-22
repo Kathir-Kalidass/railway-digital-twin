@@ -22,6 +22,7 @@
 .blocks-track{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;flex:1}
 .block-cell{background:#102230;border:1px solid #203a4c;border-radius:8px;padding:9px 11px;min-height:56px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
 .block-cell.occupied{border-color:#69dfb9;background:#12323c}
+.block-cell.hazard{border-color:#ff6b6b;background:#32161b}
 .block-cell-head{display:flex;justify-content:space-between;align-items:center}
 .block-name{font:600 11px 'DM Mono',monospace;color:#9eb4c4}
 .signal-light{width:9px;height:9px;border-radius:50%;display:inline-block}
@@ -29,6 +30,7 @@
 .signal-light.yellow{background:#ffd76b;box-shadow:0 0 7px #ffd76b}
 .signal-light.red{background:#ff4d59;box-shadow:0 0 7px #ff4d59}
 .occupancy-pill{font:600 10px 'DM Mono',monospace;color:#6fe1b8;display:flex;align-items:center;gap:4px;margin-top:4px}
+.hazard-pill{font:700 9px 'DM Mono',monospace;background:#ff4d59;color:#fff;border-radius:4px;padding:2px 5px;display:inline-flex;align-items:center;gap:3px;margin-top:3px;width:fit-content}
 .station-hint{position:absolute;bottom:4px;right:6px;font:9px 'DM Mono',monospace;color:#678294}
 
 .crossover-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;background:#0e1d2a;border-radius:9px;border:1px solid #1c3445;margin-top:14px}
