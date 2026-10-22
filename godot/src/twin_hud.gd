@@ -14,6 +14,7 @@ var _status: Label
 var _metrics: Label
 var _help: Label
 var _elapsed := 0.0
+var _meet: Dictionary = {}
 
 
 func _ready() -> void:
@@ -21,6 +22,9 @@ func _ready() -> void:
 	_metrics = _make_label(16, Color(0.78, 0.88, 0.95), Vector2(18, 44))
 	_help = _make_label(14, Color(0.65, 0.72, 0.78), Vector2(18, 108))
 	_help.text = "TAB switch train   C camera   N day/night   B cinematic reel   SPACE wildlife   \u2191/\u2193 speed"
+	var bridge := get_node_or_null(bridge_path) as MQTTBridge
+	if bridge:
+		bridge.message_received.connect(_on_message)
 	refresh()
 
 
@@ -57,6 +61,36 @@ func cycle_selected_train() -> void:
 		select_train(str(ids[next_idx]))
 	else:
 		refresh()
+
+
+func _on_message(topic: String, payload: Dictionary) -> void:
+	if topic == "railway/state":
+		apply_state(payload)
+
+
+func apply_state(state: Dictionary) -> void:
+	var meet_var: Variant = state.get("meets")
+	if meet_var is Dictionary:
+		_meet = meet_var
+	refresh()
+
+
+func _meet_text() -> String:
+	if _meet.is_empty() or not bool(_meet.get("enabled", false)):
+		return ""
+	var phase := str(_meet.get("phase", "IDLE"))
+	if phase == "IDLE":
+		var seconds := int(ceil(float(_meet.get("nextMeetInSec", 0.0))))
+		return "meet in %ds" % seconds
+	var active_var: Variant = _meet.get("active")
+	if active_var is Dictionary and not active_var.is_empty():
+		var holder := str(active_var.get("holderId", "?"))
+		var route := str(active_var.get("routeId", ""))
+		var extra := ""
+		if not route.is_empty():
+			extra = " via %s" % route
+		return "MEET %s %s%s" % [phase, holder, extra]
+	return "MEET %s" % phase
 
 
 func refresh() -> void:
@@ -100,10 +134,12 @@ func refresh() -> void:
 	var limit := reconciler.get_current_limit_kmh() if reconciler else 0.0
 	var mode := director.mode_name() if director else "none"
 
+	var meet_text := _meet_text()
+	var meet_suffix := "" if meet_text.is_empty() else "   %s" % meet_text
 	if fleet and fleet.train_count() > 1:
-		_metrics.text = "train %s [%s] speed %.1f km/h (target %.1f, limit %.1f)   camera: %s" % [selected_train_id, current_block, speed, target, limit, mode]
+		_metrics.text = "train %s [%s] speed %.1f km/h (target %.1f, limit %.1f)   camera: %s%s" % [selected_train_id, current_block, speed, target, limit, mode, meet_suffix]
 	else:
-		_metrics.text = "speed %.1f km/h (target %.1f, limit %.1f)   camera: %s" % [speed, target, limit, mode]
+		_metrics.text = "speed %.1f km/h (target %.1f, limit %.1f)   camera: %s%s" % [speed, target, limit, mode, meet_suffix]
 
 
 func _make_label(size: int, color: Color, position: Vector2) -> Label:
