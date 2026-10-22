@@ -159,6 +159,40 @@ func _build_train() -> void:
 		_carriages.append(carriage)
 		if not _build_lts_carriage(carriage, index == 0):
 			_build_carriage(carriage, colors[index], index == 0)
+		if index == 0:
+			_attach_forward_camera(carriage)
+
+
+func _attach_forward_camera(parent: Node3D) -> void:
+	var cam := Camera3D.new()
+	cam.name = "ForwardCamera"
+	cam.position = Vector3(8.2, 2.5, 0.0)
+	cam.rotation.y = -PI * 0.5
+	cam.fov = 50.0
+	cam.near = 0.1
+	cam.far = 400.0
+	parent.add_child(cam)
+
+	var detector := SimulatedAnimalDetector.new()
+	detector.name = "SimulatedAnimalDetector"
+	detector.train_id = name
+	detector.camera_path = cam.get_path()
+	var reconciler_node := get_parent().get_node_or_null("TrainReconciler") as TrainReconciler if get_parent() else null
+	if reconciler_node:
+		detector.reconciler = reconciler_node
+	parent.add_child(detector)
+
+
+func get_forward_camera() -> Camera3D:
+	if _carriages.is_empty():
+		return null
+	return _carriages[0].get_node_or_null("ForwardCamera") as Camera3D
+
+
+func get_detector() -> SimulatedAnimalDetector:
+	if _carriages.is_empty():
+		return null
+	return _carriages[0].get_node_or_null("SimulatedAnimalDetector") as SimulatedAnimalDetector
 
 
 func _build_lts_carriage(parent: Node3D, locomotive: bool) -> bool:
