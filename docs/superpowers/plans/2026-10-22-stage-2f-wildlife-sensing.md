@@ -105,5 +105,3 @@
 - [x] Run ESP32 native tests (`pio test -e native`).
 - [x] Update `docs/porting/acceptance.md` with Stage 2F verification gates.
 - [x] Conventional Commit: `docs(2f): complete stage 2F verification and delivery record`.
-- [ ] Update `docs/porting/acceptance.md` with Stage 2F verification gates.
-- [ ] Conventional Commit: `docs(2f): complete stage 2F verification and delivery record`.

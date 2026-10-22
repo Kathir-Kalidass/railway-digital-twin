@@ -145,6 +145,24 @@ deterministic proximity animal appearance scenarios.
 | Web dashboard evidence badges | `web/src/App.tsx` and `web/src/style.css` compile cleanly with Vite; renders `CAM` / `HUT` hazard tags on block diagram |
 | Full suite regression | Godot 33/33 PASS, Backend 77/77 unit tests PASS, ESP32 native 15/15 PASS, Web build PASS |
 
+## Stage 2G chance-based meet crossover verification (2026-10-22)
+
+Stage 2G replaces the fixed scripted meet with a backend-authoritative seeded
+meet scheduler. Holds use `commandedSpeedKmh = 0` on the authoritative train;
+crossovers are granted only through `routes.requestRoute` (occupancy, hazard,
+and restrictive-zone checks unchanged).
+
+| Item | Evidence |
+|---|---|
+| Seeded PRNG | `test/rng.test.js` PASS: same seed reproduces the sequence, different seeds diverge, values stay in range |
+| Meet scheduler | `test/meets.test.js` PASS: hold while the other train moves, hold release only after expiry/hazard clear, disabled mode inert, trigger arms the next window |
+| Crossover safety | `test/meets.test.js` PASS: valid station route only, interlock rejections retried then skipped as `SAFETY_HELD`, completion after route release |
+| Reproducibility | `test/meets.test.js` PASS: identical history for the same seed, different history for another seed |
+| REST control | `test/control_routes.test.js` PASS: `/api/meet` auth/RBAC/validation/replay/audit; seed applied to the live snapshot |
+| Godot HUD | `test_meet_hud.gd` PASS: phase, holder, route and next-meet countdown; absent `meets` tolerated |
+| Web dashboard | `web/src/App.tsx` meet card builds cleanly |
+| Capture | `/tmp/opencode/meet_randomized.png` (station meet with two trains and active crossover) |
+
 ## Manual demo
 
 The Windows GPU checklist is `docs/demo-windows.md`. The visual subset was
