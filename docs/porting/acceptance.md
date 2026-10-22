@@ -1,7 +1,7 @@
 # Stage E acceptance record
 
-Date: 2026-10-21
-Host: Linux (WSL, headless), Godot 4.7.2, PlatformIO, Node.js 22.
+Date: 2026-10-22
+Host: Linux (WSL, headless), Godot 4.7.2, PlatformIO, Node.js 24.
 
 Educational simulation only; not certified railway equipment.
 
@@ -9,17 +9,16 @@ Educational simulation only; not certified railway equipment.
 
 | Surface | Command | Result |
 |---|---|---|
-| Godot headless | `bash godot/tests/run_tests.sh` | PASS (33 suites) |
+| Godot headless | `bash godot/tests/run_tests.sh` | PASS (34 suites) |
 | ESP32 host logic | `cd esp32 && pio test -e native` | PASS (15 cases) |
-| Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (84 tests) |
-| Backend unit tests | `cd backend && node --test test/*.test.js` (isolated) | PASS (77 unit tests) |
+| Backend | `MQTT_URL=mqtt://127.0.0.1:1884 npm --prefix backend test` (isolated broker) | PASS (106 tests) |
 | Web build | `cd web && npm run build` | PASS |
-| ESP32 firmware | `cd esp32 && pio run -e esp32dev` | PASS (1.2 MB image, 87% flash) |
+| ESP32 firmware | `cd esp32 && pio run -e esp32dev` | PASS (1.1 MB image, 87.1% flash) |
 
-Godot suites (33): `test_camera_director`, `test_catenary_double`,
+Godot suites (34): `test_camera_director`, `test_catenary_double`,
 `test_corridor_flatten`, `test_crossover_visual`, `test_e2e_safety`,
 `test_esp32_integration`, `test_fleet_controller`, `test_fleet_hud`, `test_hud`,
-`test_level_crossing_two_track`, `test_lts_full_enhance`, `test_meet_scenario`,
+`test_level_crossing_two_track`, `test_lts_full_enhance`, `test_meet_hud`, `test_meet_scenario`,
 `test_mqtt_bridge`, `test_onboard_braking`, `test_onboard_camera`, `test_onboard_detector`,
 `test_parse`, `test_port_helpers`, `test_real_assets`,
 `test_river_bridges`, `test_scenario_director`, `test_scene_load`,
@@ -162,6 +161,26 @@ and restrictive-zone checks unchanged).
 | Godot HUD | `test_meet_hud.gd` PASS: phase, holder, route and next-meet countdown; absent `meets` tolerated |
 | Web dashboard | `web/src/App.tsx` meet card builds cleanly |
 | Capture | `/tmp/opencode/meet_randomized.png` (station meet with two trains and active crossover) |
+
+## Stage 2E integrated delivery verification (2026-10-22)
+
+Stage C2 is complete across slices 2A-2G. This pass re-ran the integrated gate
+after 2F (distributed wildlife sensing) and 2G (chance-based meet crossover).
+
+| Item | Evidence |
+|---|---|
+| Full automated gate | Godot 34/34 PASS; backend 106/106 PASS against the isolated Mosquitto on 1884; ESP32 native 15/15 PASS; `pio run -e esp32dev` PASS (87.1% flash); web build PASS |
+| Wildlife affects both lines | `test_wildlife_dual_track.gd` holds T1 and T3 target speed at 0 km/h on a crossing hazard; backend `wildlife_observation.test.js` verifies block RED, approach YELLOW, and opposite-line independence |
+| Dashboard integration | Multi-train cards, per-block occupancy/aspects, per-train speed control, evidence badges, and the 2G meet card; `npm --prefix web run build` clean |
+| ESP32 unaffected | Native suite 15/15 and firmware build PASS; a live trackside observation produced `railway/commands/esp32` `WILDLIFE_DETECTED` with `source: backend` |
+| Live integrated smoke | Broker 1884 + backend 3101: `/api/health` connected; state listed both trains; `POST /api/meet {seed: 4242, trigger: true}` returned seed 4242, and a station window held T3 (`commandedSpeedKmh=0`, 48 to 0 km/h) then recorded `HELD`; a trackside observation on `UP-B2` set `overall=HAZARD` with `UP-B2 RED`; clearing it left `RECOVERY_REQUIRED`; `POST /api/control RESET zone1` restored `NORMAL`; retained `railway/state` showed 2 trains and meet seed 4242 |
+| Captures | `/tmp/opencode/double_track_overview.png`, `/tmp/opencode/platform_after_topdown.png`, `/tmp/opencode/platform_after_oblique.png`, `/tmp/opencode/meet_randomized.png` |
+
+Environment note: the host `mosquitto` service occupies `127.0.0.1:1883`, so
+`godot/tests/regress.sh`'s compose-broker step is shadowed and its ACL tests
+fail in this environment. The gates above were run with the documented isolated
+broker (`-p 127.0.0.1:1884:1883`, `MQTT_URL=mqtt://127.0.0.1:1884`); the 1883
+path is unchanged for environments without the host broker.
 
 ## Manual demo
 
