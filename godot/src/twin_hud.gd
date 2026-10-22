@@ -80,11 +80,18 @@ func refresh() -> void:
 	var wildlife := "WILDLIFE" if reconciler and reconciler.is_wildlife_active() else "clear"
 	var sensor := "healthy" if reconciler == null or reconciler.is_sensor_healthy() else "FAULT"
 
+	var cam_detector: SimulatedAnimalDetector = current_train.call("get_detector") if is_instance_valid(current_train) and current_train.has_method("get_detector") else null
+	var cam_status := "CAM clear"
+	if is_instance_valid(cam_detector) and cam_detector.is_detection_active():
+		var last_det: Dictionary = cam_detector.get_last_detection()
+		var conf := float(last_det.get("confidence", 0.0))
+		cam_status = "CAM detect %.2f" % conf
+
 	if fleet and fleet.train_count() > 1:
 		var fleet_info := "fleet %d trains" % fleet.train_count()
-		_status.text = "%s | %s | %s | sensor %s | %s | %s" % [zone, signal_aspect, wildlife, sensor, link, fleet_info]
+		_status.text = "%s | %s | %s | %s | sensor %s | %s | %s" % [zone, signal_aspect, wildlife, cam_status, sensor, link, fleet_info]
 	else:
-		_status.text = "%s | %s | %s | sensor %s | %s" % [zone, signal_aspect, wildlife, sensor, link]
+		_status.text = "%s | %s | %s | %s | sensor %s | %s" % [zone, signal_aspect, wildlife, cam_status, sensor, link]
 
 	_status.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45) if wildlife != "clear" or sensor == "FAULT" else Color(0.92, 0.96, 1.0))
 

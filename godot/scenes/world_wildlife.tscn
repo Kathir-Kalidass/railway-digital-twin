@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://world_wildlife"]
+[gd_scene load_steps=16 format=3 uid="uid://world_wildlife"]
 
 [ext_resource type="Script" path="res://src/terrain_generator.gd" id="1"]
 [ext_resource type="Script" path="res://src/bridge.gd" id="2"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://src/level_crossing.gd" id="12"]
 [ext_resource type="Script" path="res://src/railway_bridge.gd" id="13"]
 [ext_resource type="Script" path="res://src/wildlife_sensor_network.gd" id="14"]
+[ext_resource type="Script" path="res://src/wildlife_director.gd" id="15"]
 
 [node name="WorldWildlife" type="Node3D"]
 
@@ -88,3 +89,10 @@ crossing_path = NodePath("../LevelCrossing")
 script = ExtResource("14")
 track_registry_path = NodePath("../../TrackRegistry")
 bridge_path = NodePath("../../MQTTBridge")
+
+[node name="WildlifeDirector" type="Node" parent="."]
+script = ExtResource("15")
+behaviour_path = NodePath("../WildlifeBehaviour")
+track_registry_path = NodePath("../../TrackRegistry")
+fleet_path = NodePath("../../FleetController")
+train_path = NodePath("../../Train")

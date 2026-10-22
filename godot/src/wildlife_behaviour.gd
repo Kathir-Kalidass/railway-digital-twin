@@ -70,6 +70,53 @@ func trigger_crossing(species_name: String) -> Area3D:
 		return null
 	animal.visible = true
 	animal.global_position = start
+	animal.set_meta("species", species_name)
+	animal.set_meta("line", "UP")
+	animal.set_meta("track_distance_m", crossing_distance_m)
+	animal.set_meta("crossing_point", point)
+	animal.set_meta("ground_y", point.y)
+	animal.set_meta("target_position", point)
+	animal.set_meta("end_position", finish)
+	animal.set_meta("dwell_remaining", dwell_on_track_sec)
+	animal.set_meta("dwelled", false)
+	_face(animal, point - start)
+	_active_animals.append(animal)
+	return animal
+
+
+func trigger_crossing_at(line_id: String, distance_m: float, species_name: String) -> Area3D:
+	if not is_instance_valid(_spawner):
+		return null
+	var trk := _track
+	var registry := get_node_or_null("../../TrackRegistry") as TrackRegistry
+	if is_instance_valid(registry):
+		var found_track := registry.track(line_id)
+		if is_instance_valid(found_track):
+			trk = found_track
+
+	if not is_instance_valid(trk) or trk.length <= 0.0:
+		return trigger_crossing(species_name)
+
+	var wrapped_dist := fposmod(distance_m, trk.length)
+	var pose := trk.get_global_transform_at_distance(wrapped_dist)
+	var point := pose.origin
+	var side := pose.basis.z.normalized()
+	if side.length_squared() < 0.1:
+		side = Vector3.FORWARD
+
+	var start := point - side * crossing_side_offset_m
+	var finish := point + side * crossing_side_offset_m
+	start.y = point.y
+	finish.y = point.y
+
+	var animal := _spawner.spawn(species_name)
+	if animal == null:
+		return null
+	animal.visible = true
+	animal.global_position = start
+	animal.set_meta("species", species_name)
+	animal.set_meta("line", line_id)
+	animal.set_meta("track_distance_m", wrapped_dist)
 	animal.set_meta("crossing_point", point)
 	animal.set_meta("ground_y", point.y)
 	animal.set_meta("target_position", point)
