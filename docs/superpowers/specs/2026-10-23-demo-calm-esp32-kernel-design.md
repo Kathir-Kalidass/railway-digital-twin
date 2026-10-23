@@ -3,6 +3,15 @@
 Date: 2026-10-23
 Status: Approved in conversation (user picked A1 + B1 with refinements below)
 
+> **Implementation closed 2026-10-23.** Plan: `docs/superpowers/plans/2026-10-23-demo-calm-esp32-kernel.md`.
+> Gates: backend suite 166/166; web build PASS. Live smoke (backend :3001 + docker
+> broker `rdt-test-mqtt`): `esp32` offline at boot → online after telemetry (lastSeenSec 2)
+> → offline again after 34 s of silence; command issued → `PENDING` while the device was
+> silent → `ACKNOWLEDGED` on matching telemetry → `TIMED_OUT` for a second command nobody
+> answered; meet hold release restored T1 to 48 km/h and logged
+> `SPEED_RESTORED_FALLBACK` (attemptedSavedKmh null) in `/api/events`, meet history shows
+> `restoredKmh: 48 / HELD`. Auto-wildlife disabled in `godot/config.cfg` for demo runs.
+
 ## Intent and why
 
 The web dashboard is hard to operate: trains stop "randomly" and stay held or
