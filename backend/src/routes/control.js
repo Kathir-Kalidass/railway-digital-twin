@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { hasPermission } from '../rbac.js';
 import { validateCommand, validateMeet, validateRoute, validateSpeed } from '../validate.js';
 
-export function controlRouter({ auth, config, state, bus, audit, replay, mqtt }) {
+export function controlRouter({ auth, config, state, bus, audit, replay, mqtt, commandTracker }) {
   const router = Router();
   const ctx = {
     zones: config.zones,
@@ -38,10 +38,19 @@ export function controlRouter({ auth, config, state, bus, audit, replay, mqtt })
       bus.security({ request_id: check.value.request_id, actor: req.user.username, reason: applied.reason, timestamp: new Date().toISOString() });
       return res.status(409).json({ error: 'transition rejected', reason: applied.reason });
     }
+    state.applyCommand(check.value);
     audit.write({ actor: req.user.username, role: req.user.role, action: check.value.event, zone: check.value.zone, result: 'ACCEPTED', source: 'rest' });
     mqtt.publish(`railway/commands/${check.value.zone}`, check.value);
     if (config.esp32Zone && config.esp32Zone === check.value.zone) {
       mqtt.publish('railway/commands/esp32', check.value);
+      // Ledgered as PENDING; only a matching ESP32 telemetry response flips it to ACKNOWLEDGED.
+      commandTracker?.issued({
+        requestId: check.value.request_id,
+        event: check.value.event,
+        zone: check.value.zone,
+        actor: req.user.username,
+        at: Date.now(),
+      });
     }
     const snapshot = bus.snapshot();
     bus.event({ type: check.value.event, zone: check.value.zone, actor: req.user.username, result: 'ACCEPTED' });

@@ -1,7 +1,7 @@
 import { validateWildlifeObservation } from './validate.js';
 import { makeWildlifeCommands } from './wildlife_commands.js';
 
-export function makeIngest({ state, bus, config, mqtt, commands = null }) {
+export function makeIngest({ state, bus, config, mqtt, commands = null, commandTracker = null }) {
   const seenTelemetryIds = new Set();
   const maxSeenTelemetryIds = 256;
   const telemetryMaxAgeMs = 5 * 60 * 1000;
@@ -83,6 +83,7 @@ export function makeIngest({ state, bus, config, mqtt, commands = null }) {
           rejectTelemetry(invalid);
           return;
         }
+        state.markEsp32Telemetry(message.zone);
         state.setSensor(message.zone, message.payload.sensorHealthy);
         if (typeof message.payload.wildlifeDetected === 'boolean') {
           state.setWildlife(message.zone, message.payload.wildlifeDetected);
@@ -91,6 +92,8 @@ export function makeIngest({ state, bus, config, mqtt, commands = null }) {
           state.setEsp32NearAnimal(message.zone, message.payload.nearAnimal);
         }
         rememberTelemetry(message.request_id);
+        // Fresh valid telemetry is the device's response; publishes alone never ack a command.
+        commandTracker?.acknowledgePending(Date.now());
         if (message.payload.sensorHealthy === false) {
           bus.alert({ source: 'esp32', severity: 'HIGH', message: 'ESP32 reports sensor fault', timestamp: new Date().toISOString() });
         }
@@ -105,8 +108,10 @@ export function makeIngest({ state, bus, config, mqtt, commands = null }) {
         rejectTelemetry('invalid legacy telemetry');
         return;
       }
+      state.markEsp32Telemetry(zone);
       state.setSensor(zone, message.sensorHealthy);
       if (typeof message.wildlifeDetected === 'boolean') state.setWildlife(zone, message.wildlifeDetected);
+      commandTracker?.acknowledgePending(Date.now());
       if (message.sensorHealthy === false) {
         bus.alert({ source: 'esp32', severity: 'HIGH', message: 'ESP32 reports sensor fault', timestamp: new Date().toISOString() });
       }

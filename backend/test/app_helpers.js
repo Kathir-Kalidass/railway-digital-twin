@@ -11,6 +11,7 @@ import { makeEvents } from '../src/events.js';
 import { makeBus } from '../src/bus.js';
 import { makeIngest } from '../src/ingest.js';
 import { makeWildlifeCommands } from '../src/wildlife_commands.js';
+import { makeCommandTracker } from '../src/command_tracker.js';
 import { createApp } from '../src/app.js';
 import { config } from '../src/config.js';
 
@@ -26,12 +27,15 @@ export function buildDeps(overrides = {}) {
   const db = overrides.db || openDb(':memory:');
   const auth = makeAuth({ db, config: resolvedConfig });
   auth.seedUsers();
-  const state = makeState({ config: resolvedConfig });
+  const commandTracker = overrides.commandTracker
+    || makeCommandTracker({ ackTimeoutSec: resolvedConfig.commandAckTimeoutSec });
+  const state = makeState({ config: resolvedConfig, logEvent: null });
+  state.setCommandTracker(commandTracker);
   const events = makeEvents();
   const mqtt = overrides.mqtt || fakeMqtt();
   const bus = makeBus({ mqtt, state, events });
   const commands = makeWildlifeCommands({ state, bus, config: resolvedConfig, mqtt });
-  const ingest = makeIngest({ state, bus, config: resolvedConfig, mqtt, commands });
+  const ingest = makeIngest({ state, bus, config: resolvedConfig, mqtt, commands, commandTracker });
   const ml = overrides.ml || {
     health: async () => ({ ok: true, stub: true, modelLoaded: true }),
     detect: async () => ({
@@ -52,6 +56,7 @@ export function buildDeps(overrides = {}) {
     mqtt,
     ml,
     commands,
+    commandTracker,
     ingest,
   };
 }

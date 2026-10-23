@@ -12,6 +12,7 @@ import { makeLoop } from './src/loop.js';
 import { createApp } from './src/app.js';
 import { makeMlClient } from './src/ml.js';
 import { makeWildlifeCommands } from './src/wildlife_commands.js';
+import { makeCommandTracker } from './src/command_tracker.js';
 
 const db = openDb(config.dbPath);
 const audit = makeAudit(db);
@@ -19,16 +20,18 @@ const replay = makeReplay(db);
 const auth = makeAuth({ db, config });
 auth.seedUsers();
 const events = makeEvents();
+const commandTracker = makeCommandTracker({ ackTimeoutSec: config.commandAckTimeoutSec });
 const state = makeState({
   config,
   logEvent: (e) => events.record(e),
 });
+state.setCommandTracker(commandTracker);
 state.setBrokerConnected(false); // fail-safe until the broker connection is established
 let ingest;
 const mqtt = makeMqtt({ config, onMessage: (topic, message) => ingest?.handle(topic, message) });
 const bus = makeBus({ mqtt, state, events });
 const commands = makeWildlifeCommands({ state, bus, config, mqtt });
-ingest = makeIngest({ state, bus, config, mqtt, commands });
+ingest = makeIngest({ state, bus, config, mqtt, commands, commandTracker });
 const loop = makeLoop({ state, bus, config });
 const ml = makeMlClient({ config });
 mqtt.client.on('connect', () => {
@@ -40,5 +43,5 @@ mqtt.client.on('close', () => {
   loop.stop();
   ingest.onBrokerConnected(false);
 });
-const app = createApp({ config, db, audit, replay, auth, state, bus, events, mqtt, ml, commands });
+const app = createApp({ config, db, audit, replay, auth, state, bus, events, mqtt, ml, commands, commandTracker });
 app.listen(config.port, '0.0.0.0', () => console.log(`Railway backend listening on :${config.port}; MQTT=${config.mqttUrl}`));

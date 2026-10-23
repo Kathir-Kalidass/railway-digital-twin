@@ -39,6 +39,16 @@ export function makeState({ config, topology, logEvent = null }) {
     z.esp32LastTelemetryAtMs = atMs;
   }
 
+  let commandTracker = null;
+  function setCommandTracker(tracker) {
+    commandTracker = tracker;
+  }
+  const commandLedgerSnapshot = () => {
+    if (!commandTracker) return [];
+    commandTracker.sweep(Date.now()); // pending older than the ack window times out on read
+    return commandTracker.snapshot();
+  };
+
   function esp32Snapshot() {
     const zone = config.esp32Zone || config.zones[0];
     const z = zones[zone];
@@ -208,6 +218,7 @@ export function makeState({ config, topology, logEvent = null }) {
       },
       meets: meets ? meets.snapshot() : null,
       esp32: esp32Snapshot(),
+      esp32Commands: commandLedgerSnapshot(),
       comm: { ...comm },
       overall,
       lastEvent,
@@ -224,6 +235,7 @@ export function makeState({ config, topology, logEvent = null }) {
       zones: JSON.parse(JSON.stringify(zones)),
       train: { ...legacyTrain },
       esp32: esp32Snapshot(),
+      esp32Commands: commandLedgerSnapshot(),
       comm: { ...comm },
       overall,
       lastEvent,
@@ -614,7 +626,7 @@ export function makeState({ config, topology, logEvent = null }) {
 
   return {
     snapshot, applyCommand, applySpeed, applyTelemetry,
-    setSensor, setWildlife, setEsp32NearAnimal, markEsp32Telemetry, applyWildlifeObservation, applyCameraNear, applyCameraConfirmation,
+    setSensor, setWildlife, setEsp32NearAnimal, markEsp32Telemetry, setCommandTracker, applyWildlifeObservation, applyCameraNear, applyCameraConfirmation,
     getBlockHazards: () => blockHazards,
     getBlockHazard,
     getCameraHealth,

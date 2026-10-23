@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeCommandTracker } from '../src/command_tracker.js';
+import { buildDeps, withServer, login } from './app_helpers.js';
+import { config } from '../src/config.js';
 
 const fakeNow = () => fakeNow.value;
 fakeNow.value = 0;
@@ -78,4 +80,69 @@ test('injected now() is honored by issued without explicit at', () => {
   assert.equal(entry.issuedAtMs, 42_000);
   assert.equal(entry.status, 'PENDING');
   assert.equal(tracker.snapshot()[0].issuedAt, iso(42_000));
+});
+
+const pass = (role) => config.seedUsers.find((u) => u.role === role).password;
+
+function esp32Envelope(payload = {}, overrides = {}) {
+  return {
+    request_id: 'esp32-boot-1-1', zone: config.esp32Zone || 'zone1', event: 'DEVICE_TELEMETRY',
+    timestamp: new Date().toISOString(), clockValid: true, source: 'esp32',
+    payload: { device: 'esp32', sensorHealthy: true, uptimeMs: 10, ...payload },
+    ...overrides,
+  };
+}
+
+test('valid esp32 telemetry records liveness and acks pending commands', () => {
+  const deps = buildDeps();
+  const { commandTracker, state, ingest } = deps;
+  commandTracker.issued({ requestId: 'cmd-1', event: 'RESET', zone: 'zone1', actor: 'operator', at: Date.now() });
+  ingest.handle('railway/telemetry/esp32', esp32Envelope());
+  const snap = state.snapshot();
+  assert.equal(snap.esp32.online, true);
+  assert.equal(snap.esp32Commands[0].status, 'ACKNOWLEDGED');
+  assert.equal(commandTracker.snapshot()[0].status, 'ACKNOWLEDGED');
+});
+
+test('invalid esp32 telemetry acks nothing and proves no liveness', () => {
+  const deps = buildDeps();
+  const { commandTracker, state, ingest } = deps;
+  commandTracker.issued({ requestId: 'cmd-1', event: 'RESET', zone: 'zone1', actor: 'operator', at: Date.now() });
+  ingest.handle('railway/telemetry/esp32', esp32Envelope({}, { zone: 'zone2' }));
+  const snap = state.snapshot();
+  assert.equal(snap.esp32.online, false);
+  assert.equal(snap.esp32.lastSeenSec, null);
+  assert.equal(snap.esp32Commands[0].status, 'PENDING');
+});
+
+test('issuing an esp32-zone control command records a PENDING ledger entry', async () => {
+  const deps = buildDeps();
+  await withServer(deps, async (url) => {
+    const token = (await login(url, 'operator', pass('operator'))).body.token;
+    const res = await fetch(`${url}/api/control`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ request_id: 'ctl-1', zone: 'zone1', event: 'WILDLIFE_DETECTED', timestamp: new Date().toISOString(), source: 'dashboard', payload: {} }),
+    });
+    assert.equal(res.status, 200);
+    const snap = deps.state.snapshot();
+    assert.equal(snap.esp32Commands.length, 1);
+    assert.equal(snap.esp32Commands[0].status, 'PENDING');
+    assert.equal(snap.esp32Commands[0].event, 'WILDLIFE_DETECTED');
+    assert.equal(snap.esp32Commands[0].actor, 'operator');
+  });
+});
+
+test('commands for non-esp32 zones are never tracked', async () => {
+  const deps = buildDeps({ config: { ...config, esp32Zone: 'zone1' } });
+  await withServer(deps, async (url) => {
+    const token = (await login(url, 'operator', pass('operator'))).body.token;
+    const res = await fetch(`${url}/api/control`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ request_id: 'ctl-2', zone: 'zone2', event: 'WILDLIFE_DETECTED', timestamp: new Date().toISOString(), source: 'dashboard', payload: {} }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(deps.state.snapshot().esp32Commands.length, 0);
+  });
 });
