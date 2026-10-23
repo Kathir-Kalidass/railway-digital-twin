@@ -208,8 +208,23 @@ export function makeState({ config, topology }) {
     switch (env.event) {
       case 'WILDLIFE_DETECTED':
         z.wildlifeDetected = true; z.status = 'HAZARD'; z.targetSpeedKmh = 0; break;
-      case 'WILDLIFE_CLEARED':
-        z.wildlifeDetected = false; z.status = 'RECOVERY_REQUIRED'; break;
+      case 'WILDLIFE_CLEARED': {
+        z.wildlifeDetected = false;
+        z.status = 'RECOVERY_REQUIRED';
+        for (const h of Object.values(blockHazards)) {
+          if (h.zone !== env.zone) continue;
+          if (h.evidence.trackside) h.evidence.trackside.active = false;
+          if (h.evidence.onboardSensor) h.evidence.onboardSensor.active = false;
+          h.sensorSources = Object.entries(h.evidence)
+            .filter(([key, value]) => key !== 'camera' && value?.active)
+            .map(([key]) => key);
+          if (!h.confirmed) {
+            h.stage = h.sensorSources.length > 0 ? 'SUSPECTED' : 'NONE';
+            h.active = h.sensorSources.length > 0;
+          }
+        }
+        break;
+      }
       case 'SENSOR_FAULT':
         z.sensorHealthy = false; z.status = 'SENSOR_FAULT'; z.targetSpeedKmh = 0; break;
       case 'SENSOR_RESTORED':

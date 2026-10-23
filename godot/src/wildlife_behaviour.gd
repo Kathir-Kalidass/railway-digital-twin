@@ -37,6 +37,16 @@ func _ready() -> void:
 	_train = get_node_or_null(train_path) as LTSTrain
 	_crossing = get_node_or_null(crossing_path)
 	_delay_remaining = initial_delay_sec
+	_load_config()
+
+
+func _load_config() -> void:
+	if not FileAccess.file_exists("res://config.cfg"):
+		return
+	var cfg := ConfigFile.new()
+	if cfg.load("res://config.cfg") == OK:
+		auto_crossing_enabled = bool(cfg.get_value("simulation", "auto_wildlife", auto_crossing_enabled))
+
 
 
 func _physics_process(delta: float) -> void:

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, ArrowRightLeft, CheckCircle2, Clock3, Cpu, Gauge, Leaf, Radio, RotateCcw, ShieldAlert, TrainFront, Wifi, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRightLeft, CheckCircle2, Clock3, Cpu, Gauge, Leaf, Play, Radio, RotateCcw, ShieldAlert, TrainFront, Wifi, Zap } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -108,7 +108,16 @@ type State = {
     wrongLine?: WrongLine;
   };
   meets?: Meet | null;
-  zones?: Record<string, { esp32NearAnimal?: boolean }>;
+  zones?: Record<string, {
+    id?: string;
+    wildlifeDetected?: boolean;
+    sensorHealthy?: boolean;
+    signal?: string;
+    status?: string;
+    targetSpeedKmh?: number;
+    esp32NearAnimal?: boolean;
+    blocks?: string[];
+  }>;
 };
 
 type EventRow = {
@@ -250,13 +259,87 @@ function App() {
 
   async function command(event: string) {
     try {
-      await api('/api/control', {
+      const targetZones = ['zone1', 'zone2'];
+      if (event === 'RESET') {
+        for (const z of targetZones) {
+          await api('/api/control', {
+            request_id: crypto.randomUUID(),
+            zone: z,
+            event: 'WILDLIFE_CLEARED',
+            timestamp: new Date().toISOString(),
+            source: 'dashboard',
+            payload: {},
+          }).catch(() => {});
+        }
+      }
+      for (const z of targetZones) {
+        await api('/api/control', {
+          request_id: crypto.randomUUID(),
+          zone: z,
+          event,
+          timestamp: new Date().toISOString(),
+          source: 'dashboard',
+          payload: {},
+        }).catch(() => {});
+      }
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function resumeFleet(speedKmh = 48) {
+    try {
+      const targetZones = ['zone1', 'zone2'];
+      // First ensure all zones are cleared of hazards and reset to normal
+      for (const z of targetZones) {
+        await api('/api/control', {
+          request_id: crypto.randomUUID(),
+          zone: z,
+          event: 'WILDLIFE_CLEARED',
+          timestamp: new Date().toISOString(),
+          source: 'dashboard',
+          payload: {},
+        }).catch(() => {});
+      }
+      for (const z of targetZones) {
+        await api('/api/control', {
+          request_id: crypto.randomUUID(),
+          zone: z,
+          event: 'RESET',
+          timestamp: new Date().toISOString(),
+          source: 'dashboard',
+          payload: {},
+        }).catch(() => {});
+      }
+      const trainList = state.trains && state.trains.length > 0 ? state.trains : [{ id: 'T1' }, { id: 'T3' }];
+      for (const t of trainList) {
+        await api('/api/speed', { trainId: t.id, speedKmh }).catch(() => {});
+      }
+      setSpeed(speedKmh);
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function toggleMeet(enabled: boolean) {
+    try {
+      await api('/api/meet', {
         request_id: crypto.randomUUID(),
-        zone: 'zone1',
-        event,
-        timestamp: new Date().toISOString(),
-        source: 'dashboard',
-        payload: {},
+        enabled,
+      });
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function triggerMeet() {
+    try {
+      await api('/api/meet', {
+        request_id: crypto.randomUUID(),
+        trigger: true,
       });
       await refresh();
     } catch (e) {
@@ -301,6 +384,32 @@ function App() {
   const wrongLine = state.routes?.wrongLine;
   const wrongActive = wrongLine?.active || null;
   const wrongEligibility = wrongLine?.eligibility?.[selectedTrain];
+
+  function getTrainStatusDetail(t: any) {
+    if (t.status === 'EMERGENCY') {
+      const z = state.zones?.[t.zone];
+      if (z?.wildlifeDetected) return 'EMERGENCY (Wildlife)';
+      if (z?.status === 'RECOVERY_REQUIRED') return 'RECOVERY REQ (Reset needed)';
+      if (z?.sensorHealthy === false) return 'FAULT (Sensor)';
+      return 'EMERGENCY';
+    }
+    if (meet?.phase === 'HOLDING' && meet.active?.holderId === t.id) {
+      return 'STATION HOLD (Meet/Pass)';
+    }
+    if (wrongActive && wrongActive.heldTrainId === t.id) {
+      return 'HELD (Wrong-line opponent)';
+    }
+    if (wrongActive && wrongActive.trainId === t.id) {
+      return `WRONG-LINE (${wrongActive.phase})`;
+    }
+    if (t.speedKmh === 0 && t.targetSpeedKmh === 0) {
+      return 'STOPPED (Signal RED)';
+    }
+    if (t.speedKmh === 0 && t.targetSpeedKmh > 0) {
+      return 'ACCELERATING';
+    }
+    return t.status || 'RUNNING';
+  }
 
   if (!token) {
     return (
@@ -383,7 +492,7 @@ function App() {
             <div className="train-card-head">
               <span className="train-badge"><TrainFront size={14} /> {t.id}</span>
               <span className={`line-pill ${(t.line || 'UP').toLowerCase()}`}>{t.line} LINE</span>
-              <span className="train-status">{t.status || 'RUNNING'}</span>
+              <span className="train-status" title={getTrainStatusDetail(t)}>{getTrainStatusDetail(t)}</span>
             </div>
             <div className="train-metrics">
               <div><small>Current Speed</small><b>{t.speedKmh} <small>km/h</small></b></div>
@@ -405,12 +514,29 @@ function App() {
             <ArrowRightLeft size={19} />
           </div>
           <div className="meet-grid">
-            <div><small>Phase</small><b>{meet.enabled ? meet.phase : 'DISABLED'}</b></div>
+            <div><small>Scheduler</small><b style={{ color: meet.enabled ? '#10b981' : '#f59e0b' }}>{meet.enabled ? 'ACTIVE' : 'PAUSED'}</b></div>
+            <div><small>Phase</small><b>{meet.enabled ? meet.phase : 'PAUSED'}</b></div>
             <div><small>Next meet</small><b>{meet.phase === 'IDLE' ? `${Math.ceil(meet.nextMeetInSec)} s` : 'ACTIVE'}</b></div>
             <div><small>Holder</small><b>{meet.active?.holderId || '—'}</b></div>
             <div><small>Other train</small><b>{meet.active?.otherId || '—'}</b></div>
-            <div><small>Seed</small><b>{meet.seed}</b></div>
             <div><small>Last outcome</small><b>{meet.last?.outcome || '—'}</b></div>
+          </div>
+          <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+            <button
+              className="secondary"
+              style={{ flex: 1 }}
+              onClick={() => toggleMeet(!meet.enabled)}
+            >
+              {meet.enabled ? 'Pause Station Meets' : 'Enable Station Meets'}
+            </button>
+            <button
+              className="secondary"
+              style={{ flex: 1 }}
+              disabled={!meet.enabled || meet.phase !== 'IDLE'}
+              onClick={() => triggerMeet()}
+            >
+              Trigger Meet Now
+            </button>
           </div>
         </section>
       )}
@@ -583,6 +709,9 @@ function App() {
             <span>80 km/h</span>
           </div>
           <button className="primary full" onClick={setTarget}>Apply target speed to {selectedTrain}</button>
+          <button className="primary full" style={{ marginTop: '8px', background: '#059669', borderColor: '#10b981' }} onClick={() => resumeFleet(48)}>
+            <Play size={15} style={{ marginRight: '6px' }} /> Resume All Trains (48 km/h)
+          </button>
 
           <div className="button-row">
             <button className="secondary" onClick={() => command('WILDLIFE_CLEARED')}>Clear wildlife</button>

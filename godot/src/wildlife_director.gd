@@ -34,6 +34,16 @@ func _ready() -> void:
 	_registry = get_node_or_null(track_registry_path) as TrackRegistry
 	_fleet = get_node_or_null(fleet_path) as FleetController
 	_train = get_node_or_null(train_path) as LTSTrain
+	_load_config()
+
+
+func _load_config() -> void:
+	if not FileAccess.file_exists("res://config.cfg"):
+		return
+	var cfg := ConfigFile.new()
+	if cfg.load("res://config.cfg") == OK:
+		enabled = bool(cfg.get_value("simulation", "auto_wildlife", enabled))
+
 
 
 func reset_seed(seed_val: int) -> void:
