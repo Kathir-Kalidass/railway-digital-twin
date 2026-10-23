@@ -790,6 +790,9 @@ function App() {
                 : '· no telemetry yet'}
             </span>
           </div>
+          <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '4px' }}>
+            ACK = the kernel answered with fresh telemetry inside the ack window
+          </div>
           <div style={{ fontSize: '13px', display: 'grid', gap: '4px', marginTop: '10px' }}>
             <span>{`sensors: ${(state.esp32?.sensorHealthy ?? true) ? 'OK' : 'SENSOR FAULT'}`}</span>
             <span>{`near animal: ${state.esp32?.nearAnimal ? 'yes' : 'no'}`}</span>

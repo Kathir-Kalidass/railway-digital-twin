@@ -82,6 +82,26 @@ test('injected now() is honored by issued without explicit at', () => {
   assert.equal(tracker.snapshot()[0].issuedAt, iso(42_000));
 });
 
+test('accepted control command mutates state exactly once', async () => {
+  const deps = buildDeps();
+  const original = deps.state.applyCommand.bind(deps.state);
+  let calls = 0;
+  deps.state.applyCommand = (env) => {
+    calls += 1;
+    return original(env);
+  };
+  await withServer(deps, async (url) => {
+    const token = (await login(url, 'operator', pass('operator'))).body.token;
+    const res = await fetch(`${url}/api/control`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ request_id: 'ap-1', zone: 'zone1', event: 'WILDLIFE_DETECTED', timestamp: new Date().toISOString(), source: 'dashboard', payload: {} }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal(calls, 1);
+  });
+});
+
 const pass = (role) => config.seedUsers.find((u) => u.role === role).password;
 
 function esp32Envelope(payload = {}, overrides = {}) {
