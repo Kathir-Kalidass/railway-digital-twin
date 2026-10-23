@@ -118,6 +118,22 @@ type State = {
     esp32NearAnimal?: boolean;
     blocks?: string[];
   }>;
+  esp32?: {
+    zone: string;
+    online: boolean;
+    lastSeenSec: number | null;
+    sensorHealthy: boolean;
+    nearAnimal: boolean;
+  };
+  esp32Commands?: Array<{
+    requestId: string;
+    event: string;
+    zone: string;
+    actor?: string | null;
+    status: 'PENDING' | 'ACKNOWLEDGED' | 'TIMED_OUT';
+    issuedAt: string;
+    ackAt?: string | null;
+  }>;
 };
 
 type EventRow = {
@@ -747,6 +763,61 @@ function App() {
                   <span className="event-source">{e.source || 'SYSTEM'}</span>
                 </div>
               ))
+            )}
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <div className="eyebrow">COMMUNICATOR KERNEL</div>
+              <h3>Wokwi ESP32</h3>
+            </div>
+            <Cpu size={19} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+            <span
+              style={{
+                width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0,
+                background: (state.esp32?.online ?? false) ? '#10b981' : '#ef4444',
+                boxShadow: (state.esp32?.online ?? false) ? '0 0 6px #10b981' : 'none',
+              }}
+            />
+            <b>{state.esp32?.online ? 'ONLINE' : 'OFFLINE'}</b>
+            <span style={{ fontSize: '12px', opacity: 0.75 }}>
+              {state.esp32?.lastSeenSec != null
+                ? `· last seen ${state.esp32.lastSeenSec}s ago`
+                : '· no telemetry yet'}
+            </span>
+          </div>
+          <div style={{ fontSize: '13px', display: 'grid', gap: '4px', marginTop: '10px' }}>
+            <span>{`sensors: ${(state.esp32?.sensorHealthy ?? true) ? 'OK' : 'SENSOR FAULT'}`}</span>
+            <span>{`near animal: ${state.esp32?.nearAnimal ? 'yes' : 'no'}`}</span>
+            <span style={{ opacity: 0.7 }}>{`topic railway/telemetry/esp32 · ${state.esp32?.zone || 'zone1'}`}</span>
+          </div>
+          <div style={{ marginTop: '12px' }}>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.6 }}>Command acks</div>
+            {(state.esp32Commands ?? []).slice(0, 5).map((c) => {
+              const badge = c.status === 'ACKNOWLEDGED'
+                ? { color: '#10b981', borderColor: '#10b981' }
+                : c.status === 'TIMED_OUT'
+                  ? { color: '#ef4444', borderColor: '#ef4444' }
+                  : { color: '#f59e0b', borderColor: '#f59e0b' };
+              return (
+                <div key={c.requestId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', fontSize: '12px', marginTop: '6px' }}>
+                  <span>
+                    <b>{(c.event || 'UNKNOWN').replaceAll('_', ' ')}</b>
+                    <span style={{ opacity: 0.6 }}>{` · ${c.zone || '-'}`}</span>
+                    <span style={{ opacity: 0.6 }}>{` · ${c.issuedAt ? new Date(c.issuedAt).toLocaleTimeString() : '-'}`}</span>
+                  </span>
+                  <span style={{ ...badge, border: '1px solid', borderRadius: '999px', padding: '1px 8px', fontSize: '10px', fontWeight: 600, flexShrink: 0 }}>
+                    {c.status}
+                  </span>
+                </div>
+              );
+            })}
+            {(state.esp32Commands ?? []).length === 0 && (
+              <div className="empty" style={{ marginTop: '6px' }}>No ESP32 commands issued.</div>
             )}
           </div>
         </div>
