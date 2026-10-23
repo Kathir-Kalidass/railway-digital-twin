@@ -1,4 +1,5 @@
 import { makeRng } from './rng.js';
+import { restoreSpeed } from './speed_restore.js';
 
 const HISTORY_LIMIT = 10;
 
@@ -19,7 +20,7 @@ function defaultConfig(overrides = {}) {
   };
 }
 
-export function makeMeetScheduler({ topology, trains, zones, routes, hasActiveHazard = () => false, config = {} }) {
+export function makeMeetScheduler({ topology, trains, zones, routes, hasActiveHazard = () => false, config = {}, onRestore = null }) {
   const cfg = defaultConfig(config.meets || {});
   const stations = topology.station?.blocks || {};
   let rng = makeRng(cfg.seed);
@@ -56,6 +57,7 @@ export function makeMeetScheduler({ topology, trains, zones, routes, hasActiveHa
       otherId: active.otherId,
       crossed: Boolean(active.routeId),
       routeId: active.routeId || null,
+      restoredKmh: active.restoredKmh ?? null,
       outcome,
     };
     last = { ...entry };
@@ -79,7 +81,14 @@ export function makeMeetScheduler({ topology, trains, zones, routes, hasActiveHa
   function releaseHold() {
     if (!active) return;
     const holder = trains.find((t) => t.id === active.holderId);
-    if (holder) holder.commandedSpeedKmh = active.savedCommandedSpeed;
+    if (holder) {
+      restoreSpeed(holder, active.savedCommandedSpeed, {
+        reason: 'MEET_HOLD_RELEASE',
+        fallbackKmh: 48,
+        onRestore,
+      });
+      active.restoredKmh = holder.commandedSpeedKmh;
+    }
   }
 
   function prevBlockId(line, stationBlock) {

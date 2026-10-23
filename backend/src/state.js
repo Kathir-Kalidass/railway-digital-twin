@@ -18,7 +18,7 @@ function newZone(id) {
   };
 }
 
-export function makeState({ config, topology }) {
+export function makeState({ config, topology, logEvent = null }) {
   const zones = {};
   for (const id of config.zones) zones[id] = newZone(id);
 
@@ -28,6 +28,10 @@ export function makeState({ config, topology }) {
   const comm = { mqttConnected: true }; // assume connected until told otherwise; server sets false at startup
   let lastEvent = 'System initialized';
   let tickCount = 0;
+  const logSpeedRestore = (e) => {
+    lastEvent = `Speed restored to ${e.restoredKmh} km/h for ${e.trainId}`;
+    logEvent?.(e);
+  };
 
   const legacyTrain = { zone: config.zones[0], speedKmh: DEFAULT_TARGET, targetSpeedKmh: DEFAULT_TARGET, stoppingDistanceM: 0 };
   const trains = [];
@@ -86,6 +90,7 @@ export function makeState({ config, topology }) {
       routes,
       hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
       config,
+      onRestore: logSpeedRestore,
     });
     wrongLine = makeWrongLine({
       topology: topo,
@@ -94,6 +99,7 @@ export function makeState({ config, topology }) {
       config,
       hasActiveHazard: (id) => Boolean(blockHazards[id]?.active),
       isMeetActive: () => Boolean(meets?.snapshot().active),
+      onRestore: logSpeedRestore,
     });
   }
 

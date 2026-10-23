@@ -18,9 +18,12 @@ const audit = makeAudit(db);
 const replay = makeReplay(db);
 const auth = makeAuth({ db, config });
 auth.seedUsers();
-const state = makeState({ config });
-state.setBrokerConnected(false); // fail-safe until the broker connection is established
 const events = makeEvents();
+const state = makeState({
+  config,
+  logEvent: (e) => events.record(e),
+});
+state.setBrokerConnected(false); // fail-safe until the broker connection is established
 let ingest;
 const mqtt = makeMqtt({ config, onMessage: (topic, message) => ingest?.handle(topic, message) });
 const bus = makeBus({ mqtt, state, events });

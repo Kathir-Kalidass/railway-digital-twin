@@ -70,6 +70,7 @@ function makeWorld(overrides = {}) {
     routes,
     config: { meets },
     hasActiveHazard: (id) => hazardBlock === id,
+    onRestore: overrides.onRestore || null,
   });
   return {
     topology,
@@ -96,7 +97,7 @@ test('a meet holds one train at the station while the other moves', () => {
   w.scheduler.tick(2.1);
   snap = w.scheduler.snapshot();
   assert.equal(snap.phase, 'IDLE');
-  assert.equal(holder.commandedSpeedKmh, null);
+  assert.equal(holder.commandedSpeedKmh, 48);
   assert.equal(snap.last.outcome, 'HELD');
 });
 
@@ -118,7 +119,7 @@ test('meet holds the holder and releases without a crossover', () => {
   assert.equal(snap.phase, 'IDLE');
   assert.equal(snap.last.outcome, 'HELD');
   assert.equal(snap.last.crossed, false);
-  assert.equal(holder.commandedSpeedKmh, null);
+  assert.equal(holder.commandedSpeedKmh, 48);
   assert.equal(w.routeCalls.length, 0);
 });
 
@@ -136,7 +137,7 @@ test('a hold is not released while the block has an active hazard', () => {
   w.scheduler.tick(0.5);
   snap = w.scheduler.snapshot();
   assert.equal(snap.phase, 'IDLE');
-  assert.equal(holder.commandedSpeedKmh, null);
+  assert.equal(holder.commandedSpeedKmh, 48);
 });
 
 test('releases the holder on timeout without requesting a route', () => {
@@ -195,6 +196,51 @@ test('trigger starts the next meet at the next station window', () => {
   assert.equal(w.scheduler.snapshot().phase, 'WAITING');
   w.scheduler.tick(0.5);
   assert.equal(w.scheduler.snapshot().phase, 'HOLDING');
+});
+
+test('releaseHold falls back to 48 and logs when the operator never set a speed', () => {
+  const restores = [];
+  const w = makeWorld({ meets: { crossoverChance: 0, minHoldSec: 1, maxHoldSec: 2 }, onRestore: (e) => restores.push(e) });
+  w.scheduler.tick(0.5);
+  w.scheduler.tick(0.5);
+  const snap = w.scheduler.snapshot();
+  assert.equal(snap.phase, 'HOLDING');
+  const holder = w.trains.find((t) => t.id === snap.active.holderId);
+  assert.equal(holder.commandedSpeedKmh, 0);
+  w.scheduler.tick(2.1);
+  assert.equal(w.scheduler.snapshot().phase, 'IDLE');
+  assert.equal(holder.commandedSpeedKmh, 48);
+  assert.equal(restores.length, 1);
+  assert.equal(restores[0].reason, 'MEET_HOLD_RELEASE');
+  assert.equal(restores[0].trainId, holder.id);
+  assert.equal(restores[0].restoredKmh, 48);
+  assert.equal(restores[0].attemptedSavedKmh, null);
+});
+
+test('releaseHold falls back to 48 when the saved speed is an explicit stop (0)', () => {
+  const restores = [];
+  const w = makeWorld({ meets: { crossoverChance: 0, minHoldSec: 1, maxHoldSec: 2 }, onRestore: (e) => restores.push(e) });
+  w.trains.forEach((t) => { t.commandedSpeedKmh = 0; });
+  w.scheduler.tick(0.5);
+  w.scheduler.tick(0.5);
+  assert.equal(w.scheduler.snapshot().phase, 'HOLDING');
+  const holder = w.trains.find((t) => t.id === w.scheduler.snapshot().active.holderId);
+  w.scheduler.tick(2.1);
+  assert.equal(holder.commandedSpeedKmh, 48);
+  assert.equal(restores.length, 1);
+  assert.equal(restores[0].attemptedSavedKmh, 0);
+});
+
+test('releaseHold keeps a valid saved speed and never logs', () => {
+  const restores = [];
+  const w = makeWorld({ meets: { crossoverChance: 0, minHoldSec: 1, maxHoldSec: 2 }, onRestore: (e) => restores.push(e) });
+  w.trains.forEach((t) => { t.commandedSpeedKmh = 30; });
+  w.scheduler.tick(0.5);
+  w.scheduler.tick(0.5);
+  const holder = w.trains.find((t) => t.id === w.scheduler.snapshot().active.holderId);
+  w.scheduler.tick(2.1);
+  assert.equal(holder.commandedSpeedKmh, 30);
+  assert.equal(restores.length, 0);
 });
 
 import { config } from '../src/config.js';
