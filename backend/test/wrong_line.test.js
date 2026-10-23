@@ -5,7 +5,7 @@ import { buildTopology, blockById } from '../src/railway.js';
 import { physicalToBlockOffset } from '../src/geometry.js';
 import { makeWrongLine } from '../src/wrong_line.js';
 
-function world({ hazard = false, meet = false } = {}) {
+function world({ hazard = false, meet = false, onRestore = null } = {}) {
   const topology = buildTopology(config);
   const zones = Object.fromEntries(config.zones.map((id) => [id, {
     id, targetSpeedKmh: 48, wildlifeDetected: false, sensorHealthy: true, status: 'NORMAL',
@@ -18,6 +18,7 @@ function world({ hazard = false, meet = false } = {}) {
     topology, trains, zones, config,
     hasActiveHazard: (id) => hazard && (id === 'UP-B0' || id === 'DOWN-B4'),
     isMeetActive: () => meet,
+    onRestore,
   });
   return { topology, trains, zones, wl };
 }
@@ -60,7 +61,7 @@ test('T1 completes APPROACH -> CROSS_ENTRY -> WRONG_LINE -> CROSS_EXIT -> CLEARA
   assert.equal(snap.lastEvent, 'WRONG_LINE_COMPLETED');
   assert.equal(t1.line, 'UP');
   assert.equal(t1.operationalSign, 1);
-  assert.equal(t3.commandedSpeedKmh, null);
+  assert.equal(t3.commandedSpeedKmh, 48);
   assert.equal(blockById(wl.topology, 'UP-B0').reservedBy, null);
   assert.equal(blockById(wl.topology, 'DOWN-B4').reservedBy, null);
 });
@@ -92,7 +93,7 @@ test('cancel is allowed only during APPROACH', () => {
   assert.equal(wl.request({ trainId: 'T1' }).ok, true);
   assert.equal(wl.cancel({ trainId: 'T1' }).ok, true);
   assert.equal(wl.snapshot().active, null);
-  assert.equal(trains[1].commandedSpeedKmh, null);
+  assert.equal(trains[1].commandedSpeedKmh, 48);
 });
 
 test('hazard aborts and releases after the section clears', () => {
@@ -113,4 +114,35 @@ test('hazard aborts and releases after the section clears', () => {
   wl.tick(0.5);
   assert.equal(wl.snapshot().active, null);
   assert.equal(wl.snapshot().lastEvent, 'WRONG_LINE_ABORTED');
+});
+
+test('completion restores fallback 48 and logs when saved speeds are missing', () => {
+  const restores = [];
+  const { trains, wl } = world({ onRestore: (e) => restores.push(e) });
+  const t1 = trains[0];
+  const t3 = trains[1];
+  assert.equal(wl.request({ trainId: 'T1' }).ok, true);
+  t1.block = 'UP-B0';
+  t1.offsetM = 120;
+  wl.tick(0.5);
+  for (let i = 0; i < 80 && wl.snapshot().active; i++) wl.tick(0.5);
+  assert.equal(wl.snapshot().lastEvent, 'WRONG_LINE_COMPLETED');
+  assert.equal(t1.commandedSpeedKmh, 48);
+  assert.equal(t3.commandedSpeedKmh, 48);
+  assert.equal(restores.length, 2);
+  assert.equal(restores[0].reason, 'WRONG_LINE_ROUTE_TRAIN');
+  assert.equal(restores[0].trainId, 'T1');
+  assert.equal(restores[1].reason, 'WRONG_LINE_COMPLETED');
+  assert.equal(restores[1].trainId, 'T3');
+});
+
+test('cancel restores fallback 48 for the opponent when its saved speed is missing', () => {
+  const restores = [];
+  const { trains, wl } = world({ onRestore: (e) => restores.push(e) });
+  assert.equal(wl.request({ trainId: 'T1' }).ok, true);
+  assert.equal(wl.cancel({ trainId: 'T1' }).ok, true);
+  assert.equal(wl.snapshot().active, null);
+  assert.equal(trains[1].commandedSpeedKmh, 48);
+  assert.equal(restores.length, 2);
+  assert.equal(restores[1].reason, 'WRONG_LINE_CANCELLED');
 });

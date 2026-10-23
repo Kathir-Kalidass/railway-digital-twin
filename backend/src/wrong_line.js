@@ -1,10 +1,11 @@
 import { blockById } from './railway.js';
 import { blockOffsetToPhysical, physicalToBlockOffset } from './geometry.js';
+import { restoreSpeed } from './speed_restore.js';
 
 const sectionBlockIds = (topology) => [topology.station.blocks.UP, topology.station.blocks.DOWN];
 const mod = (v, n) => ((v % n) + n) % n;
 
-export function makeWrongLine({ topology, trains, zones, config, hasActiveHazard = () => false, isMeetActive = () => false }) {
+export function makeWrongLine({ topology, trains, zones, config, hasActiveHazard = () => false, isMeetActive = () => false, onRestore = null }) {
   const cfg = config.wrongLine || {};
   const stationBlocks = sectionBlockIds(topology);
   const definitions = new Map((topology.crossovers || []).map((c) => [c.id, c]));
@@ -113,12 +114,22 @@ export function makeWrongLine({ topology, trains, zones, config, hasActiveHazard
     const routeTrain = trains.find((t) => t.id === active.trainId);
     const opponent = trains.find((t) => t.id === active.heldTrainId);
     if (routeTrain) {
-      routeTrain.commandedSpeedKmh = active.savedRouteSpeed;
+      restoreSpeed(routeTrain, active.savedRouteSpeed, {
+        reason: 'WRONG_LINE_ROUTE_TRAIN',
+        fallbackKmh: 48,
+        onRestore,
+      });
       routeTrain.routePhase = null;
       routeTrain.crossingProgress = 0;
       routeTrain.crossoverId = null;
     }
-    if (opponent) opponent.commandedSpeedKmh = active.savedOpponentSpeed;
+    if (opponent) {
+      restoreSpeed(opponent, active.savedOpponentSpeed, {
+        reason: event,
+        fallbackKmh: 48,
+        onRestore,
+      });
+    }
     reserve(false);
     history.push({ ...active, finishedAtTick: ticket, outcome: event });
     if (history.length > 10) history.shift();
