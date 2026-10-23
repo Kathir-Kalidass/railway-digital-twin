@@ -11,6 +11,8 @@ const fleetConfig = (trains = [
   { id: 'T3', line: 'DOWN', direction: 'DOWN', startBlock: 0, startOffsetM: 0, lengthM: 60 },
 ]) => ({
   zones: ['zone1', 'zone2'],
+  esp32Zone: 'zone1',
+  esp32TelemetryTimeoutSec: 15,
   topology: { lines: ['UP', 'DOWN'], blocksPerLine: 5, blockLengthM: 300, lineLengthM: { UP: 753.9822, DOWN: 728.8495 }, zoneByIndex: ['zone1', 'zone1', 'zone1', 'zone2', 'zone2'], station: { id: 'station', name: 'x', upIndex: 2, downIndex: 2, dwellSec: 20 }, crossovers: [
     { id: 'X-UP-DOWN', from: 'UP-B2', to: 'DOWN-B2' },
     { id: 'X-DOWN-UP', from: 'DOWN-B2', to: 'UP-B2' },
@@ -161,4 +163,37 @@ test('legacy zone-only state keeps its shape without fleet fields', () => {
   assert.equal(snap.trains, undefined);
   assert.equal(snap.routes, undefined);
   assert.equal(snap.train.speedKmh, 48);
+});
+
+test('esp32 snapshot: never-seen device is offline with null lastSeenSec', () => {
+  const s = fleet();
+  const snap = s.snapshot();
+  assert.deepEqual(snap.esp32, { zone: 'zone1', online: false, lastSeenSec: null, sensorHealthy: true, nearAnimal: false });
+});
+
+test('esp32 snapshot: fresh telemetry is online', () => {
+  const s = fleet();
+  s.markEsp32Telemetry('zone1');
+  const snap = s.snapshot();
+  assert.equal(snap.esp32.online, true);
+  assert.equal(snap.esp32.lastSeenSec, 0);
+});
+
+test('esp32 snapshot: telemetry older than timeout is offline even with mqtt alive', () => {
+  const s = fleet();
+  s.markEsp32Telemetry('zone1', Date.now() - 16_000);
+  const snap = s.snapshot();
+  assert.equal(snap.esp32.online, false);
+  assert.equal(snap.esp32.lastSeenSec, 16);
+  assert.ok('mqttConnected' in snap.comm); // broker state still tracked, but does not drive liveness
+});
+
+test('esp32 timeout honors ESP32_TELEMETRY_TIMEOUT_SEC override', () => {
+  const s = makeState({
+    config: { ...config, esp32TelemetryTimeoutSec: 5 },
+  });
+  s.markEsp32Telemetry('zone1', Date.now() - 6_000);
+  assert.equal(s.snapshot().esp32.online, false);
+  s.markEsp32Telemetry('zone1', Date.now() - 4_000);
+  assert.equal(s.snapshot().esp32.online, true);
 });

@@ -14,7 +14,7 @@ function newZone(id) {
   return {
     id, trainPresent: false, wildlifeDetected: false, sensorHealthy: true,
     signal: 'GREEN', status: 'NORMAL', targetSpeedKmh: DEFAULT_TARGET, blocks: [],
-    esp32NearAnimal: false,
+    esp32NearAnimal: false, esp32LastTelemetryAtMs: null,
   };
 }
 
@@ -32,6 +32,27 @@ export function makeState({ config, topology, logEvent = null }) {
     lastEvent = `Speed restored to ${e.restoredKmh} km/h for ${e.trainId}`;
     logEvent?.(e);
   };
+
+  function markEsp32Telemetry(zone, atMs = Date.now()) {
+    const z = zones[zone];
+    if (!z) return;
+    z.esp32LastTelemetryAtMs = atMs;
+  }
+
+  function esp32Snapshot() {
+    const zone = config.esp32Zone || config.zones[0];
+    const z = zones[zone];
+    const atMs = z?.esp32LastTelemetryAtMs ?? null;
+    const lastSeenSec = atMs !== null ? Math.floor((Date.now() - atMs) / 1000) : null;
+    const timeoutSec = config.esp32TelemetryTimeoutSec;
+    return {
+      zone,
+      online: lastSeenSec !== null && lastSeenSec <= timeoutSec,
+      lastSeenSec,
+      sensorHealthy: Boolean(z?.sensorHealthy),
+      nearAnimal: z?.esp32NearAnimal === true,
+    };
+  }
 
   const legacyTrain = { zone: config.zones[0], speedKmh: DEFAULT_TARGET, targetSpeedKmh: DEFAULT_TARGET, stoppingDistanceM: 0 };
   const trains = [];
@@ -186,6 +207,7 @@ export function makeState({ config, topology, logEvent = null }) {
         wrongLine: wrongLine ? wrongLine.snapshot() : { active: null, eligibility: {} },
       },
       meets: meets ? meets.snapshot() : null,
+      esp32: esp32Snapshot(),
       comm: { ...comm },
       overall,
       lastEvent,
@@ -201,6 +223,7 @@ export function makeState({ config, topology, logEvent = null }) {
     return {
       zones: JSON.parse(JSON.stringify(zones)),
       train: { ...legacyTrain },
+      esp32: esp32Snapshot(),
       comm: { ...comm },
       overall,
       lastEvent,
@@ -591,7 +614,7 @@ export function makeState({ config, topology, logEvent = null }) {
 
   return {
     snapshot, applyCommand, applySpeed, applyTelemetry,
-    setSensor, setWildlife, setEsp32NearAnimal, applyWildlifeObservation, applyCameraNear, applyCameraConfirmation,
+    setSensor, setWildlife, setEsp32NearAnimal, markEsp32Telemetry, applyWildlifeObservation, applyCameraNear, applyCameraConfirmation,
     getBlockHazards: () => blockHazards,
     getBlockHazard,
     getCameraHealth,

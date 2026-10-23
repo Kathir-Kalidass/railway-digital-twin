@@ -13,6 +13,10 @@ export const config = {
   zones: ['zone1', 'zone2'],
   // One Stage D controller is explicitly assigned to this zone.
   esp32Zone: process.env.ESP32_ZONE || 'zone1',
+  // ESP32 "online" is judged by telemetry freshness, never by broker connectivity.
+  esp32TelemetryTimeoutSec: Number(process.env.ESP32_TELEMETRY_TIMEOUT_SEC || 15),
+  // A command stays PENDING until matching ESP32 telemetry arrives; older pending entries time out.
+  commandAckTimeoutSec: Number(process.env.COMMAND_ACK_TIMEOUT_SEC || 10),
   topology: {
     lines: ['UP', 'DOWN'],
     blocksPerLine: 5,
