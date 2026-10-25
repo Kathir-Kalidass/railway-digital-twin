@@ -1,1 +1,145 @@
-% placeholder
+% ===================== CHAPTER 1 — INTRODUCTION =====================
+\chapter{Introduction}\label{cha:introduction}
+
+\section{Background}
+
+Indian Railways reserves operate through large tracts of forest and open
+grassland in which scheduled and unscheduled train paths intersect with
+animal movement corridors. Elephants, deer and other wildlife cross
+railway formation at grade, and collisions remain a persistent operational
+and ecological risk. Conventional protection --- signage, whistle zones and
+manual watchmen --- is sparse by design, and a single fixed level-crossing
+alarm cannot adapt on its own to \emph{which} animal is ahead, \emph{where}
+it is relative to a moving train, or \emph{how much} braking distance the
+train still has.
+
+Modern practice addresses this with two converging ideas:
+
+\begin{itemize}
+  \item \textbf{Digital twins:} a live virtual replica of a physical asset
+        (here, a forest railway line with its trains, signals and crossing)
+        that stays synchronised with trusted state and lets operators
+        observe, rehearse and reason about operations.
+  \item \textbf{Embedded IoT sensing:} low-cost edge devices (here, an
+        ESP32 with sensors, protective outputs and a fail-safe state
+        machine) at the trackside, publishing machine observations over an
+        authenticated message bus rather than treated independently.
+\end{itemize}
+
+This project, developed as an educational simulation by Team 14 for the
+course \emph{Embedded Systems and Internet of Things}, brings both ideas
+together in a system small enough to run on one laptop: a three-dimensional
+digital twin of a forest railway loop, a trusted backend control plane, a
+role-aware web dashboard, an authenticated MQTT broker, and an ESP32 edge
+controller --- all exchanging sensor observations, authority commands,
+state snapshots and alerts over well-defined topics.
+
+\section{Objectives}
+
+The objectives of the project are:
+
+\begin{enumerate}
+  \item Build a runnable \textbf{3D digital twin} of a double-track forest
+        railway --- UP and DOWN loops, an island station with interlocking
+        crossovers, a wildlife level crossing with boom barriers, a carved
+        river with road and railway bridges, catenary, dynamic signals and
+        an LTS-derived Blender asset fleet --- in Godot~4.
+  \item Construct a \textbf{trusted control plane} that owns all railway
+        authority: a two-train double-track fleet model, per-block signal
+        aspects, a fixed-timestep simulation loop, a station-crossover
+        interlocking, chance-based meet scheduling, an operator-requestable
+        interlocked wrong-line run, and a wildlife-hazard state machine ---
+        served over authenticated REST and MQTT.
+  \item Enforce \textbf{security end to end}: authenticated users with
+        role-based access control, an authenticated MQTT broker with
+        per-client topic ACLs, command-envelope validation with
+        timestamp freshness and anti-replay protection, and a complete
+        audit trail.
+  \item Implement \textbf{wildlife sensing and staged protection}: a
+        NONE~$\rightarrow$~SUSPECTED~$\rightarrow$~CONFIRMED escalation
+        driven by trackside sensor huts, an onboard simulated camera
+        detector with analytic occlusion and a quadratic stopping-distance
+        model, a backend camera ingest pipeline with two-frame evidence
+        confirmation, and ML-assisted animal detection through a FastAPI
+        microservice.
+  \item Implement an \textbf{ESP32 edge node} with restrictive fail-safe
+        outputs, debounced local inputs, SNTP-gated clock truth,
+        non-blocking telemetry and edge-triggered wildlife alerts ---
+        validated natively and in the Wokwi cloud simulator.
+  \item Provide a \textbf{role-aware dashboard} for viewer, operator and
+        admin users with live state, per-block aspects, per-train speed
+        control, route/meet/wrong-line panels and hazard evidence badges.
+  \item Verify the whole stack continuously with an automated
+        multi-surface test gate and documented live end-to-end scenarios.
+\end{enumerate}
+
+\section{Scope and safety boundary}\label{sec:scope}
+
+Two scope statements are as important as the features themselves:
+
+\begin{itemize}
+  \item \textbf{Educational simulation only.} The system is a classroom
+        digital-twin simulation, \emph{not} railway safety equipment. It
+        must never be connected to real signalling, trains or operational
+        infrastructure. Simulated ``stopping distance'' is a visualization
+        estimate only and does not model certified train dynamics,
+        gradients, adhesion or real braking curves.
+  \item \textbf{Physical hardware status.} The ESP32 path was verified
+        through the Wokwi cloud simulator (via a Pinggy tunnel to the
+        local authenticated broker). The physical-hardware checklist items
+        in the Stage~D plan remain \emph{not run}: real instruments were
+        not connected. The report is explicit wherever this applies.
+\end{itemize}
+
+Within those boundaries, every subsystem --- backend, twin, dashboard,
+firmware and ML service --- is fully implemented and gated by automated
+tests (Chapter~\ref{cha:features}, Appendix~\ref{cha:appendix-gates}).
+
+\section{Phased implementation outline}
+
+The system was built in recorded, gated stages (dates from
+\texttt{docs/porting/acceptance.md}):
+
+\begin{itemize}
+  \item \textbf{Stage A (backend foundation)} --- Express + JWT/RBAC,
+        SQLite audit and anti-replay registry, two-zone state machine,
+        backend-authoritative MQTT, broker auth and ACLs
+        (2026-10-18/19).
+  \item \textbf{Stage A2 (block signalling)} --- per-block aspects and
+        retained signals (2026-10-19).
+  \item \textbf{Stage B (dashboard)} --- login, role-aware REST controls,
+        WebSocket live updates, audit feed (2026-10-19).
+  \item \textbf{Stage C (Godot twin)} --- vendored MQTT bridge, procedural
+        world, train/wildlife animation, brakes, signals, cameras;
+        porting Libre-TrainSim (LTS) Blender assets (2026-10-19/20).
+  \item \textbf{Stage D (ESP32 / Wokwi)} --- per-client credentials,
+        device-scoped topics, fail-safe outputs, cloud simulation through
+        a tunnel (2026-10-19/20).
+  \item \textbf{Stage E (integrated delivery)} --- Docker/environment
+        setup, scenario scripts and the formal acceptance record
+        (2026-10-22).
+  \item \textbf{Stage 2A--2G (double-track phase)} --- a two-train UP/DOWN
+        fleet, ten blocks with aspects, station island and crossovers
+        (2A), the double-track world (2B--2C), backend lives and camera
+        fleet (2A--2D), meet/pass scenarios (2E, 2G), and distributed
+        wildlife sensing with an onboard detector (2F) (2026-10-21/22).
+  \item \textbf{Stadium evolution --- Phases 1--3} --- both loops reshaped
+        as one 250~m straight-sided shared stadium footprint with opposite
+        operational chainage (2026-10-22), an interlocked operator
+        wrong-line run with an opposing-train hold (2026-10-23), and the
+        staged camera/ML/near-animal confirmation chain with two-frame
+        evidence (2026-10-23).
+\end{itemize}
+
+\section{Organisation of the report}
+
+Chapter~2 states requirements. Chapter~3 describes the system architecture
+and end-to-end workflow. Chapter~4 documents tools and technology.
+Chapter~5 covers hardware, peripherals and the simulation stack.
+Chapter~6 details the digital twin world. Chapter~7 documents the
+dashboards. Chapter~8 lists every implemented feature and function with
+its verification evidence. Chapter~9 presents results, limitation and
+conclusion. Appendices collect the access-control matrix, the complete
+test-gate record and run instructions. Reproduced simulation screenshots
+appear in Figures~\ref{fig:overview}--\ref{fig:cameraconfirm} and the
+figures referenced from Chapters~5--8.

@@ -1,1 +1,115 @@
-% placeholder
+% ============ CHAPTER 2 — SYSTEM REQUIREMENTS AND PHASES ============
+\chapter{System Requirements and Phases}\label{cha:requirements}
+
+\section{Functional requirements}
+
+\begin{longtable}{>{\raggedright}p{0.8cm} >{\raggedright\arraybackslash}p{10.6cm} l}
+\caption{Functional requirements and delivery phase}\label{tab:functional}\\
+\toprule
+\textbf{S.No} & \textbf{Requirement} & \textbf{Phase} \\
+\midrule
+\endfirsthead
+\caption[]{(continued)}\\
+\toprule
+\textbf{S.No} & \textbf{Requirement} & \textbf{Phase} \\
+\midrule
+\endhead
+FR-1 & Authenticate users (bcrypt passwords, JWT sessions) with three roles: viewer (monitor), operator (control), admin (audit inspection). & A \\
+FR-2 & Validate every command envelope against schema with $\pm$5\,min timestamp freshness and reject replays through a persistent SQLite \texttt{processed\_requests} registry. & A \\
+FR-3 & Record an audit row (actor, role, zone, action, result, timestamp) for every control attempt --- accepted, rejected or forbidden. & A \\
+FR-4 & On MQTT disconnect apply the restrictive \texttt{COMM\_LOST} fail-safe; on reconnect publish the retained state snapshot to reconcile clients. & A \\
+FR-5 & Be the sole publisher of commands, state snapshots, alerts and signals on MQTT with per-client topic ACLs. & A \\
+FR-6 & Reject a reset while a wildlife hazard or sensor fault is active (operator must clear and then explicitly reset). & A \\
+FR-7 & Model a two-train (T1 UP, T3 DOWN) double-track fleet with ten blocks, per-block signal aspects, occupancy safety and a fixed-timestep simulation loop. & 2A \\
+FR-8 & Provide a station-crossover interlock: one route at a time, hazard/occupancy checks, 409 on conflicts, automatic release. & 2A, 2G \\
+FR-9 & Run chance-based meet scheduling from a seeded PRNG: hold the slower train at the station, execute the crossover as a proper route, reproduce history for identical seeds. & 2G \\
+FR-10 & Let an operator request an interlocked wrong-line run (UP$\rightarrow$DOWN at crossover A, return at B) while the opposing train is held automatically inside braking distance; phases APPROACH~$\rightarrow$~CROSS\_ENTRY~$\rightarrow$~WRONG\_LINE~$\rightarrow$~CROSS\_EXIT~$\rightarrow$~CLEARANCE~$\rightarrow$~DONE. & Stadium P2 \\
+FR-11 & Operate distributed trackside wildlife huts --- UP-S0..UP-S4 and DOWN-S0..DOWN-S4, i.e.\ ten huts with 75\,m overlapping radius --- publishing observations used as \emph{trackside} evidence. & 2F \\
+FR-12 & Provide onboard simulated-ML camera detection (forward cone vision, $\pm$25$^\circ$/10$^\circ$, 200\,m range, analytic occlusion against terrain, trunks and bridge decks) as \emph{onboard} evidence with zero-latency local braking. & 2F \\
+FR-13 & Accept camera frames over authenticated HTTP (bearer token, \texttt{X-Captured-At} freshness, duplicate-id suppression), validate blocks and line, run the ML detector, and confirm a hazard only on \emph{two} frames. & Stadium P3 \\
+FR-14 & Implement staged hazard escalation: trackside-only suspicion caps the approaching train at 30\,km/h and shows YELLOW; camera confirmation stops the train (0\,km/h) and shows RED; clearing never downgrades a confirmed block; reset is required after hazard clear. & Stadium P3 \\
+FR-15 & Deliver ESP32 edge alerts (\texttt{WILDLIFE\_NEAR}, \texttt{WILDLIFE\_DETECTED}, \texttt{WILDLIFE\_CLEARED}) to the edge node and require operator re-arm (RESET) through the dashboard. & Stadium P3 \\
+FR-16 & Render the twin: stadium double-track world, island station, interlocked crossovers, two-track level crossing, river with bridges, catenary, dynamic signals, barriers, cameras and HUD. & C, 2B--2E, Stadium P1 \\
+FR-17 & Provide the dashboard: login, live state via WebSocket, train cards with speed control, block-aspect diagram, evidence badges, meet card, wrong-line panel, camera health. & B, 2E--2G, P3 \\
+FR-18 & Publish ESP32 telemetry with SNTP-validated UTC time; reject stale, malformed, duplicate or wrong-zone telemetry at the backend and mark clock-invalid telemetry before it is sent. & D \\
+\bottomrule
+\end{longtable}
+
+\section{Non-functional requirements}
+
+\begin{longtable}{>{\raggedright}p{0.8cm} >{\raggedright\arraybackslash}p{10.7cm} l}
+\caption{Non-functional requirements}\label{tab:nonfunctional}\\
+\toprule
+\textbf{S.No} & \textbf{Requirement} & \textbf{Where enforced} \\
+\midrule
+\endfirsthead
+\caption[]{(continued)}\\
+\toprule
+\textbf{S.No} & \textbf{Requirement} & \textbf{Where enforced} \\
+\midrule
+\endhead
+NFR-1 & \textbf{Security --- least privilege:} every MQTT client authenticates; per-client ACLs allow the dashboard read-only access, Godot telemetry-publish-only on its zones, and the backend full control topics. & \texttt{mosquitto/acl\_file}, broker ACL tests \\
+NFR-2 & \textbf{Fail-safety:} every output is restrictive at startup, on communication loss, on fresh-context loss, and for active local hazard/fault inputs; local inputs cannot be cleared remotely. & backend state machine, ESP32 \texttt{output\_logic.h} \\
+NFR-3 & \textbf{Anti-replay:} accepted REST control IDs/timestamps persists in SQLite; stale, duplicated or schema-invalid envelopes are rejected. & \texttt{command\_tracker.js}/SQLite \\
+NFR-4 & \textbf{Auditability:} every control or route attempt recorded in SQLite regardless of outcome; admin-only inspection. & \texttt{audit.js} \\
+NFR-5 & \textbf{Reproducibility:} seeded PRNG (meet scheduler and wildlife director) gives identical histories for identical seeds; same command must produce the same state. & \texttt{rng.js}, \texttt{meets.js} \\
+NFR-6 & \textbf{Performance:} backend snapshot publish loop of 2\,Hz; train-speed updates smooth at the twin; live state and camera ingest stay within documented limits (camera ingest $>$5\,fps rate-limited, 413 on oversize). & \texttt{loop.js}, camera ingest \\
+NFR-7 & \textbf{Testability:} every surface gated by automated tests; the gate must exit non-zero on any failure and be re-runnable headless. & \texttt{verify-all.sh}, test suites \\
+NFR-8 & \textbf{Educational honesty:} stopping distance is a visualization estimate; not certified signalling; the system never touches real railway infrastructure. & README, presentation \\
+NFR-9 & \textbf{Compose-neutral developer path:} one script \texttt{dev-up.sh} to stand up the stack, reset the demo, generate broker credentials. & scripts/ \\
+\bottomrule
+\end{longtable}
+
+\section{Hardware requirements}
+
+\begin{longtable}{>{\raggedright}p{4.5cm} >{\raggedright\arraybackslash}p{9.0cm}}
+\caption{Hardware requirements}\label{tab:hardware}\\
+\toprule
+\textbf{Item} & \textbf{Specification} \\
+\midrule
+Development host & x86-64 PC with Linux or WSL2; mouse/keyboard for the twin. GPU useful but not required (Mesa llvmpipe software rendering is supported for headless verification) \\
+Docker engine & Docker Engine with Compose v2; no ``docker desktop'' required \\
+ESP32 devkit v1 & Optional for the edge-node path (equivalently simulated on Wokwi); Wi-Fi capable, MCP UART 115\,200 \\
+Sensors/indicators & Green/red LEDs, buzzer, pushbuttons (wildlife, fault), SSD1306 OLED, servo (all simulated in Wokwi); telemetry needs network reachability to the broker \\
+Cameras & None physical; twin camera feeds are simulated render outputs consumed by the ML microservice \\
+\bottomrule
+\end{longtable}
+
+\section{Software requirements}
+
+\begin{longtable}{>{\raggedright}p{4.5cm} >{\raggedright\arraybackslash}p{9.0cm}}
+\caption{Software requirements}\label{tab:software}\\
+\toprule
+\textbf{Layer} & \textbf{Tool / version} \\
+\midrule
+OS & Ubuntu 24.04 LTS (WSL2 permissible) \\
+Container runtime & Docker Engine + Compose; images \texttt{eclipse-mosquitto:2}, Node base image \\
+Control plane & Node.js 22+ (runtime 24 of the verification host), Express 4.21, better-sqlite3 13, bcryptjs 3, jsonwebtoken 9, mqtt.js 5.16 \\
+Broker & Eclipse Mosquitto 2 --- TCP 1883, WebSocket 9001, \texttt{allow\_anonymous false} \\
+Dashboard & React 18.3.1, Vite 6, TypeScript 5.7, \texttt{lucide-react} \\
+Twin engine & Godot 4.7.2 (GL compatibility for headless render) \\
+Firmware & PlatformIO (\texttt{espressif32}, \texttt{arduinoframework}), PubSubClient 2.8, ArduinoJson 7, ESP32Servo, Adafruit SSD1306/GFX \\
+Edge simulation & Wokwi CLI v0.29.0; tunnel via Pinggy raw TCP \\
+ML microservice & Python, FastAPI 0.135.1, uvicorn, torch 2.10.0, torchvision 0.25.0 (SSDLite320 MobileNetV3, COCO animal classes), Pillow, NumPy \\
+Quality & Node built-in test runner (backend), Godot test harness (42 suites), Pytest (ML), PlatformIO Unity (ESP32 native), Vite/TypeScript build check \\
+\bottomrule
+\end{longtable}
+
+\section{Phase-to-gate mapping}
+
+\begin{longtable}{>{\raggedright}p{1.3cm} >{\raggedright\arraybackslash}p{6.2cm} >{\raggedright\arraybackslash}p{5.6cm}}
+\caption{Delivery phases vs verification evidence}\label{tab:phasemap}\\
+\toprule
+\textbf{Phase} & \textbf{Deliverable} & \textbf{Evidence} \\
+\midrule
+A / A2 & Trusted backend, two-zone and later block signalling & \texttt{state.test.js}, \texttt{signalling.test.js}, \texttt{broker\_acl.test.js} \\
+B & Authenticated role-aware dashboard & Rest API tests, web build \\
+C & Godot twin with LTS-derived assets & 42 Godot suites incl.\ \texttt{test\_real\_assets} \\
+D & ESP32 fail-safe edge node & 16 native Unity cases + Wokwi scenario \\
+E & Integrated stack + formal acceptance record & \texttt{docs/porting/acceptance.md} \\
+2A--2C & Double-track fleet, world, crossovers & \texttt{signalling/routes/meets} suites, Godot track registry suites \\
+2E--2G & Meet/pass and chance-based meets with interlocking & \texttt{test\_meet\_scenario}, \texttt{meets.test.js}, \texttt{rng.test.js} \\
+2F & Distributed wildlife sensing + onboard detector + braking model & \texttt{test\_sensor\_huts}, \texttt{test\_onboard\_detector}, \texttt{test\_onboard\_braking} \\
+Stadium P1--P3 & Shared stadium geometry, wrong-line run, camera/ML/near-animal chain & \texttt{test\_stadium\_track}, \texttt{wrong\_line*.test.js}, \texttt{near\_animal.test.js}, \texttt{camera.test.js} \\
+\bottomrule
+\end{longtable}
