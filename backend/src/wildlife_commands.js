@@ -9,6 +9,9 @@ export function makeWildlifeCommands({ state, bus, config, mqtt }) {
       zone: config.esp32Zone || config.zones[0],
       event,
       timestamp: new Date().toISOString(),
+      // Backend epoch anchor: re-syncs a device whose local clock drifts
+      // (Wokwi sims run slower than real time; SNTP is unavailable).
+      epochMs: Date.now(),
       source: 'backend',
       payload,
     };

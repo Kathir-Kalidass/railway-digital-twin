@@ -52,16 +52,28 @@ test('esp32 near-animal telemetry is stored informationally', () => {
   assert.equal(state.snapshot().zones.zone1.esp32NearAnimal, true);
 });
 
-test('esp32 out-of-zone and clock-invalid envelopes are rejected without mutation', () => {
+test('esp32 out-of-zone envelopes are rejected; clock-validity is metadata only', () => {
   const { state, ingest } = setup();
   const initial = state.snapshot();
   ingest.handle('railway/telemetry/esp32', envelope({ sensorHealthy: false }, { zone: 'zone2' }));
   assert.equal(state.snapshot().lastEvent, 'INVALID_TELEMETRY');
   assert.equal(state.snapshot().zones.zone1.sensorHealthy, initial.zones.zone1.sensorHealthy);
+  // A device whose clock is not synced (SNTP-less/wokwi slow-clock) is audited,
+  // not rejected: recency is decided by backend arrival time, replay by request_id.
   ingest.handle('railway/telemetry/esp32', envelope({ sensorHealthy: false }, {
     request_id: 'esp32-boot-1-2', timestamp: null, clockValid: false,
   }));
-  assert.equal(state.snapshot().lastEvent, 'INVALID_TELEMETRY');
+  assert.equal(state.snapshot().zones.zone1.sensorHealthy, false);
+});
+
+test('a latched near-flag is cleared by later telemetry even if the device clock lags', () => {
+  const { state, ingest } = setup();
+  ingest.handle('railway/telemetry/esp32', envelope({ nearAnimal: true }));
+  assert.equal(state.snapshot().zones.zone1.esp32NearAnimal, true);
+  ingest.handle('railway/telemetry/esp32', envelope({ nearAnimal: false }, {
+    request_id: 'esp32-boot-1-3', clockValid: false, timestamp: null,
+  }));
+  assert.equal(state.snapshot().zones.zone1.esp32NearAnimal, false);
 });
 
 test('esp32 telemetry never mutates train state and rejects replay', () => {

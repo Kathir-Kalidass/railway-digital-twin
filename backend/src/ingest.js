@@ -4,7 +4,6 @@ import { makeWildlifeCommands } from './wildlife_commands.js';
 export function makeIngest({ state, bus, config, mqtt, commands = null, commandTracker = null }) {
   const seenTelemetryIds = new Set();
   const maxSeenTelemetryIds = 256;
-  const telemetryMaxAgeMs = 5 * 60 * 1000;
 
   const seenWildlifeEventIds = new Set();
   const maxSeenWildlifeEventIds = 256;
@@ -32,11 +31,17 @@ export function makeIngest({ state, bus, config, mqtt, commands = null, commandT
   function validEnvelope(message) {
     const expectedZone = config.esp32Zone || config.zones[0];
     const payload = message?.payload;
-    const timestamp = Date.parse(message?.timestamp);
     if (!message || message.event !== 'DEVICE_TELEMETRY' || message.source !== 'esp32') return 'invalid envelope';
     if (message.zone !== expectedZone || !config.zones.includes(message.zone)) return 'invalid device zone';
     if (typeof message.request_id !== 'string' || !message.request_id) return 'request_id required';
-    if (message.clockValid !== true || Number.isNaN(timestamp) || Math.abs(Date.now() - timestamp) > telemetryMaxAgeMs) return 'stale or clock-invalid timestamp';
+    // Clock validity is audit metadata, not a freshness gate: Wokwi sim clocks
+    // run slower than real time, so device timestamps cannot be trusted for
+    // recency. Recency is backend arrival time; replay defence is request_id
+    // dedupe plus the inverted/last-event state semantics.
+    if (message.clockValid !== true && message.clockValid !== false) return 'invalid clock metadata';
+    if (message.clockValid) {
+      if (typeof message.timestamp !== 'string' || Number.isNaN(Date.parse(message.timestamp))) return 'invalid timestamp';
+    } else if (message.timestamp !== null) return 'invalid timestamp';
     if (!payload || payload.device !== 'esp32' || typeof payload.sensorHealthy !== 'boolean') return 'invalid payload';
     if (Object.hasOwn(payload, 'wildlifeDetected') && typeof payload.wildlifeDetected !== 'boolean') return 'invalid wildlife value';
     if (Object.hasOwn(payload, 'nearAnimal') && typeof payload.nearAnimal !== 'boolean') return 'invalid near-animal value';

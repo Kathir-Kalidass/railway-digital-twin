@@ -19,7 +19,7 @@ export function validateCommand(body, { zones }) {
   if (Number.isNaN(ts)) errors.push('invalid timestamp');
   else if (Math.abs(Date.now() - ts) > STALE_MS) errors.push('stale timestamp');
   if (errors.length) return { ok: false, reason: errors.join('; ') };
-  return { ok: true, value: { request_id, zone, event, timestamp, source, payload } };
+  return { ok: true, value: { request_id, zone, event, timestamp, source, epochMs: Date.now(), payload } };
 }
 
 export function validateSpeed(body, { zones, trainIds = [] }) {

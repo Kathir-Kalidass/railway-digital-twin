@@ -162,6 +162,13 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     epochSource.update(epochMs, millis());
     return;
   }
+  if (String(topic) == TOPIC_COMMANDS) {
+    // Backend commands carry their own epoch anchor (epochMs): re-base the
+    // local clock on it before the freshness check so a slow or paused
+    // Wokwi sim cannot make backend-authored commands appear stale.
+    const unsigned long long commandEpochMs = document["epochMs"] | 0ULL;
+    if (commandEpochMs > 1600000000000ULL) epochSource.update(commandEpochMs, millis());
+  }
   if (String(topic) != TOPIC_COMMANDS) return;
   const char *zone = document["zone"] | "";
   const char *requestId = document["request_id"] | "";
@@ -171,8 +178,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   const bool validSource = is_valid_command_source(source, event);
   if (strcmp(zone, DEVICE_ZONE) != 0 || !validSource || !requestId[0] ||
       !document["payload"].is<JsonObject>() || !commandTimestampFresh(timestamp) ||
-      commandAlreadyAccepted(requestId)) return;
-  std::string message(reinterpret_cast<const char *>(payload), length);
+      commandAlreadyAccepted(requestId)) return;  std::string message(reinterpret_cast<const char *>(payload), length);
   const CmdEffect effect = parse_command(message, DEVICE_ZONE, millis());
   if (effect == CmdEffect::NONE) return;
   rememberCommand(requestId);
