@@ -3,6 +3,17 @@
 #include <cstdio>
 #include <string>
 
+// Telemetry/command request id, unique across device reboots: the sequence
+// counter restarts at boot, so the id must also carry a per-boot nonce
+// (hardware RNG or the epoch-sourced wall clock) to avoid colliding with the
+// ids the backend already remembers from a previous device session.
+inline std::string build_request_id(const char *device, unsigned long long mac,
+                                    unsigned long long boot_nonce, unsigned long seq) {
+  char buffer[80];
+  std::snprintf(buffer, sizeof(buffer), "%s-%llx-%llu-%lu", device, mac, boot_nonce, seq);
+  return std::string(buffer);
+}
+
 inline std::string telemetry_json_escape(const char *value) {
   std::string escaped;
   for (const unsigned char *p = reinterpret_cast<const unsigned char *>(value ? value : ""); *p; ++p) {

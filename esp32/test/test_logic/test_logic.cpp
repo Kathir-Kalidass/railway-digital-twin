@@ -159,6 +159,16 @@ void test_barrier_and_status() {
   TEST_ASSERT_EQUAL_STRING("CLEAR", status_line(false, false, true, false));
 }
 
+void test_request_id_unique_across_boots() {
+  // Sequence resets on reboot; the boot nonce must keep ids unique.
+  const std::string first = build_request_id("esp32", 0x1122334455667788ULL, 1000, 1);
+  const std::string rebooted = build_request_id("esp32", 0x1122334455667788ULL, 48291, 1);
+  const std::string later = build_request_id("esp32", 0x1122334455667788ULL, 1000, 2);
+  TEST_ASSERT_TRUE(first.find("esp32-1122334455667788-1000-1") == 0);
+  TEST_ASSERT_EQUAL(1, first == rebooted ? 0 : 1);
+  TEST_ASSERT_EQUAL(1, first == later ? 0 : 1);
+}
+
 void test_telemetry_extended_fields() {
   const std::string json =
       build_telemetry("esp32", "zone1", "req-1", "2026-10-19T12:00:00.000Z", true,
@@ -190,5 +200,6 @@ int main(int, char **) {
   RUN_TEST(test_epoch_source_not_calibrated_before_update);
   RUN_TEST(test_epoch_source_rejects_bogus_epoch);
   RUN_TEST(test_epoch_source_derives_wall_clock);
+  RUN_TEST(test_request_id_unique_across_boots);
   return UNITY_END();
 }

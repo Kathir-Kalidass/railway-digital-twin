@@ -4,6 +4,7 @@
   Libraries: PubSubClient by Nick O'Leary.
 */
 #include <WiFi.h>
+#include <esp_system.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
@@ -25,6 +26,7 @@ const char* TOPIC_TELEMETRY = "railway/telemetry/esp32";
 const char* TOPIC_BOOT = "railway/boot";
 
 time_t currentWallClock();  // defined below; used by command freshness
+unsigned long long boot_nonce(unsigned long ms);
 
 // Demo GPIOs: LEDs can represent restrictive/normal signal and a buzzer.
 const int RED_LED = 25;
@@ -46,6 +48,7 @@ const unsigned long SENSOR_SAMPLE_MS = 100;
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
 EpochSource epochSource;
+unsigned long long bootSalt = 0;  // hardware-RNG nonce set in setup()
 Servo barrier;
 Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 bool localWildlifeDetected = false;
@@ -191,6 +194,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
 
 void setup() {
   Serial.begin(115200);
+  bootSalt = (static_cast<unsigned long long>(esp_random()) << 32) | esp_random();
   pinMode(RED_LED, OUTPUT); pinMode(GREEN_LED, OUTPUT); pinMode(BUZZER, OUTPUT);
   pinMode(WILDLIFE_INPUT, INPUT_PULLDOWN); pinMode(FAULT_INPUT, INPUT_PULLDOWN);
   pinMode(TRIG_PIN, OUTPUT); pinMode(ECHO_PIN, INPUT);
@@ -220,6 +224,13 @@ time_t currentWallClock() {
   return 0;
 }
 
+// Per-boot nonce for request ids: the epoch-sourced wall clock when the
+// backend has calibrated this boot, else the pre-boot hardware RNG salt.
+unsigned long long boot_nonce(unsigned long ms) {
+  if (epochSource.validNow(ms)) return static_cast<unsigned long long>(epochSource.nowMs(ms));
+  return bootSalt ^ (static_cast<unsigned long long>(millis()) << 20);
+}
+
 void publishTelemetry() {
   const time_t now = currentWallClock();
   const bool clockValid = now > 1600000000;
@@ -229,10 +240,9 @@ void publishTelemetry() {
     gmtime_r(&now, &utc);
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", &utc);
   }
-  char requestId[80];
-  snprintf(requestId, sizeof(requestId), "%s-%llx-%lu", DEVICE_ID,
-           ESP.getEfuseMac(), ++telemetrySequence);
-  const std::string payload = build_telemetry(DEVICE_ID, DEVICE_ZONE, requestId, timestamp,
+  const std::string requestId = build_request_id(
+      DEVICE_ID, ESP.getEfuseMac(), boot_nonce(millis()), ++telemetrySequence);
+  const std::string payload = build_telemetry(DEVICE_ID, DEVICE_ZONE, requestId.c_str(), timestamp,
                                               clockValid, localWildlifeDetected, !localFaultDetected,
                                               millis(), distance_cm_to_m(localDistanceCm),
                                               localPirDetected, localVibration, backendNearDetected);
