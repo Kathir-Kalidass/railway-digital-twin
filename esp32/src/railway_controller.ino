@@ -41,8 +41,15 @@ const int ECHO_PIN = 18;
 const int PIR_PIN = 19;
 const int VIBRATION_PIN = 34;
 const int SERVO_PIN = 13;
-const int DISTANCE_THRESHOLD_CM = 100;
-const int VIBRATION_THRESHOLD = 800;
+// Stage D detection thresholds; secrets.h may override per environment.
+// (Wokwi note: the vibration stand-in is a potentiometer that idles near
+// ADC ~881 — raise VIBRATION_THRESHOLD above that in simulated boards.)
+#ifndef DISTANCE_THRESHOLD_CM
+#define DISTANCE_THRESHOLD_CM 100
+#endif
+#ifndef VIBRATION_THRESHOLD
+#define VIBRATION_THRESHOLD 800
+#endif
 const unsigned long SENSOR_SAMPLE_MS = 100;
 
 WiFiClient wifiClient;
