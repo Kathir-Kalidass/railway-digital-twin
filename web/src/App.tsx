@@ -198,6 +198,13 @@ function App() {
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
     if (!r.ok) {
+      if (r.status === 401) {
+        // Stale/expired session: drop the stored token so the user lands
+        // back on the login screen instead of a "backend unavailable" wall.
+        localStorage.removeItem('railway_token');
+        setToken('');
+        throw new Error('Session expired — sign in again.');
+      }
       const err = await r.json().catch(() => ({}));
       throw new Error(err.reason || err.error || 'Request failed');
     }
@@ -261,8 +268,9 @@ function App() {
         setCameraHealth(null);
       }
       setError('');
-    } catch {
-      setError('Backend unavailable — start the Docker Compose services.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg.includes('Session expired') ? msg : 'Backend unavailable — start the Docker Compose services.');
     }
   }
 
