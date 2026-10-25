@@ -59,3 +59,16 @@
 \contentsline {section}{\numberline {8.6}Dashboard features}{45}{section.8.6}%
 \contentsline {section}{\numberline {8.7}Safety behaviour and edge cases (cross-cutting)}{45}{section.8.7}%
 \contentsline {section}{\numberline {8.8}End-to-end scenarios (live, recorded)}{46}{section.8.8}%
+\contentsline {chapter}{\numberline {9}Results, Discussion and Conclusion}{47}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Automated verification results}{47}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Live end-to-end scenario results}{48}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Visual verification}{49}{section.9.3}%
+\contentsline {section}{\numberline {9.4}Team contributions}{49}{section.9.4}%
+\contentsline {section}{\numberline {9.5}Limitations}{49}{section.9.5}%
+\contentsline {section}{\numberline {9.6}Conclusion}{50}{section.9.6}%
+\contentsline {section}{\numberline {9.7}Future scope}{50}{section.9.7}%
+\contentsline {chapter}{References}{52}{chapter*.16}%
+\contentsline {chapter}{Acknowledgements}{54}{chapter*.17}%
+\contentsline {chapter}{\numberline {A}MQTT Topic Contract and ACL Matrix}{55}{appendix.A}%
+\contentsline {chapter}{\numberline {B}Test-Gate Evidence Record}{57}{appendix.B}%
+\contentsline {chapter}{\numberline {C}Run and Demo Instructions}{59}{appendix.C}%

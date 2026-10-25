@@ -1,1 +1,157 @@
-% placeholder
+% ============ CHAPTER 9 — RESULTS, DISCUSSION AND CONCLUSION ============
+\chapter{Results, Discussion and Conclusion}\label{cha:results}
+
+\section{Automated verification results}
+
+The formal gate (latest full run, 2026-10-23 closure audit, as recorded in
+\texttt{docs/porting/acceptance.md}):
+
+\begin{longtable}{>{\raggedright}p{4.2cm} >{\raggedright\arraybackslash}p{7.2cm} >{\raggedright\arraybackslash}p{3.2cm}}
+\caption{Final automated gate}\label{tab:finalgate}\\
+\toprule
+\textbf{Surface} & \textbf{Command} & \textbf{Result} \\
+\midrule
+Backend & isolated broker on 1884 +
+\texttt{npm --prefix backend test} & \textbf{PASS}
+--- 141/141 (camera ingest, near-animal, wrong-line, ACL and e2e
+subsets) \\
+Godot (42 suites) & \texttt{bash godot/tests/run\_tests.sh} & \textbf{PASS}
+--- 42/42 including wrong-line visual/HUD, camera confirmation and
+near-animal warning suites \\
+ESP32 native logic & \texttt{pio test -e native} (Unity) & \textbf{PASS}
+--- 16/16 \\
+ESP32 firmware build & \texttt{pio run -e esp32dev} & \textbf{PASS}
+--- RAM 15.5\%, Flash 87.1\% \\
+ML service & \texttt{pytest ml/tests} & \textbf{PASS} --- 8/8 \\
+Web build & \texttt{npm --prefix web run build} (\texttt{tsc --noEmit} +
+Vite) & \textbf{PASS} \\
+\bottomrule
+\end{longtable}
+
+\noindent Progression of the gate during the project (each step merged
+green): backend 84/84 (Stage 2A) $\rightarrow$ 106/106 (Stage 2E) $\rightarrow$
+109/109 (Stadium P1) $\rightarrow$ 118/118 (Stadium P2) $\rightarrow$
+137/137 (Stadium P3) $\rightarrow$ \textbf{141/141} (closure audit); Godot
+16/16 $\rightarrow$ 22/22 $\rightarrow$ 33/33 $\rightarrow$ 34/34 $\rightarrow$
+36/36 $\rightarrow$ 39/39 $\rightarrow$ \textbf{42/42}; ESP32 native
+14/14 $\rightarrow$ 15/15 $\rightarrow$ \textbf{16/16} (near-warning cases
+added in Stadium P3).
+
+\section{Live end-to-end scenario results}
+
+\begin{longtable}{>{\raggedright}p{4.6cm} >{\raggedright\arraybackslash}p{10.4cm}}
+\caption{Live recorded runs on the working stack}\label{tab:livescenarios}\\
+\toprule
+\textbf{Scenario} & \textbf{Observed behaviour} \\
+\midrule
+\endfirsthead
+\caption[]{(continued)}\\
+\toprule
+\textbf{Scenario} & \textbf{Observed behaviour} \\
+\midrule
+\endhead
+Wrong-line hold at B & Request \texttt{WL-T1-1} held T3 at configured hold
+\texttt{holdPhysicalM=320}; T3 decelerated from 48\,km/h and settled at
+physical 320.1\,m; released exactly when T1 completed clearance back on UP. \\
+Meet with seed 4242 & \texttt{POST /api/meet \{seed: 4242, trigger: true\}}
+armed the scheduler; a station window held T3 (\texttt{commandedSpeedKmh:
+0}, 48$\rightarrow$0\,km/h) and recorded \texttt{HELD}; identical seed
+reproduces identical history in \texttt{meets.test.js}. \\
+Near $\rightarrow$ confirmed chain & Trackside UP-B0 observation produced
+\texttt{SUSPECTED} (zone1 YELLOW, T1 target 30\,km/h, ESP32
+\texttt{WILDLIFE\_NEAR}); two JPEG frames then confirmed
+\texttt{CONFIRMED} elephant 0.92 (T1 target 0, ESP32
+\texttt{WILDLIFE\_DETECTED}); the confirming frame was written to the
+evidence cap; clearing left \texttt{RECOVERY\_REQUIRED} latched;
+\texttt{RESET zone1} returned \texttt{NORMAL} without hazards, sent
+\texttt{RESET} to ESP32, and T1 stayed at 0 until an
+\texttt{/api/speed} 48 re-arm. \\
+ESP32 cloud loop & Wokwi scenario over a Pinggy raw-TCP tunnel: serial
+\texttt{MQTT connected}, then \texttt{STATE LOCAL WILDLIFE}; the live
+twin observed the external detection (\texttt{external=true}) with
+STOP/RED, followed by release while the backend stayed under
+\texttt{RECOVERY\_REQUIRED}/RED. \\
+Wokwi hardware-in-the-loop wildlife & Pressing and releasing the wildlife
+input produced \texttt{STATE LOCAL WILDLIFE} on serial, Godot STOP/RED and
+backend recovery behavior per the Stage-D checklist (PASS rows,
+2026-10-21). \\
+\bottomrule
+\end{longtable}
+
+\section{Visual verification}
+
+All simulation figures in this report (Figures~\ref{fig:overview}
+through~\ref{fig:cameraconfirm}) were regenerated for this report with the
+repository's capture scripts under headless software rendering ---
+the same method the acceptance gate uses for visual QA. In capture mode
+the broker is intentionally absent, and the HUD honestly displays
+\texttt{MQTT offline}; separately, the acceptance record documents the
+live GPU-path runs (WSLg D3D12, $\approx$11.8\,ms/frame at 1280$\times$720
+in a 150-frame MovieWriter run).
+
+\section{Team contributions}
+
+All four members of Team~14 contributed to every surface of the system ---
+staged specification and planning, backend and broker security, the Godot
+twin and its asset pipeline, the React dashboard, the ESP32 firmware and
+its Wokwi verification path, the ML microservice, the automated test gates
+and the acceptance documentation --- with the staged design documents,
+plans and the acceptance record in the repository serving as the shared
+record of each stage's review.
+
+\section{Limitations}
+
+Stated plainly, as the project does everywhere:
+
+\begin{itemize}
+  \item This is an \textbf{educational simulation}. It is not certified
+        railway signalling equipment and must never be connected to real
+        infrastructure, trains or operational systems. Stopping distance
+        is a visualization estimate, not a braking-curve guarantee.
+  \item \textbf{Physical hardware items were not run.} The Stage-D
+        hardware checklist rows remain \emph{not run}; all ESP32 evidence
+        is native-logic plus Wokwi cloud verification.
+  \item \textbf{Real ML weights were not downloaded} in verification;
+        most runs use \texttt{ML\_STUB=1} (deterministic elephant),
+        and the real-weights path is implemented, tested at the
+        input-validation level, but not exercised end-to-end in the
+        recorded gates.
+  \item \textbf{Capture-mode timing:} headless software-rendered frames
+        are seconds apart, so the two-frame confirmation window is
+        verified over live HTTP rather than consecutive captured frames.
+\end{itemize}
+
+\section{Conclusion}
+
+The project's goal --- a \emph{runnable} digital twin of a wildlife-safe
+railway line with a trusted control plane, role-aware dashboards, an
+authenticated IoT bus, fail-safe edge hardware and staged
+camera/ML-assisted wildlife protection --- is met within its declared
+scope. The architecture principle (one authoritative backend, many
+restricted clients; commands through REST; state through retained MQTT)
+proved workable across five very different clients and survives every
+failure mode the gate exercises: lost broker, stale clocks, replayed
+envelopes, duplicate evidence, hazards behind the train, out-of-zone
+commands and locally-debounced field inputs. Every subsystem in the
+final gate is green, and the acceptance record ties each feature to
+named suites and recorded live runs. The remaining gap --- real-hardware
+qualification and real-weights ML verification --- is a matter of
+exercise, not architecture.
+
+\section{Future scope}
+
+\begin{itemize}
+  \item Run the Stage-D physical-hardware checklist on a real ESP32 with
+        wired peripherals (the firmware and wiring are already
+        validated in simulation and headers are hardware-ready).
+  \item Exercise the ML service with cached model weights end to end
+        (camera path recorded with the stub is architecture-complete).
+  \item Extend wildlife sensing with additional modalities (multi-hut
+        acoustic fusion, GSM-connected level crossings) and richer
+        published telemetry retention for analytics.
+  \item Scale the twin world to more lines/higher fleets (the
+        backend's block model and the twin's track registry already
+        generalise), and add multi-user concurrent operator sessions.
+  \item Introduce proper certificate-based broker TLS in place of the
+        current local-plain auth path for remote deployments.
+\end{itemize}
