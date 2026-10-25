@@ -2,3 +2,10 @@
 version = 1
 firmware = '.pio/build/esp32dev/firmware.bin'
 elf = '.pio/build/esp32dev/firmware.elf'
+
+# Route the simulation's WiFi through the local Wokwi Private IoT Gateway
+# (scripts/wokwi-gateway.sh, or "~/.wokwi/bin/wokwigw") so the virtual ESP32
+# can reach this machine's MQTT broker via "host.wokwi.internal".
+# Comment this section out when using the wokwi-cli cloud path instead.
+[net]
+gateway = "ws://localhost:9011"

@@ -4,12 +4,61 @@ Wokwi simulations run in the cloud. The virtual ESP32 uses the `Wokwi-GUEST`
 WiFi network and can only reach hosts that are reachable from the public
 internet; `localhost` always refers to the Wokwi container, not your machine.
 
-## Option 0: Wokwi for VS Code (private gateway)
+## Option 0a: standalone Private IoT Gateway (wokwigw, no token, verified path)
 
-The VS Code extension bundles the Wokwi Private IoT Gateway, which joins the
-simulated ESP32 to your machine's network. Enable it once with
-`F1 → Enable Private Wokwi IoT Gateway`, then point the firmware at the host
-under the name Wokwi provides:
+Same idea as the VS Code extension's bundled gateway, but as a free standalone
+binary (`wokwigw`) that runs locally — no Wokwi account token, no tunnels, no
+expiry. Install once (Linux x86_64):
+
+```bash
+mkdir -p ~/.wokwi/bin && cd /tmp
+curl -fsSL -o wokwigw.zip \
+  https://github.com/wokwi/wokwigw/releases/download/v2.0.1/wokwigw_v2.0.1_Linux_64bit.zip
+python3 -c "import zipfile; zipfile.ZipFile('wokwigw.zip').extractall('.')"
+mv wokwigw-linux ~/.wokwi/bin/wokwigw && chmod +x ~/.wokwi/bin/wokwigw
+```
+
+Then start it and write the matching device secrets:
+
+```bash
+bash scripts/wokwi-gateway.sh --write-secrets
+(cd esp32 && pio run -e esp32dev)   # bake the secrets into firmware.bin
+```
+
+`scripts/wokwi-gateway.sh` starts `wokwigw` on `ws://localhost:9011` and writes
+`esp32/secrets.h` with `MQTT_HOST "host.wokwi.internal"`, `MQTT_PORT 1883`.
+`esp32/wokwi.toml` already contains:
+
+```toml
+[net]
+gateway = "ws://localhost:9011"
+```
+
+When running the wokwi-cli cloud path (below), comment the `[net]` section out.
+
+Simulation side (pick one, both are free):
+
+- **Wokwi for VS Code:** open the `esp32/` folder as the workspace so Wokwi
+  finds `wokwi.toml` and `diagram.json`, press `F1 → Wokwi: Start Simulator`.
+  Wokwi does not compile the sketch: build first with `pio run -e esp32dev`.
+- **wokwi.com (browser):** open your ESP32 project, press `F1` in the code
+  editor and select **"Enable Private Wokwi IoT Gateway"**, then start the
+  simulation. Requires a free Wokwi login.
+
+If Wokwi reports `firmware binary .pio/build/esp32dev/firmware.bin not found`,
+the build has not completed; check `pio run -e esp32dev` output and retry.
+
+The device boots with `WiFi connected` → `MQTT connected` in the serial
+console, and the dashboard Communicator Kernel panel goes online (~2 s
+telemetry cadence). The wildlife scenario (`esp32/scenarios/wildlife.yaml`)
+expects `MQTT connected` → `STATE LOCAL WILDLIFE`.
+
+## Option 0c: Wokwi for VS Code bundled gateway
+
+The VS Code extension bundles the Wokwi Private IoT Gateway as well; with the
+standalone gateway above you don't need it, but if you prefer the bundled one,
+enable it once with `F1 → Enable Private Wokwi IoT Gateway`, then point the
+firmware at the host under the name Wokwi provides:
 
 ```c
 #define MQTT_HOST "host.wokwi.internal"
@@ -17,13 +66,8 @@ under the name Wokwi provides:
 ```
 
 Open the `esp32/` folder as the VS Code workspace so Wokwi finds
-`wokwi.toml` and `diagram.json`. `esp32/wokwi.toml` points at the PlatformIO
-build output (`.pio/build/esp32dev/firmware.bin`). Wokwi does not compile the
-sketch: build first with `pio run -e esp32dev` (the first build downloads the
-ESP32 toolchain), then press `F1 → Wokwi: Start Simulator`.
-
-If Wokwi reports `firmware binary .pio/build/esp32dev/firmware.bin not found`,
-the build has not completed; check `pio run -e esp32dev` output and retry.
+`wokwi.toml` and `diagram.json`. Wokwi does not compile the sketch: build
+first with `pio run -e esp32dev`, then press `F1 → Wokwi: Start Simulator`.
 
 ## Option 0b: Wokwi CLI (cloud simulation)
 
