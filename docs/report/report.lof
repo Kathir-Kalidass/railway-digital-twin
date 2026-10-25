@@ -14,3 +14,6 @@
 \contentsline {figure}{\numberline {6.6}{\ignorespaces Wrong-line run completion (phase CROSS\_EXIT/CLEARANCE): T1 back on UP past B, T3 released from hold and both trains back under normal authority. Captured from \texttt {capture\_crossover.gd}.}}{32}{figure.caption.12}%
 \contentsline {figure}{\numberline {6.7}{\ignorespaces Live meet execution with seed 4242: both trains near the island platform, one held, with the meet HUD showing phase, holder, chosen route and countdown. Captured from \texttt {capture\_meet.gd}.}}{33}{figure.caption.13}%
 \contentsline {figure}{\numberline {6.8}{\ignorespaces Wokwi-style animal-assets sanity render: deer and elephant GLBs with articulated limbs posed near the track, plus the sensor hut and barrier kit. Captured from \texttt {capture\_animals.gd}.}}{34}{figure.caption.14}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {7.1}{\ignorespaces Twin HUD during a confirmed wildlife stop: top bar reads \texttt {WILDLIFE | WILDLIFE STOP 0.95 | camera: CONFIRMED elephant 0.92} --- target speed 0, limit 54, camera tracking from behind the red LTS train. The elephant detection ahead is the simulated render that produced the confirmed evidence. Captured from \texttt {capture\_camera\_confirm.gd}.}}{39}{figure.caption.15}%
+\addvspace {10\p@ }

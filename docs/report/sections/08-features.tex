@@ -1,1 +1,197 @@
-% placeholder
+% ============ CHAPTER 8 — FEATURES AND FUNCTIONS IMPLEMENTED ============
+\chapter{Features and Functions Implemented}\label{cha:features}
+
+This chapter is the master inventory: every shipped capability, where it
+lives, and the test evidence that gates it. Evidence rows cite
+\texttt{docs/porting/acceptance.md} --- the formal acceptance
+record) and named suites under \texttt{backend/test/},
+\texttt{godot/tests/}, \texttt{esp32/test/} and \texttt{ml/tests/}.
+
+\section{Backend: authority, safety and security}
+
+\begin{longtable}{>{\raggedright}p{5.0cm} >{\raggedright\arraybackslash}p{5.6cm} >{\raggedright\arraybackslash}p{4.6cm}}
+\caption{Backend features}\label{tab:backend-features}\\
+\toprule
+\textbf{Feature} & \textbf{Where} & \textbf{Evidence} \\
+\midrule
+\endfirsthead
+\caption[]{(continued)}\\
+\toprule
+\textbf{Feature} & \textbf{Where} & \textbf{Evidence} \\
+\midrule
+\endhead
+Login with bcrypt + JWT; RBAC viewer/operator/admin & \texttt{auth.js}, \texttt{rbac.js} & \texttt{auth.test.js}, \texttt{rbac.test.js} \\
+Command-envelope validation: schema + $\pm$5\,min freshness & \texttt{validate.js} & \texttt{validate.test.js} \\
+Anti-replay via persistent SQLite registry & \texttt{command\_tracker.js}, \texttt{replay.js} & \texttt{replay.test.js} \\
+Audit row for every accepted/rejected/forbidden attempt & \texttt{audit.js} & every control test asserts audit rows \\
+Two-zone then two-train fleet state machine & \texttt{state.js}, \texttt{simulation.js} & \texttt{state.test.js}, \texttt{simulation.test.js} \\
+Ten-block per-block aspects with retained signals & \texttt{signalling.js}, \texttt{bus.js} & \texttt{signalling.test.js}, \texttt{bus.test.js} \\
+Occupancy safety: never overtake onto a RED block; own-overlap allowance & \texttt{simulation.js} & \texttt{simulation.test.js} (boundary + overlap case \texttt{f55f872}) \\
+Station-crossover interlock + route lifecycle & \texttt{routes.js} & \texttt{routes.test.js}; 409 on occupied destination; audited \texttt{route:set} \\
+Chance-based meet scheduler from seeded PRNG & \texttt{meets.js}, \texttt{rng.js} & \texttt{meets.test.js}, \texttt{rng.test.js} \\
+Wrong-line run with phases and opposing hold & \texttt{wrong\_line.js} & \texttt{wrong\_line.test.js}, \texttt{wrong\_line\_api.test.js} \\
+Fixed-timestep 2\,Hz authority loop on MQTT connect & \texttt{loop.js}, \texttt{server.js} & \texttt{loop.test.js} \\
+\texttt{COMM\_LOST} fail-safe and retained-state reconciling & \texttt{mqtt.js}, \texttt{events.js} & \texttt{broker\_acl/e2e} suites \\
+Trackside observation $\rightarrow$ block RED + approach YELLOW; opposite line unaffected & \texttt{wildlife\_commands.js} & \texttt{wildlife\_observation.test.js} \\
+Camera ingest (token, freshness, dup id, size/rate limits, evidence cap, block/line match) & \texttt{ingest.js}, \texttt{ml.js} & \texttt{camera.test.js} (9/9 incl.\ 413, 429, 503-functional) \\
+Two-frame confirmation policy; near vs confirmed; clear never downgrades confirmed & \texttt{wildlife\_commands.js} & \texttt{near\_animal.test.js} (9/9) \\
+ESP32 command forwarding + zone gating + \texttt{RESET} relay & \texttt{routes/wildlife.js} & \texttt{wildlife\_observation.test.js}, firmware native suite \\
+Legacy anonymous \texttt{POST /api/event} deleted (404) & \texttt{app.js} & \texttt{control\_routes.test.js} \\
+\bottomrule
+\end{longtable}
+
+\section{Wildlife protection chain}\label{sec:features-wildlife}
+
+The headline safety feature is the fully assembled chain:
+
+\begin{enumerate}
+  \item \textbf{NONE (normal):} all sensors healthy, train at target.
+  \item \textbf{SUSPECTED:} a trackside hut observation (or a single camera
+        frame, or an ESP32 pull) makes the involved block YELLOW and caps
+        the approaching train at \textbf{30\,km/h} with a
+        \texttt{WILDLIFE\_NEAR} warning delivered to ESP32.
+  \item \textbf{CONFIRMED:} a second camera frame --- the two-frame
+        evidence policy, \texttt{camera.test.js} is authoritative ---
+        confirms (species + confidence, e.g.\ elephant 0.92). Backend
+        sets block \textbf{RED}, train target \textbf{0\,km/h},
+        \texttt{STOP}/\texttt{WILDLIFE\_DETECTED} to the edge node, twin
+        shows STOP with barriers down.
+  \item \textbf{Clearing:} the sensor clear never downgrades a confirmed
+        block; the backend latches \texttt{RECOVERY\_REQUIRED} (RED until
+        reset).
+  \item \textbf{RESET:} an authorized operator/admin sends RESET with no
+        active hazard or sensor fault; the backend returns the zone to
+        \texttt{NORMAL}, sends \texttt{RESET} to ESP32, and keeps the
+        train at 0 until an explicit \texttt{/api/speed} re-arms it.
+\end{enumerate}
+
+Local backup layer: the twin's own detector fires zero-latency braking
+(\texttt{set\_local\_wildlife\_limit(0)}) even with MQTT offline, and the
+ESP32's local inputs produce restrictive outputs regardless of network
+state --- three independent protectors on the same event.
+
+\subsection{Onboard simulated vision}
+
+\begin{itemize}
+  \item Forward cone vision: horizontal $\pm$25$^\circ$, vertical
+        $\pm$10$^\circ$, 180--200\,m range (per
+        \texttt{test\_onboard\_detector}).
+  \item Confidence scoring (deer 0.9, elephant 1.1 modifiers) and
+        \textbf{analytic occlusion} against the terrain hill, tree trunks
+        and bridge decks.
+  \item A camera aligned with the carriage forward tangent
+        (dot $> 0.98$ checked across curves,
+        \texttt{test\_onboard\_camera}), uploading frames with
+        \texttt{X-Captured-At} (UTC, Z-suffixed) and
+        \texttt{X-Block} naming the hazard block ahead (not the train's
+        current block), filtered inside 200\,m by operational distance.
+  \item Pure quadratic stopping-distance model
+        $d_{\text{stop}}(v) = v\,t_r + \tfrac{v^2}{2a_{\text{brake}}} + d_{\text{margin}}$
+        (56\,m at 36\,km/h) with the safe-speed limit inverted from it;
+        \texttt{test\_onboard\_braking} pins the numbers.
+\end{itemize}
+
+\section{Twin features}
+
+Summarised from Chapter~\ref{cha:twin}: stadium double-track world with
+verified geometry, island station with two interlocked visible crossovers,
+two-track wildlife level crossing with boom barriers and alarm, river with
+road + railway bridges, catenary, block signal masts, LTS-derived
+train/station/animal GLB fleet, deterministic wildlife director,
+sensor-hut network (10 huts, 75\,m overlapping radius) with status lamps,
+camera director, day/night, multi-cam HUD, wrong-line visual blend
+without snapping, and meet-hold rendering.
+
+\section{ESP32 and edge features}
+
+Summarised from Chapter~\ref{cha:hardware}: authenticated broker identity,
+non-blocking reconnect and telemetry, restrictive-first outputs from boot,
+distinguishing behavior between local wildlife, local fault, comm loss,
+backend stop and near-warning states, SNTP-gated clock truth, edge-triggered
+\texttt{WILDLIFE\_NEAR}/\texttt{WILDLIFE\_DETECTED} rendering with buzzer
+pulses, and zone-scoped command validation --- the whole decision core
+covered by 16 native Unity cases and live Wokwi scenarios.
+
+\section{ML service features}
+
+\begin{itemize}
+  \item JPEG-frame detection endpoint returning animal classes with
+        confidence and bbox; health endpoint exposing
+        \texttt{modelLoaded}/stub state and readiness.
+  \item Real-weights path with torchvision
+        \texttt{ssdlite320\_mobilenet\_v3\_large} filtered to COCO animal
+        labels; weights cached under \texttt{ml/.cache}.
+  \item \texttt{ML\_STUB=1} deterministic elephant detection
+        (\texttt{modelLoaded: true}, 0.92) so integration segments run
+        without torch downloads --- most verification runs in this mode;
+        the real-model path was smoke-skipped for lack of cached weights
+        and covered instead by input-validation tests (image decoded
+        before model load; invalid images rejected even with
+        \texttt{ML\_STUB=1}).
+  \item Edge coverage: oversized payload 413, detector crash 503, and
+        non-stub image rejection tests in \texttt{ml/tests/}.
+\end{itemize}
+
+\section{Dashboard features}
+
+Summarised from Chapter~\ref{cha:dashboards}: authenticated login with
+role-aware affordances, live fleet grid with per-train direction/speed,
+station hold scheduler card, wrong-line operator panel with eligibility
+and cancel, block diagram with aspects and CAM/HUT/ESP32 evidence badges,
+wildlife stage/evidence panel with camera health and ML status, seed-driven
+meet card, event stream, ESP32 health card and one-scenario hero actions.
+
+\section{Safety behaviour and edge cases (cross-cutting)}\label{sec:features-safety}
+
+The edge cases that the suites actually pin:
+
+\begin{itemize}
+  \item \textbf{Duplicate suppression:} duplicate event IDs (camera ingest
+        and ESP32 observations) are ignored without re-arming alarms.
+  \item \textbf{Rate and size guards:} camera ingest rejects $>$5\,fps
+        input with 429 and oversize bodies with 413; evidence files are
+        capped and pruned to 50.
+  \item \textbf{Range filtering:} camera confirmation ignores hazards
+        behind the train or beyond 200\,m operational distance.
+  \item \textbf{Zone gates:} an ESP32 command outside \texttt{ESP32\_ZONE}
+        is never forwarded; the device validates the zone again on receipt.
+  \item \textbf{Replay and stale data:} timestamp $\pm$5\,min window;
+        dedupe by request id; no queued old telemetry/commands on device
+        reconnect.
+  \item \textbf{Local dominance:} local wildlife/fault inputs override
+        backend commands both in twin safety logic and on the ESP32; a
+        RESET while any local input or hazard is active is rejected by the
+        backend and by the firmware.
+  \item \textbf{Opposite-line independence:} a hazard on one line never
+        touches the other train (asserted in
+        \texttt{wildlife\_observation.test.js} and
+        \texttt{test\_wildlife\_dual\_track}).
+  \item \textbf{Timing honesty:} under software rendering, consecutive
+        Godot frames can be $\sim$10\,s apart, so the two-frame
+        confirmation window cannot be met in capture mode; the policy was
+        verified over live HTTP sequences instead (recorded in
+        acceptance.md's closure audit).
+\end{itemize}
+
+\section{End-to-end scenarios (live, recorded)}
+
+\begin{itemize}
+  \item \textbf{Wrong-line hold at B:} request \texttt{WL-T1-1}; T3 held at
+        physical 320\,m (settled 320.1\,m from 48\,km/h), released only
+        after T1's clearance.
+  \item \textbf{Near $\rightarrow$ confirm (seeded):} with trackside UP-B0
+        observation first --- \texttt{SUSPECTED}, zone1 YELLOW, T1 target
+        30\,km/h, ESP32 \texttt{WILDLIFE\_NEAR} --- then two JPEG frames
+        confirming $\rightarrow$ \texttt{CONFIRMED} elephant 0.92, T1 at
+        0, ESP32 \texttt{WILDLIFE\_DETECTED}; clear leaves
+        \texttt{RECOVERY\_REQUIRED}; \texttt{RESET zone1} restores NORMAL,
+        sends RESET to ESP32, and re-arming required \texttt{/api/speed
+        48}.
+  \item \textbf{Meet with seed 4242:} triggered hold of T3 (48 $\rightarrow$
+        0\,km/h), recorded \texttt{HELD} outcome; identical history for
+        identical seeds, different for other seeds.
+\end{itemize}
+
+\noindent Sequences above are quoted from
+\texttt{docs/porting/acceptance.md} (Stage 2G, Stadium Phases 2--3,
+closure-audit rows) and reproduce with the documented commands.

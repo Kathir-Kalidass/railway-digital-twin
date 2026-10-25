@@ -41,3 +41,21 @@
 \contentsline {section}{\numberline {6.5}The LTS asset fleet}{33}{section.6.5}%
 \contentsline {section}{\numberline {6.6}Operator and observer surfaces of the twin}{34}{section.6.6}%
 \contentsline {section}{\numberline {6.7}Twin subsystem modules}{35}{section.6.7}%
+\contentsline {chapter}{\numberline {7}Dashboards}{36}{chapter.7}%
+\contentsline {section}{\numberline {7.1}The web operations dashboard}{36}{section.7.1}%
+\contentsline {subsection}{\numberline {7.1.1}Login and role awareness}{36}{subsection.7.1.1}%
+\contentsline {subsection}{\numberline {7.1.2}Panels and data flow}{36}{subsection.7.1.2}%
+\contentsline {subsection}{\numberline {7.1.3}Evidence badges on the block diagram}{38}{subsection.7.1.3}%
+\contentsline {section}{\numberline {7.2}The twin-side HUD}{38}{section.7.2}%
+\contentsline {section}{\numberline {7.3}Diagnostics surfaces}{39}{section.7.3}%
+\contentsline {section}{\numberline {7.4}Two dashboards, one truth}{40}{section.7.4}%
+\contentsline {chapter}{\numberline {8}Features and Functions Implemented}{41}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Backend: authority, safety and security}{41}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Wildlife protection chain}{43}{section.8.2}%
+\contentsline {subsection}{\numberline {8.2.1}Onboard simulated vision}{43}{subsection.8.2.1}%
+\contentsline {section}{\numberline {8.3}Twin features}{44}{section.8.3}%
+\contentsline {section}{\numberline {8.4}ESP32 and edge features}{44}{section.8.4}%
+\contentsline {section}{\numberline {8.5}ML service features}{44}{section.8.5}%
+\contentsline {section}{\numberline {8.6}Dashboard features}{45}{section.8.6}%
+\contentsline {section}{\numberline {8.7}Safety behaviour and edge cases (cross-cutting)}{45}{section.8.7}%
+\contentsline {section}{\numberline {8.8}End-to-end scenarios (live, recorded)}{46}{section.8.8}%
