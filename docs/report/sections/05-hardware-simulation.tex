@@ -1,1 +1,170 @@
-% placeholder
+% ============ CHAPTER 5 — HARDWARE, PERIPHERALS AND SIMULATION STACK ============
+\chapter{Hardware, Peripherals and Simulation Stack}\label{cha:hardware}
+
+\section{Hardware overview}
+
+The project deliberately separates \emph{hardware that exists} from
+\emph{hardware that is simulated}:
+
+\begin{itemize}
+  \item \textbf{Exists and runs:} the development host (Linux/WSL2, Docker,
+        Godot, Node) and --- optionally --- one ESP32 devkit v1.
+  \item \textbf{Simulated faithfully:} all field peripherals
+        (LEDs, buzzer, pushbuttons, ultrasonic ranger, PIR motion sensor,
+        vibration sensor, servo barrier, OLED) are wired in Wokwi
+        (\texttt{esp32/diagram.json}) and driven by the same production
+        firmware image.
+  \item \textbf{Not run:} the physical-hardware checklist items of the
+        Stage~D plan remain \emph{not run}; this report is explicit about
+        that and never claims physical verification.
+\end{itemize}
+
+\section{ESP32 edge node and peripherals}\label{sec:esp32}
+
+The ESP32 devkit v1 is the field-level IoT node. It authenticates to the
+broker as user \texttt{esp32}, publishes non-retained telemetry on
+\texttt{railway/telemetry/esp32} and consumes commands on
+\texttt{railway/commands/esp32}. The backend forwards an accepted REST
+control to the device only when the command's zone matches
+\texttt{ESP32\_ZONE} (default \texttt{zone1}).
+
+\begin{longtable}{>{\raggedright}p{4.3cm} >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{6.6cm}}
+\caption{Peripheral bill of materials (Wokwi \texttt{diagram.json})}\label{tab:peripherals}\\
+\toprule
+\textbf{Peripheral} & \textbf{Part / pins} & \textbf{Function} \\
+\midrule
+\endfirsthead
+\caption[]{(continued)}\\
+\toprule
+\textbf{Peripheral} & \textbf{Part / pins} & \textbf{Function} \\
+\midrule
+\endhead
+Green LED & GPIO26 & ``Clear / normal'' indicator \\
+Red LED & GPIO25 & ``Restrictive / STOP'' indicator \\
+Buzzer (piezo) & GPIO27 & Alarm: local hazard, \texttt{WILDLIFE\_DETECTED} steep pulses; \texttt{WILDLIFE\_NEAR} pulsed warning \\
+Wildlife pushbutton & GPIO33 (input pulldown) & Field witness: an animal at the crossing \\
+Fault pushbutton & GPIO32 (input pulldown) & Field witness: sensor-wire fault; blocks RESET \\
+HC-SR04 ultrasonic & TRIG GPIO5, ECHO GPIO18 & Distance to obstacle (converted cm$\rightarrow$m, negative = unreadable) \\
+PIR motion sensor & OUT GPIO19 & Passive motion detection; feeds the local wildlife decision \\
+Vibration sensor (pot as analog source) & SIG GPIO34 (ADC) & Vibration level threshold compared against \texttt{vibration\_threshold} \\
+Barrier servo & PWM GPIO13 & Boom barrier angle 0$^\circ$ (open) / 90$^\circ$ (restrictive) \\
+SSD1306 OLED 128x64 & I$^2$C SDA GPIO21, SCL GPIO22 & Status line display (state precedence text) \\
+Serial monitor & TX0/RX0 & Diagnostic log at 115200\,bd (never prints credentials) \\
+\bottomrule
+\end{longtable}
+
+\section{Firmware software architecture}
+
+The decision core lives in six small, pure-function headers, which is what
+makes the whole firmware logic host-testable under PlatformIO's native
+Unity environment:
+
+\begin{itemize}
+  \item \texttt{sensors.h} --- sensor fusion:
+        \texttt{animal\_detected(pir, distance\_cm, vibration, ...)} is
+        true when the PIR fires, or the ultrasonic distance is at or under
+        the configured threshold, or the vibration ADC reading reaches the
+        threshold; \texttt{distance\_cm\_to\_m} converts the raw reading
+        (negative when unreadable).
+  \item \texttt{debounce.h} --- debouncing for the two field inputs so a
+        bounce on the wireless side cannot spoof a hazard or clear one.
+  \item \texttt{output\_logic.h} --- the restrictive precedence chain.
+        \begin{verbatim}
+enum class Output { RESTRICTIVE, COMM_LOSS, RENDER_BACKEND, WARNING };
+decide_output(local_wildlife, local_fault, comm_ok,
+              backend_restrictive, backend_near)
+  local_wildlife || local_fault -> RESTRICTIVE
+  !comm_ok                      -> COMM_LOSS
+  backend_restrictive           -> RENDER_BACKEND (backend wants stop)
+  backend_near                  -> WARNING
+        \end{verbatim}
+        Local observations \emph{always dominate} remote state; received
+        commands can never clear an active local input.
+  \item \texttt{actuator.h} --- acts on the decision: barrier servo
+        ($90^\circ$ when restrictive), LED and buzzer rendering, and the
+        status-line precedence used on the OLED:
+        \texttt{LOCAL WILDLIFE} $>$ \texttt{SENSOR FAULT} $>$
+        \texttt{COMM LOSS} $>$ \texttt{WILDLIFE} (backend) $>$
+        \texttt{ANIMAL NEAR} $>$ \texttt{CLEAR}.
+  \item \texttt{telemetry.h} --- the exact MQTT envelope. Telemetry
+        carries \texttt{request\_id}, \texttt{zone}, event
+        \texttt{DEVICE\_TELEMETRY}, and payload
+        \{\texttt{device}, \texttt{sensorHealthy},
+        \texttt{wildlifeDetected}, \texttt{nearAnimal},
+        \texttt{uptimeMs}, \texttt{distanceM}, \texttt{motion},
+        \texttt{vibration}\}. When SNTP time is not yet valid, the
+        timestamp is a literal JSON \texttt{null} with
+        \texttt{clockValid:false} --- the backend rejects clock-invalid
+        telemetry rather than trusting a bogus epoch.
+  \item \texttt{command\_logic.h} --- validates received envelopes and
+        drives observations in (e.g.\ edge-triggered
+        \texttt{WILDLIFE\_DETECTED}/\texttt{WILDLIFE\_CLEARED} forwarded
+        from the backend with \texttt{source:"backend"}, \texttt{RESET}
+        after operator re-arm).
+\end{itemize}
+
+The main build (\texttt{railway\_controller.ino}) wires the pieces to the
+hardware map above with non-blocking loops: reconnect and telemetry
+publish never block the sensing loop; nothing is queued for replay, so a
+reconnecting device resumes live truth instead of stale echoes.
+
+\section{Wokwi cloud simulation and the Pinggy tunnel}
+
+Local Docker broker success proves nothing about cloud reachability, so
+the edge path was exercised on Wokwi:
+
+\begin{enumerate}
+  \item \texttt{wokwi.toml} points at the compiled
+        \texttt{.pio/build/esp32dev/firmware.bin} and the list of source
+        files; \texttt{diagram.json} is the wiring above.
+  \item \texttt{./scripts/wokwi-tunnel.sh --write-secrets} opens a raw-TCP
+        Pinggy tunnel to the local authenticated broker and writes the
+        tunnel endpoints into \texttt{esp32/secrets.h} (git-ignored) so
+        the device connects through the tunnel with the same
+        \texttt{esp32} credential and never anonymous access.
+  \item \texttt{scenarios/wildlife.yaml} drives the wildlife input on a
+        timed schedule; the recorded serial transcript shows
+        \texttt{MQTT connected} followed by
+        \texttt{STATE LOCAL WILDLIFE}; the live twin monitor observed the
+        same event arriving as an external detection
+        (\texttt{external=true}), STOP/RED and barrier down, then release
+        with the backend held in \texttt{RECOVERY\_REQUIRED}/RED.
+\end{enumerate}
+
+\section{Clock truth via SNTP}
+
+The firmware obtains UTC through SNTP. Until the time service reports a
+valid time, telemetry is explicitly marked \texttt{clockValid: false}
+with a \texttt{null} timestamp; the backend rejects it rather than
+accepting a forged epoch as fresh. This way telemetry from a freshly
+booted (or clockless) device can never create the appearance of current
+truth.
+
+\section{Build results and Stage-D checklist status}
+
+\begin{longtable}{>{\raggedright}p{0.9cm} >{\raggedright\arraybackslash}p{7.2cm} >{\raggedright\arraybackslash}p{5.3cm}}
+\caption{Stage-D ESP32 verification record (dates 2026-10-21, per acceptance.md)}\label{tab:staged-checklist}\\
+\toprule
+\textbf{Status} & \textbf{Checklist item} & \textbf{Where verified} \\
+\midrule
+\endfirsthead
+\caption[]{(continued)}\\
+\toprule
+\textbf{Status} & \textbf{Checklist item} & \textbf{Where verified} \\
+\midrule
+\endhead
+PASS & Boot and confirm restrictive output until fresh backend context arrives (\texttt{STATE COMM LOSS}) & Wokwi \\
+PASS & Wildlife input: press/release introduces \texttt{STATE LOCAL WILDLIFE} and the backend/twin report recovery lock & Wokwi, Godot observe (external \texttt{STOP}/RED) \\
+PASS & Automated end-to-end: ESP32 telemetry $\rightarrow$ backend $\rightarrow$ Godot with \texttt{test\_esp32\_integration}; cloud Wokwi through Pinggy & Wokwi + live broker \\
+PASS & Native logic suite: 16/16 Unity cases (output precedence, debounce, telemetry serialization, command-zone validation) & PlatformIO \texttt{pio test -e native} \\
+PASS & Firmware build \texttt{pio run -e esp32dev} (flash 87.1\%) & PlatformIO \\
+Not run & Authorized same-zone and out-of-zone dashboard controls reaching the device; local faults dominate & physical Wokwi/physical path (partial) \\
+Not run & Broker/Wi-Fi disconnect/reconnect while exercising inputs on real hardware; fresh telemetry after reconnect & physical hardware only \\
+Not run & Serial diagnostics inspected in full; confirm no credentials printed under stress & physical hardware only \\
+\bottomrule
+\end{longtable}
+
+\noindent\textbf{Honesty note:} the three ``not run'' rows above are the
+Stage-D items that require real hardware; the automated gate plus Wokwi
+cloud coverage still verifies the full control chain end to end without
+them, but the report does not claim hardware qualification.

@@ -17,3 +17,19 @@
 \contentsline {section}{\numberline {3.3}Backend internal architecture}{13}{section.3.3}%
 \contentsline {section}{\numberline {3.4}Failure handling and fail-safety}{14}{section.3.4}%
 \contentsline {section}{\numberline {3.5}Topic contract summary}{14}{section.3.5}%
+\contentsline {chapter}{\numberline {4}Tools and Technology}{16}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Technology stack at a glance}{16}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Backend stack}{17}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Broker and communication}{18}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Dashboard stack}{18}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Twin engine and asset pipeline}{18}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Firmware and edge simulation}{19}{section.4.6}%
+\contentsline {section}{\numberline {4.7}ML microservice}{19}{section.4.7}%
+\contentsline {section}{\numberline {4.8}DevOps and verification tooling}{20}{section.4.8}%
+\contentsline {chapter}{\numberline {5}Hardware, Peripherals and Simulation Stack}{21}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Hardware overview}{21}{section.5.1}%
+\contentsline {section}{\numberline {5.2}ESP32 edge node and peripherals}{21}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Firmware software architecture}{22}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Wokwi cloud simulation and the Pinggy tunnel}{23}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Clock truth via SNTP}{24}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Build results and Stage-D checklist status}{24}{section.5.6}%

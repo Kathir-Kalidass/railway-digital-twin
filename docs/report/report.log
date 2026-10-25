@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.1)  25 OCT 2026 23:43
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.1)  25 OCT 2026 23:51
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1106,8 +1106,230 @@ LaTeX Warning: Reference `fig:overview' on page 15 undefined on input line 202.
 LaTeX Warning: Reference `fig:wronglineafter' on page 15 undefined on input lin
 e 202.
 
-) (./sections/04-tools-technology.tex) (./sections/05-hardware-simulation.tex)
-(./sections/06-twin.tex) (./sections/07-dashboards.tex)
+) (./sections/04-tools-technology.tex
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[15]
+Chapter 4.
+
+Overfull \hbox (24.61903pt too wide) in alignment at lines 6--11
+ [] [] [] 
+ []
+
+
+Overfull \hbox (24.61903pt too wide) in alignment at lines 11--16
+ [] [] [] 
+ []
+
+
+Overfull \hbox (20.24414pt too wide) in paragraph at lines 25--25
+\T1/cmr/m/n/12 (\T1/cmtt/m/n/12 scripts/wokwi-tunnel.sh\T1/cmr/m/n/12 )|  
+ []
+
+
+Overfull \hbox (24.61903pt too wide) in alignment at lines 16--30
+ [] [] [] 
+ []
+
+[16
+
+]
+
+LaTeX Warning: Reference `cha:features' on page 17 undefined on input line 42.
+
+
+Overfull \hbox (45.2842pt too wide) in paragraph at lines 50--54
+[]\T1/cmr/bx/n/12 Node built-in test run-ner \T1/cmr/m/n/12 for the 141-test su
+ite ex-e-cuted with \T1/cmtt/m/n/12 --test --test-force-exit\T1/cmr/m/n/12 ;
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[17]
+
+LaTeX Warning: Reference `cha:appendix-acl' on page 18 undefined on input line 
+67.
+
+
+Overfull \hbox (11.80344pt too wide) in paragraph at lines 84--89
+[]\T1/cmr/m/n/12 Panels im-ple-mented: role-aware header, signal-aspect block d
+i-a-gram with CAM/HUT
+ []
+
+
+Overfull \hbox (52.39758pt too wide) in paragraph at lines 98--103
+[]\T1/cmr/bx/n/12 Libre-TrainSim (LTS) as-set port: \T1/cmr/m/n/12 the Blender 
+host files (\T1/cmtt/m/n/12 tools/export_lts_assets.py\T1/cmr/m/n/12 )
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[18]
+Overfull \hbox (38.8428pt too wide) in paragraph at lines 103--106
+\T1/cmr/m/n/12 ad-don bridge the twin to the bro-ker with backoff-on-failure re
+-con-nect (\T1/cmtt/m/n/12 test_mqtt_bridge\T1/cmr/m/n/12 ). 
+ []
+
+
+Overfull \hbox (13.53635pt too wide) in paragraph at lines 115--119
+\T1/cmr/m/n/12 ex-act ma-jors: \T1/cmtt/m/n/12 PubSubClient@2.8\T1/cmr/m/n/12 ,
+ \T1/cmtt/m/n/12 ArduinoJson@7\T1/cmr/m/n/12 , \T1/cmtt/m/n/12 ESP32Servo\T1/cm
+r/m/n/12 , \T1/cmtt/m/n/12 Adafruit SSD1306\T1/cmr/m/n/12 ,
+ []
+
+
+Overfull \hbox (7.1518pt too wide) in paragraph at lines 119--125
+[]\T1/cmr/m/n/12 The firmware logic is \T1/cmr/m/it/12 header-only and host-tes
+table\T1/cmr/m/n/12 : pure func-tions live in \T1/cmtt/m/n/12 sensors.h\T1/cmr/
+m/n/12 ,
+ []
+
+
+LaTeX Warning: Reference `cha:results' on page 19 undefined on input line 151.
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[19]
+Overfull \hbox (22.13338pt too wide) in paragraph at lines 168--170
+[]\T1/cmtt/m/n/12 godot/tests/run_tests.sh \T1/cmr/m/n/12 --- 42 head-less Godo
+t suites; \T1/cmtt/m/n/12 godot/tests/capture_*.gd
+ []
+
+) (./sections/05-hardware-simulation.tex
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[20]
+Chapter 5.
+[21
+
+]
+Overfull \hbox (20.96439pt too wide) in paragraph at lines 63--69
+\T1/cmr/m/n/12 ured thresh-old, or the vi-bra-tion ADC read-ing reaches the thr
+esh-old; \T1/cmtt/m/n/12 distance_cm_to_m
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[22]
+Overfull \hbox (11.96594pt too wide) in paragraph at lines 80--80
+ []\T1/cmtt/m/n/12 enum class Output { RESTRICTIVE, COMM_LOSS, RENDER_BACKEND, 
+WARNING };[] 
+ []
+
+
+Overfull \hbox (11.96594pt too wide) in paragraph at lines 80--80
+ []  \T1/cmtt/m/n/12 backend_restrictive           -> RENDER_BACKEND (backend w
+ants stop)[] 
+ []
+
+
+Overfull \hbox (15.5998pt too wide) in paragraph at lines 89--99
+\T1/cmr/m/n/12 event \T1/cmtt/m/n/12 DEVICE_TELEMETRY\T1/cmr/m/n/12 , and pay-l
+oad {\T1/cmtt/m/n/12 device\T1/cmr/m/n/12 , \T1/cmtt/m/n/12 sensorHealthy\T1/cm
+r/m/n/12 , \T1/cmtt/m/n/12 wildlifeDetected\T1/cmr/m/n/12 ,
+ []
+
+
+Overfull \hbox (22.68423pt too wide) in paragraph at lines 120--125
+\T1/cmr/m/n/12 to the lo-cal au-then-ti-cated bro-ker and writes the tun-nel en
+d-points into \T1/cmtt/m/n/12 esp32/secrets.h
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[23]
+Overfull \hbox (15.95035pt too wide) in paragraph at lines 125--132
+\T1/cmr/m/n/12 recorded se-rial tran-script shows \T1/cmtt/m/n/12 MQTT connecte
+d \T1/cmr/m/n/12 fol-lowed by \T1/cmtt/m/n/12 STATE LOCAL WILDLIFE\T1/cmr/m/n/1
+2 ;
+ []
+
+
+Overfull \hbox (11.77107pt too wide) in paragraph at lines 148--148
+[]|\T1/cmr/bx/n/12 Status|  
+ []
+
+
+Overfull \hbox (11.77107pt too wide) in paragraph at lines 153--153
+[]|\T1/cmr/bx/n/12 Status|  
+ []
+
+
+Overfull \hbox (3.26482pt too wide) in paragraph at lines 156--156
+[]|\T1/cmr/m/n/12 PASS|  
+ []
+
+
+Overfull \hbox (3.26482pt too wide) in paragraph at lines 157--157
+[]|\T1/cmr/m/n/12 PASS|  
+ []
+
+
+Overfull \hbox (3.26482pt too wide) in paragraph at lines 158--158
+[]|\T1/cmr/m/n/12 PASS|  
+ []
+
+
+Overfull \hbox (3.26482pt too wide) in paragraph at lines 159--159
+[]|\T1/cmr/m/n/12 PASS|  
+ []
+
+
+Overfull \hbox (3.26482pt too wide) in paragraph at lines 160--160
+[]|\T1/cmr/m/n/12 PASS|  
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[24]) (./sections/06-twin.tex) (./sections/07-dashboards.tex)
 (./sections/08-features.tex) (./sections/09-results-conclusion.tex)
 (./sections/10-backmatter.tex)
 
@@ -1118,7 +1340,7 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[15] (./report.aux)
+[25] (./report.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -1127,32 +1349,43 @@ L3 programming layer <2024-01-22>
 
 LaTeX Warning: There were undefined references.
 
-Package rerunfilecheck Info: File `report.out' has not changed.
-(rerunfilecheck)             Checksum: EC1841D3D8A252D9A7937407A91ABD17;3231.
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+
+Package rerunfilecheck Warning: File `report.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+Package rerunfilecheck Info: Checksums for `report.out':
+(rerunfilecheck)             Before: EC1841D3D8A252D9A7937407A91ABD17;3231
+(rerunfilecheck)             After:  8E4EB85A39BDA9FB7304FA165E4201F4;6377.
  ) 
 Here is how much of TeX's memory you used:
- 23120 strings out of 474222
- 436807 string characters out of 5748734
+ 23166 strings out of 474222
+ 437306 string characters out of 5748734
  1941975 words of memory out of 5000000
- 44907 multiletter control sequences out of 15000+600000
- 570629 words of font info for 59 fonts, out of 8000000 for 9000
+ 44920 multiletter control sequences out of 15000+600000
+ 570943 words of font info for 60 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  84i,12n,87p,444b,841s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></us
-r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/shar
-e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texmf
-/fonts/type1/public/cm-super/sfbx1095.pfb></usr/share/texmf/fonts/type1/public/
-cm-super/sfbx1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx1440.pf
-b></usr/share/texmf/fonts/type1/public/cm-super/sfbx1728.pfb></usr/share/texmf/
-fonts/type1/public/cm-super/sfbx2488.pfb></usr/share/texmf/fonts/type1/public/c
-m-super/sfrm0800.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1095.pfb
-></usr/share/texmf/fonts/type1/public/cm-super/sfrm1200.pfb></usr/share/texmf/f
-onts/type1/public/cm-super/sfti1200.pfb></usr/share/texmf/fonts/type1/public/cm
--super/sftt1200.pfb>
-Output written on report.pdf (21 pages, 307783 bytes).
+r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share
+/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive
+/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf
+-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texmf/fonts/type1/pu
+blic/cm-super/sfbx1095.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx12
+00.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx1440.pfb></usr/share/t
+exmf/fonts/type1/public/cm-super/sfbx1728.pfb></usr/share/texmf/fonts/type1/pub
+lic/cm-super/sfbx2488.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm080
+0.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1095.pfb></usr/share/te
+xmf/fonts/type1/public/cm-super/sfrm1200.pfb></usr/share/texmf/fonts/type1/publ
+ic/cm-super/sfti1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1095
+.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1200.pfb>
+Output written on report.pdf (31 pages, 374947 bytes).
 PDF statistics:
- 312 PDF objects out of 1000 (max. 8388607)
- 259 compressed objects within 3 object streams
- 62 named destinations out of 1000 (max. 500000)
+ 398 PDF objects out of 1000 (max. 8388607)
+ 328 compressed objects within 4 object streams
+ 94 named destinations out of 1000 (max. 500000)
  165 words of extra memory for PDF output out of 10000 (max. 10000000)
 

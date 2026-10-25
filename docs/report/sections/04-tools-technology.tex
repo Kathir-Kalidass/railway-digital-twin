@@ -1,1 +1,173 @@
-% placeholder
+% ============ CHAPTER 4 — TOOLS AND TECHNOLOGY ============
+\chapter{Tools and Technology}\label{cha:tools}
+
+\section{Technology stack at a glance}
+
+\begin{longtable}{>{\raggedright}p{2.4cm} >{\raggedright\arraybackslash}p{4.6cm} >{\raggedright\arraybackslash}p{8.4cm}}
+\caption{Complete technology stack}\label{tab:stacksummary}\\
+\toprule
+\textbf{Layer} & \textbf{Technology} & \textbf{Role in the system} \\
+\midrule
+\endfirsthead
+\caption[]{(continued)}\\
+\toprule
+\textbf{Layer} & \textbf{Technology} & \textbf{Role} \\
+\midrule
+\endhead
+Unity of authority & Node.js 22+ with Express 4 & Trusted control plane: auth, RBAC, simulation, interlocking, hazards, audit \\
+Data store & SQLite (better-sqlite3 13) & Persistent users, audit rows, anti-replay registry; WAL-mode SQLite file inside a Docker volume \\
+Live bus & Eclipse Mosquitto 2 (MQTT 3.1.1) & Authenticated pub/sub bus for all machine traffic over TCP 1883 / WS 9001 \\
+Twin & Godot 4.7.2 & Full 3D digital twin scene, physics-free kinematic fleet, cameras, HUD \\
+Assets & Blender exports from Libre-TrainSim (LTS) & Train consist GLBs, station modules, deer/elephant, scenery fleet \\
+Dashboard & React 18.3.1 + Vite 6 + TypeScript 5.7 & Auth web console with live state and controls \\
+Edge node & Arduino framework on ESP32 devkit v1 via PlatformIO & Field sensing, protective outputs, SNTP-gated telemetry \\
+Edge simulation & Wokwi (diagram.json, wokwi.toml) + Wokwi CLI v0.29.0 & Cloud-compile and scenario-run without hardware \\
+Tunnel & Pinggy raw TCP (\texttt{scripts/wokwi-tunnel.sh}) & Exposes local authenticated broker to the cloud Wokwi session \\
+ML service & Python + FastAPI 0.135.1, torch 2.10, torchvision 0.25 & Animal detection (SSDLite320 MobileNetV3, COCO animal classes) over HTTP \\
+Verification & Node test runner, Godot test harness (42 suites), Pytest, PlatformIO + Unity (native) & Continuous automated gate across all four surfaces \\
+DevOps & Docker Compose, bash scripts & One-command stack bring-up (\texttt{dev-up.sh}) and full gate (\texttt{verify-all.sh}) \\
+\bottomrule
+\end{longtable}
+
+\section{Backend stack}
+
+\begin{itemize}
+  \item \textbf{Node.js 22+} chosen for the built-in test runner, first-class
+        \texttt{--env-file-if-exists} startup and the mature MQTT/SQL
+        ecosystem on one trusted process.
+  \item \textbf{Express 4.21} REST control surface: \texttt{/api/login},
+        \texttt{/api/control}, \texttt{/api/route}, \texttt{/api/meet},
+        \texttt{/api/speed}, \texttt{/api/wrong-line}, \texttt{/api/camera},
+        \texttt{/api/health} --- each with RBAC, envelope validation and
+        audit semantics (Chapter~\ref{cha:features}).
+  \item \textbf{better-sqlite3 13} embedded database in WAL mode for low
+        latency audit and replay persistence; lives in a named Docker
+        volume so state survives restarts.
+  \item \textbf{bcryptjs 3} password hashing for seed users;
+        \textbf{jsonwebtoken 9} for short-lived JWT issuance.
+  \item \textbf{mqtt.js 5.16} for both MQTT publishing (state, events,
+        alerts, signals, commands, speed) and subscription.
+  \item \textbf{Node built-in test runner} for the 141-test suite executed
+        with \texttt{--test --test-force-exit}; the MQTT e2e subset runs
+        against an isolated Mosquitto container on port 1884 when the
+        host broker occupies 1883.
+\end{itemize}
+
+\section{Broker and communication}
+
+\begin{itemize}
+  \item \textbf{MQTT} chosen as the machine bus: quality-of-service
+        semantics (QoS 1 for commands), \emph{retained} messages for state
+        and signals (a late joiner instantly sees current truth), topic
+        hierarchy as identity, and per-client ACLs as authorization.
+  \item \textbf{Mosquitto 2} configured with
+        \texttt{allow\_anonymous false}; the password file is produced by
+        \texttt{scripts/mosquitto\_setup.sh} from \texttt{.env}
+        variables; ACLs restrict clients to the exact topic set listed in
+        Appendix~\ref{cha:appendix-acl}.
+  \item \textbf{WebSocket listener 9001} serves browser clients so the
+        dashboard never needs raw TCP.
+  \item Version note: MQTT retained-state design intentionally avoids
+        bespoke discovery mechanisms, simplifying the ESP32 client
+        (\texttt{PubSubClient}) which supports MQTT 3.1.1.
+\end{itemize}
+
+\section{Dashboard stack}
+
+\begin{itemize}
+  \item \textbf{React 18} single page application with lucide-react icons;
+        builds via \textbf{Vite 6} with a TypeScript gate
+        (\texttt{tsc --noEmit}) so type errors fail the web build.
+  \item Login flow POSTs to \texttt{/api/login} and stores the JWT in
+        memory; subsequent REST calls carry \texttt{Authorization};
+        live updates arrive over WebSocket from the backend event stream.
+  \item Panels implemented: role-aware header, signal-aspect block
+        diagram with CAM/HUT evidence badges, per-train speed control,
+        station route card, meet card (seed, phase, countdown), wrong-line
+        operator panel with eligibility and cancel, camera health/staged
+        hazard panel, and an admin-only audit feed.
+\end{itemize}
+
+\section{Twin engine and asset pipeline}
+
+\begin{itemize}
+  \item \textbf{Godot 4.7.2} with the \texttt{gl\_compatibility} renderer,
+        which keeps the twin runable both locally on GPUs and headless
+        under \texttt{xvfb-run} with Mesa llvmpipe software rendering ---
+        the mode used for the automated captures used in this report.
+  \item \textbf{Libre-TrainSim (LTS) asset port:} the Blender host files
+        (\texttt{tools/export\_lts\_assets.py}) export the LTS train
+        consist, station modules and scenery to GLB/JSON manifests
+        (\texttt{godot/assets.manifest.json}); \texttt{test\_real\_assets}
+        proves the tracked GLBs actually replace the procedural fallbacks.
+  \item \textbf{Vendored MQTT addon} (\texttt{godot/addons/godot-mqtt})
+        plus the LTS runtime addon bridge the twin to the broker with
+        backoff-on-failure reconnect (\texttt{test\_mqtt\_bridge}).
+  \item Procedural world construction (stadium loops, river, bridges,
+        catenary masts, sensor huts, signal masts, crossovers, booms) is
+        code-driven, so the world geometry is testable in ~42 suites
+        without artwork.
+\end{itemize}
+
+\section{Firmware and edge simulation}
+
+\begin{itemize}
+  \item \textbf{PlatformIO} with \texttt{espressif32 Arduino framework};
+        declared libraries pinned to exact majors: \texttt{PubSubClient@2.8},
+        \texttt{ArduinoJson@7}, \texttt{ESP32Servo}, \texttt{Adafruit
+        SSD1306}, \texttt{Adafruit GFX}.
+  \item The firmware logic is \emph{header-only and host-testable}: pure
+        functions live in \texttt{sensors.h}, \texttt{actuator.h},
+        \texttt{output\_logic.h}, \texttt{telemetry.h},
+        \texttt{command\_logic.h}, \texttt{debounce.h}, so the whole
+        decision core is exercised by 16 Unity cases in a native PlatformIO
+        environment (\texttt{pio test -e native}) without any hardware.
+  \item \textbf{Wokwi} (\texttt{esp32/diagram.json}, \texttt{wokwi.toml})
+        provides the cloud twin of the devkit wiring; the
+        \texttt{scenarios/wildlife.yaml} script drives the wildlife button
+        through the scenario runner; \texttt{wokwi-cli} v0.29.0 is the tip
+        tool used.
+  \item \textbf{Pinggy} raw-TCP tunnel
+        (\texttt{scripts/wokwi-tunnel.sh --write-secrets}) forwards the
+        local authenticated broker (port 1883) so a cloud Wokwi session
+        can reach it without ever re-enabling anonymous access.
+\end{itemize}
+
+\section{ML microservice}
+
+\begin{itemize}
+  \item \textbf{FastAPI + uvicorn} service (\texttt{ml/app.py}) accepting
+        a single JPEG frame; \texttt{POST /detect} returns COCO animal
+        detections with confidence and bbox; \texttt{GET /health} reports
+        model-loaded state and stub mode.
+  \item \textbf{torchvision} \texttt{ssdlite320\_mobilenet\_v3\_large} as
+        the detector; detections filtered to COCO animal classes;
+        \texttt{ML\_MIN\_CONFIDENCE} (default 0.5) and \texttt{ML\_DEVICE}
+        (default cpu) are environment-tunable.
+  \item \texttt{ML\_STUB=1} returns a deterministic elephant detection
+        (confidence 0.92) without loading torch or downloading weights ---
+        the mode used across most verification; real-weights path is
+        implemented but lazily caches weights and was smoke-skipped for
+        lack of cached weights (stated honestly in Chapter~\ref{cha:results}).
+  \item A stub returns \texttt{modelLoaded: true} with
+        \texttt{elephant 0.92} so the backend evidence pipeline is
+        exercised against realistic payloads.
+\end{itemize}
+
+\section{DevOps and verification tooling}
+
+\begin{itemize}
+  \item \texttt{scripts/dev-up.sh} --- brings up Compose, provisions the
+        broker credentials, waits up to 60\,s for a healthy
+        \texttt{/api/health}.
+  \item \texttt{scripts/verify-all.sh} --- full gate: backend suite, web
+        build, broker ACL checks, optional Godot and firmware compile
+        gates.
+  \item \texttt{scripts/demo-scenarios.sh} --- scripted REST demo with
+        payload assertions using \texttt{jq}.
+  \item \texttt{godot/tests/run\_tests.sh} --- 42 headless Godot suites;
+        \texttt{godot/tests/capture\_*.gd} produce the report figures.
+  \item \texttt{backend/test/} --- ~141 tests with the isolated-broker trick
+        for ACL/e2e cases; \texttt{ml/tests/} --- Pytest for detector and
+        API edges (413 oversize, 503 crash, stub rejection).
+\end{itemize}
