@@ -73,6 +73,18 @@ test('snapshot caps at limit and renders ISO timestamps', () => {
   assert.ok(!Number.isNaN(Date.parse(snap[0].issuedAt)));
 });
 
+test('internal ledger storage is capped, newest entries survive', () => {
+  const tracker = makeCommandTracker({ ackTimeoutSec: 10, limit: 10 });
+  for (let i = 1; i <= 250; i++) {
+    tracker.issued({ requestId: `req-${i}`, event: 'RESET', zone: 'zone1', actor: 'operator', at: i * 1000 });
+  }
+  assert.equal(tracker.size(), 200);
+  const snap = tracker.snapshot();
+  assert.equal(snap.length, 10);
+  assert.equal(snap[0].requestId, 'req-250');
+  assert.equal(snap[9].requestId, 'req-241');
+});
+
 test('injected now() is honored by issued without explicit at', () => {
   fakeNow.value = 42_000;
   const tracker = makeCommandTracker({ ackTimeoutSec: 10, now: fakeNow });

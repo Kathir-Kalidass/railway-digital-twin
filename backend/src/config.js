@@ -1,6 +1,12 @@
 import { buildTopology, blockById } from './railway.js';
 import { blockOffsetToPhysical } from './geometry.js';
 
+// Numeric env: undefined/garbage -> fallback; negative values rejected.
+const finiteNumber = (raw, fallback) => {
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
 export const config = {
   port: Number(process.env.PORT || 3001),
   mqttUrl: process.env.MQTT_URL || 'mqtt://127.0.0.1:1883',
@@ -14,9 +20,10 @@ export const config = {
   // One Stage D controller is explicitly assigned to this zone.
   esp32Zone: process.env.ESP32_ZONE || 'zone1',
   // ESP32 "online" is judged by telemetry freshness, never by broker connectivity.
-  esp32TelemetryTimeoutSec: Number(process.env.ESP32_TELEMETRY_TIMEOUT_SEC || 15),
+  // Garbage env values must fall back to a safe default rather than NaN-degenerate checks.
+  esp32TelemetryTimeoutSec: finiteNumber(process.env.ESP32_TELEMETRY_TIMEOUT_SEC, 15),
   // A command stays PENDING until matching ESP32 telemetry arrives; older pending entries time out.
-  commandAckTimeoutSec: Number(process.env.COMMAND_ACK_TIMEOUT_SEC || 10),
+  commandAckTimeoutSec: finiteNumber(process.env.COMMAND_ACK_TIMEOUT_SEC, 10),
   topology: {
     lines: ['UP', 'DOWN'],
     blocksPerLine: 5,

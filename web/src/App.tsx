@@ -122,7 +122,7 @@ type State = {
     zone: string;
     online: boolean;
     lastSeenSec: number | null;
-    sensorHealthy: boolean;
+    sensorHealthy: boolean | null;
     nearAnimal: boolean;
   };
   esp32Commands?: Array<{
@@ -794,7 +794,15 @@ function App() {
             ACK = the kernel answered with fresh telemetry inside the ack window
           </div>
           <div style={{ fontSize: '13px', display: 'grid', gap: '4px', marginTop: '10px' }}>
-            <span>{`sensors: ${(state.esp32?.sensorHealthy ?? true) ? 'OK' : 'SENSOR FAULT'}`}</span>
+            <span>
+              {`sensors: ${
+                state.esp32?.sensorHealthy == null
+                  ? 'unknown'
+                  : state.esp32.sensorHealthy
+                    ? 'OK'
+                    : 'SENSOR FAULT'
+              }`}
+            </span>
             <span>{`near animal: ${state.esp32?.nearAnimal ? 'yes' : 'no'}`}</span>
             <span style={{ opacity: 0.7 }}>{`topic railway/telemetry/esp32 · ${state.esp32?.zone || 'zone1'}`}</span>
           </div>

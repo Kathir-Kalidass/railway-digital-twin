@@ -39,6 +39,12 @@ export function makeState({ config, topology, logEvent = null }) {
     z.esp32LastTelemetryAtMs = atMs;
   }
 
+  const publicZones = () => {
+    const clone = JSON.parse(JSON.stringify(zones));
+    for (const z of Object.values(clone)) delete z.esp32LastTelemetryAtMs;
+    return clone;
+  };
+
   let commandTracker = null;
   function setCommandTracker(tracker) {
     commandTracker = tracker;
@@ -59,7 +65,7 @@ export function makeState({ config, topology, logEvent = null }) {
       zone,
       online: lastSeenSec !== null && lastSeenSec <= timeoutSec,
       lastSeenSec,
-      sensorHealthy: Boolean(z?.sensorHealthy),
+      sensorHealthy: lastSeenSec !== null ? Boolean(z?.sensorHealthy) : null,
       nearAnimal: z?.esp32NearAnimal === true,
     };
   }
@@ -183,7 +189,7 @@ export function makeState({ config, topology, logEvent = null }) {
     }
     const outTrains = trains.map((t) => ({ ...t, stoppingDistanceM: stoppingDistanceM(t.speedKmh) }));
     return {
-      zones: JSON.parse(JSON.stringify(zones)),
+      zones: publicZones(),
       train: outTrains[0] ? { ...outTrains[0] } : null, // DEPRECATED: summary of trains[0]
       trains: outTrains,
       lines: topo.lines.map((l) => ({ id: l.id, blocks: [...l.blocks] })),
@@ -232,7 +238,7 @@ export function makeState({ config, topology, logEvent = null }) {
     legacyTrain.targetSpeedKmh = zones[legacyTrain.zone].targetSpeedKmh;
     legacyTrain.stoppingDistanceM = stoppingDistanceM(legacyTrain.speedKmh);
     return {
-      zones: JSON.parse(JSON.stringify(zones)),
+      zones: publicZones(),
       train: { ...legacyTrain },
       esp32: esp32Snapshot(),
       esp32Commands: commandLedgerSnapshot(),

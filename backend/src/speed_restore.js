@@ -7,7 +7,7 @@ export function restoreSpeed(train, savedKmh, { reason = 'UNKNOWN', fallbackKmh 
       trainId: train.id,
       reason,
       restoredKmh: restored,
-      attemptedSavedKmh: savedKmh ?? null,
+      attemptedSavedKmh: Number.isFinite(savedKmh) ? savedKmh : null,
       timestamp: new Date().toISOString(),
     });
   }

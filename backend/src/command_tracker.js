@@ -1,4 +1,5 @@
 const ISO = (ms) => (ms === null || ms === undefined ? null : new Date(ms).toISOString());
+const STORAGE_LIMIT = 200;
 
 export function makeCommandTracker({ ackTimeoutSec = 10, limit = 10, now = () => Date.now() } = {}) {
   const entries = [];
@@ -14,6 +15,7 @@ export function makeCommandTracker({ ackTimeoutSec = 10, limit = 10, now = () =>
       ackAtMs: null,
     };
     entries.push(entry);
+    if (entries.length > STORAGE_LIMIT) entries.splice(0, entries.length - STORAGE_LIMIT);
     return entry;
   }
 
@@ -56,5 +58,5 @@ export function makeCommandTracker({ ackTimeoutSec = 10, limit = 10, now = () =>
       }));
   }
 
-  return { issued, acknowledgePending, sweep, snapshot };
+  return { issued, acknowledgePending, sweep, snapshot, size: () => entries.length };
 }

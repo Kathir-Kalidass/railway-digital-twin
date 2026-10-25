@@ -165,10 +165,24 @@ test('legacy zone-only state keeps its shape without fleet fields', () => {
   assert.equal(snap.train.speedKmh, 48);
 });
 
-test('esp32 snapshot: never-seen device is offline with null lastSeenSec', () => {
+test('esp32 snapshot: never-seen device is offline with null lastSeenSec and unknown sensor health', () => {
   const s = fleet();
   const snap = s.snapshot();
-  assert.deepEqual(snap.esp32, { zone: 'zone1', online: false, lastSeenSec: null, sensorHealthy: true, nearAnimal: false });
+  assert.deepEqual(snap.esp32, { zone: 'zone1', online: false, lastSeenSec: null, sensorHealthy: null, nearAnimal: false });
+});
+
+test('esp32 snapshot: internal telemetry timestamps never leak into the zones JSON', () => {
+  const s = fleet();
+  s.markEsp32Telemetry('zone1');
+  const snap = s.snapshot();
+  for (const z of Object.values(snap.zones)) {
+    assert.ok(!('esp32LastTelemetryAtMs' in z), 'esp32LastTelemetryAtMs leaked into /api/state zones');
+  }
+  const legacy = makeState({ config: { ...config, esp32TelemetryTimeoutSec: 15 } });
+  legacy.markEsp32Telemetry('zone1');
+  for (const z of Object.values(legacy.snapshot().zones)) {
+    assert.ok(!('esp32LastTelemetryAtMs' in z));
+  }
 });
 
 test('esp32 snapshot: fresh telemetry is online', () => {
