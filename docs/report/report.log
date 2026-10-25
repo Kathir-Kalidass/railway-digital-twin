@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.1)  25 OCT 2026 23:35
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.1)  25 OCT 2026 23:43
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -858,8 +858,18 @@ Overfull \hbox (5.78629pt too wide) in paragraph at lines 9--9
  []
 
 
+Overfull \hbox (28.43663pt too wide) in alignment at lines 6--11
+ [] [] [] 
+ []
+
+
 Overfull \hbox (5.78629pt too wide) in paragraph at lines 14--14
 []|\T1/cmr/bx/n/12 S.No|  
+ []
+
+
+Overfull \hbox (28.43663pt too wide) in alignment at lines 11--16
+ [] [] [] 
  []
 
 
@@ -873,10 +883,6 @@ _EXIT $\OMS/cmsy/m/n/12 !$ \T1/cmr/m/n/12 CLEAR-
 Overfull \hbox (28.43663pt too wide) in alignment at lines 16--36
  [] [] [] 
  []
-
-
-Package longtable Warning: Column widths have changed
-(longtable)                in table 2.1 on input line 36.
 
 [5
 
@@ -895,7 +901,7 @@ Overfull \hbox (5.78629pt too wide) in paragraph at lines 43--43
  []
 
 
-Overfull \hbox (7.11667pt too wide) in alignment at lines 40--45
+Overfull \hbox (161.66647pt too wide) in alignment at lines 40--45
  [] [] [] 
  []
 
@@ -905,7 +911,7 @@ Overfull \hbox (5.78629pt too wide) in paragraph at lines 48--48
  []
 
 
-Overfull \hbox (7.11667pt too wide) in alignment at lines 45--50
+Overfull \hbox (161.66647pt too wide) in alignment at lines 45--50
  [] [] [] 
  []
 
@@ -960,10 +966,6 @@ Overfull \hbox (161.66647pt too wide) in alignment at lines 50--61
  []
 
 
-Package longtable Warning: Column widths have changed
-(longtable)                in table 2.2 on input line 61.
-
-
 Package fancyhdr Warning: \headheight is too small (12.0pt): 
 (fancyhdr)                Make it at least 13.59999pt, for example:
 (fancyhdr)                \setlength{\headheight}{13.59999pt}.
@@ -998,8 +1000,113 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[9]) (./sections/03-architecture-workflow.tex)
-(./sections/04-tools-technology.tex) (./sections/05-hardware-simulation.tex)
+[9]) (./sections/03-architecture-workflow.tex
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[10]
+Chapter 3.
+
+Overfull \hbox (182.65306pt too wide) in paragraph at lines 44--45
+ [][] 
+ []
+
+
+LaTeX Warning: Reference `cha:appendix-acl' on page 11 undefined on input line 
+56.
+
+[11
+
+]
+
+LaTeX Warning: Reference `cha:twin' on page 12 undefined on input line 66.
+
+
+Overfull \hbox (51.38304pt too wide) in paragraph at lines 116--118
+ [][] 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[12]
+Overfull \hbox (17.28548pt too wide) in paragraph at lines 136--139
+[]\T1/cmtt/m/n/12 signalling.js \T1/cmr/m/n/12 / \T1/cmtt/m/n/12 routes.js \T1/
+cmr/m/n/12 --- per-block as-pects, re-tained \T1/cmtt/m/n/12 railway/signal/{bl
+ock}
+ []
+
+
+Overfull \hbox (50.95255pt too wide) in paragraph at lines 141--145
+[]\T1/cmtt/m/n/12 wrong_line.js \T1/cmr/m/n/12 --- the operator-requested wrong
+-line run: AP-PROACH $\OMS/cmsy/m/n/12 !$ \T1/cmr/m/n/12 CROSS_ENTRY
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[13]
+
+LaTeX Warning: Reference `sec:features-safety' on page 14 undefined on input li
+ne 162.
+
+
+Overfull \hbox (50.96243pt too wide) in paragraph at lines 170--175
+[]\T1/cmr/bx/n/12 Recovery latch: \T1/cmr/m/n/12 clear-ing a haz-ard is never e
+nough; the back-end latches \T1/cmtt/m/n/12 RECOVERY_REQUIRED
+ []
+
+
+LaTeX Warning: Reference `cha:appendix-acl' on page 14 undefined on input line 
+185.
+
+
+Overfull \hbox (71.85266pt too wide) in paragraph at lines 188--193
+[]\T1/cmr/m/n/12 backend pub-lishes \T1/cmtt/m/n/12 railway/state\T1/cmr/m/n/12
+ , \T1/cmtt/m/n/12 railway/events\T1/cmr/m/n/12 , \T1/cmtt/m/n/12 railway/alert
+s\T1/cmr/m/n/12 , \T1/cmtt/m/n/12 railway/zone*/signal\T1/cmr/m/n/12 ,
+ []
+
+
+Overfull \hbox (45.97984pt too wide) in paragraph at lines 188--193
+\T1/cmtt/m/n/12 railway/commands/*\T1/cmr/m/n/12 , \T1/cmtt/m/n/12 railway/spee
+d/*\T1/cmr/m/n/12 , \T1/cmtt/m/n/12 railway/security/events\T1/cmr/m/n/12 , \T1
+/cmtt/m/n/12 railway/wildlife\T1/cmr/m/n/12 ,
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[14]
+
+LaTeX Warning: Reference `fig:overview' on page 15 undefined on input line 202.
+
+
+
+LaTeX Warning: Reference `fig:wronglineafter' on page 15 undefined on input lin
+e 202.
+
+) (./sections/04-tools-technology.tex) (./sections/05-hardware-simulation.tex)
 (./sections/06-twin.tex) (./sections/07-dashboards.tex)
 (./sections/08-features.tex) (./sections/09-results-conclusion.tex)
 (./sections/10-backmatter.tex)
@@ -1011,11 +1118,7 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[10]
-
-Package longtable Warning: Table widths have changed. Rerun LaTeX.
-
-(./report.aux)
+[15] (./report.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -1024,26 +1127,17 @@ L3 programming layer <2024-01-22>
 
 LaTeX Warning: There were undefined references.
 
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
-
-Package rerunfilecheck Warning: File `report.out' has changed.
-(rerunfilecheck)                Rerun to get outlines right
-(rerunfilecheck)                or use package `bookmark'.
-
-Package rerunfilecheck Info: Checksums for `report.out':
-(rerunfilecheck)             Before: 1041C8247EF50C9598DCA10493A9DEAD;84
-(rerunfilecheck)             After:  9E7A6E74E9C777985577A9AE1D2F8901;2037.
+Package rerunfilecheck Info: File `report.out' has not changed.
+(rerunfilecheck)             Checksum: EC1841D3D8A252D9A7937407A91ABD17;3231.
  ) 
 Here is how much of TeX's memory you used:
- 22866 strings out of 474222
- 432538 string characters out of 5748734
+ 23120 strings out of 474222
+ 436807 string characters out of 5748734
  1941975 words of memory out of 5000000
- 44672 multiletter control sequences out of 15000+600000
- 569865 words of font info for 58 fonts, out of 8000000 for 9000
+ 44907 multiletter control sequences out of 15000+600000
+ 570629 words of font info for 59 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,12n,87p,444b,615s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,12n,87p,444b,841s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texmf
@@ -1051,13 +1145,14 @@ e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texmf
 cm-super/sfbx1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx1440.pf
 b></usr/share/texmf/fonts/type1/public/cm-super/sfbx1728.pfb></usr/share/texmf/
 fonts/type1/public/cm-super/sfbx2488.pfb></usr/share/texmf/fonts/type1/public/c
-m-super/sfrm1095.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1200.pfb
-></usr/share/texmf/fonts/type1/public/cm-super/sfti1200.pfb></usr/share/texmf/f
-onts/type1/public/cm-super/sftt1200.pfb>
-Output written on report.pdf (16 pages, 244787 bytes).
+m-super/sfrm0800.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1095.pfb
+></usr/share/texmf/fonts/type1/public/cm-super/sfrm1200.pfb></usr/share/texmf/f
+onts/type1/public/cm-super/sfti1200.pfb></usr/share/texmf/fonts/type1/public/cm
+-super/sftt1200.pfb>
+Output written on report.pdf (21 pages, 307783 bytes).
 PDF statistics:
- 187 PDF objects out of 1000 (max. 8388607)
- 142 compressed objects within 2 object streams
- 44 named destinations out of 1000 (max. 500000)
- 21 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 312 PDF objects out of 1000 (max. 8388607)
+ 259 compressed objects within 3 object streams
+ 62 named destinations out of 1000 (max. 500000)
+ 165 words of extra memory for PDF output out of 10000 (max. 10000000)
 

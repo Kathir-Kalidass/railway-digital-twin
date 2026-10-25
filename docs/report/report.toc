@@ -11,3 +11,9 @@
 \contentsline {section}{\numberline {2.3}Hardware requirements}{8}{section.2.3}%
 \contentsline {section}{\numberline {2.4}Software requirements}{9}{section.2.4}%
 \contentsline {section}{\numberline {2.5}Phase-to-gate mapping}{10}{section.2.5}%
+\contentsline {chapter}{\numberline {3}System Architecture and Workflow}{11}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Architecture overview}{11}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Data flow and message contract}{12}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Backend internal architecture}{13}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Failure handling and fail-safety}{14}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Topic contract summary}{14}{section.3.5}%
