@@ -45,6 +45,21 @@ Expected response:
 - If the dashboard cannot authenticate, confirm the backend is running and the `.env` file contains the expected passwords.
 - Reset only the local SQLite database in the named Docker volume if you intentionally want to clear state. Do not remove unrelated Docker volumes or user data.
 
+## Broker port ownership (1883) — permanent setup
+
+The compose `mqtt` service is the only broker on port 1883. After a machine reboot the stack
+comes back on its own:
+
+- `docker.service` and `docker.socket` are enabled (`systemctl enable docker.service docker.socket`).
+- The compose `mqtt` service has `restart: unless-stopped`, so it starts with the Docker daemon.
+- The host's `mosquitto.service` is **masked** (`sudo systemctl mask mosquitto.service`) so the
+  systemd broker can never come up at boot and fight the container over port 1883 — that clash
+  used to look like ACL/e2e test failures where every broker test fails at once.
+
+If the port is still contested (for example someone unmasked and started the host broker),
+`scripts/dev-up.sh` stops the host broker before bringing the compose stack up. To reverse the
+permanent setup deliberately: `sudo systemctl unmask mosquitto.service`.
+
 ## Demo and verification
 
 - `./scripts/demo-scenarios.sh` exercises the authenticated control flow and validates the response payloads using `jq`.
