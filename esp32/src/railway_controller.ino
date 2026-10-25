@@ -12,6 +12,7 @@
 #include <Adafruit_SSD1306.h>
 #include <time.h>
 #include "secrets.h"
+#include "epoch.h"
 #include "command_logic.h"
 #include "debounce.h"
 #include "output_logic.h"
@@ -21,6 +22,9 @@
 
 const char* TOPIC_COMMANDS = "railway/commands/esp32";
 const char* TOPIC_TELEMETRY = "railway/telemetry/esp32";
+const char* TOPIC_BOOT = "railway/boot";
+
+time_t currentWallClock();  // defined below; used by command freshness
 
 // Demo GPIOs: LEDs can represent restrictive/normal signal and a buzzer.
 const int RED_LED = 25;
@@ -41,6 +45,7 @@ const unsigned long SENSOR_SAMPLE_MS = 100;
 
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
+EpochSource epochSource;
 Servo barrier;
 Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 bool localWildlifeDetected = false;
@@ -131,15 +136,23 @@ bool commandTimestampFresh(const char *timestamp) {
   parsed.tm_year = year - 1900; parsed.tm_mon = month - 1; parsed.tm_mday = day;
   parsed.tm_hour = hour; parsed.tm_min = minute; parsed.tm_sec = second;
   const time_t commandTime = mktime(&parsed);
-  const time_t currentTime = time(nullptr);
+  const time_t currentTime = currentWallClock();
   return currentTime > 1600000000 && commandTime > 1600000000 &&
          llabs(static_cast<long long>(currentTime) - static_cast<long long>(commandTime)) <= 5 * 60;
 }
 
 void onMqttMessage(char* topic, byte* payload, unsigned int length) {
-  if (String(topic) != TOPIC_COMMANDS) return;
   StaticJsonDocument<512> document;
   if (deserializeJson(document, payload, length)) return;
+  if (String(topic) == TOPIC_BOOT) {
+    // Backend wall-clock bootstrap for networks without SNTP (e.g. the Wokwi
+    // Private IoT Gateway): publishTelemetry and command freshness derive the
+    // wall clock from this epoch plus the device's own millis().
+    const unsigned long long epochMs = document["epochMs"] | 0ULL;
+    epochSource.update(epochMs, millis());
+    return;
+  }
+  if (String(topic) != TOPIC_COMMANDS) return;
   const char *zone = document["zone"] | "";
   const char *requestId = document["request_id"] | "";
   const char *timestamp = document["timestamp"] | "";
@@ -198,8 +211,17 @@ void setup() {
   mqtt.setBufferSize(512);
 }
 
+// Current wall clock, preferring SNTP and falling back to the backend's
+// MQTT-sourced epoch (EpochSource) when the network cannot reach NTP.
+time_t currentWallClock() {
+  const time_t sntpNow = time(nullptr);
+  if (sntpNow > 1600000000) return sntpNow;
+  if (epochSource.validNow(millis())) return static_cast<time_t>(epochSource.nowMs(millis()) / 1000);
+  return 0;
+}
+
 void publishTelemetry() {
-  const time_t now = time(nullptr);
+  const time_t now = currentWallClock();
   const bool clockValid = now > 1600000000;
   char timestamp[25] = "";
   if (clockValid) {
@@ -265,6 +287,7 @@ void attemptMqtt(unsigned long now) {
   if (mqtt.connect(clientId.c_str(), MQTT_USER, MQTT_PASS)) {
     mqttBackoff = 1000;
     mqtt.subscribe(TOPIC_COMMANDS);
+    mqtt.subscribe(TOPIC_BOOT);
     Serial.println("MQTT connected");
     // Keep the output restrictive until a new valid command establishes context.
     backendContextFresh = false;

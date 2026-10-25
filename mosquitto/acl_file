@@ -15,6 +15,7 @@ topic read railway/zone2/signal
 user esp32
 topic write railway/telemetry/esp32
 topic read railway/commands/esp32
+topic read railway/boot
 
 user backend
 topic write railway/state
@@ -26,6 +27,7 @@ topic write railway/signal/+
 topic write railway/commands/zone1
 topic write railway/commands/zone2
 topic write railway/commands/esp32
+topic write railway/boot
 topic write railway/speed/zone1
 topic write railway/speed/zone2
 topic write railway/security/events

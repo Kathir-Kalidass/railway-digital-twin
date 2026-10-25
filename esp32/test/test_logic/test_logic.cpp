@@ -8,6 +8,28 @@
 #include "telemetry.h"
 #include "sensors.h"
 #include "actuator.h"
+#include "epoch.h"
+
+void test_epoch_source_not_calibrated_before_update() {
+  EpochSource source;
+  TEST_ASSERT_FALSE(source.calibrated);
+  TEST_ASSERT_EQUAL(0, source.nowMs(12345));
+}
+
+void test_epoch_source_rejects_bogus_epoch() {
+  EpochSource source;
+  source.update(1000, 500);  // epoch near the Unix start; not a real wall clock
+  TEST_ASSERT_FALSE(source.calibrated);
+  TEST_ASSERT_FALSE(source.validNow(1000));
+}
+
+void test_epoch_source_derives_wall_clock() {
+  EpochSource source;
+  source.update(1700000000000ULL, 1000);
+  TEST_ASSERT_TRUE(source.calibrated);
+  TEST_ASSERT_EQUAL(1700000004000, source.nowMs(5000));
+  TEST_ASSERT_TRUE(source.validNow(5000));
+}
 
 void test_local_wildlife_dominates() {
   TEST_ASSERT_EQUAL(static_cast<int>(Output::RESTRICTIVE),
@@ -165,5 +187,8 @@ int main(int, char **) {
   RUN_TEST(test_distance_conversion);
   RUN_TEST(test_barrier_and_status);
   RUN_TEST(test_telemetry_extended_fields);
+  RUN_TEST(test_epoch_source_not_calibrated_before_update);
+  RUN_TEST(test_epoch_source_rejects_bogus_epoch);
+  RUN_TEST(test_epoch_source_derives_wall_clock);
   return UNITY_END();
 }

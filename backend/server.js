@@ -13,6 +13,7 @@ import { createApp } from './src/app.js';
 import { makeMlClient } from './src/ml.js';
 import { makeWildlifeCommands } from './src/wildlife_commands.js';
 import { makeCommandTracker } from './src/command_tracker.js';
+import { makeEpochSource } from './src/epoch_source.js';
 
 const db = openDb(config.dbPath);
 const audit = makeAudit(db);
@@ -34,8 +35,10 @@ const commands = makeWildlifeCommands({ state, bus, config, mqtt });
 ingest = makeIngest({ state, bus, config, mqtt, commands, commandTracker });
 const loop = makeLoop({ state, bus, config });
 const ml = makeMlClient({ config });
+const epochSource = makeEpochSource({ mqtt });
 mqtt.client.on('connect', () => {
   mqtt.subscribe(['railway/zone1/wildlife', 'railway/zone2/wildlife', 'railway/wildlife', 'railway/telemetry/esp32']);
+  epochSource.publishEpoch();
   ingest.onBrokerConnected(true);
   loop.start();
 });
