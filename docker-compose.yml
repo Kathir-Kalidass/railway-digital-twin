@@ -19,6 +19,12 @@ services:
       OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-operator-dev-pass}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-dev-pass}
       DB_PATH: /app/data/railway.db
+      # The camera/ML stub runs on the host (uvicorn :8001); route to it from inside the container.
+      # host.docker.internal maps to the docker0 gateway (172.17.0.1), so uvicorn must NOT be
+      # bound to loopback only: start it with --host 0.0.0.0 (or --host 172.17.0.1).
+      ML_URL: http://host.docker.internal:8001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - backend-data:/app/data
     ports:
