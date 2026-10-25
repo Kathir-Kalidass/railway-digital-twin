@@ -1,0 +1,95 @@
+% ===================== TITLE PAGE =====================
+\begin{titlepage}
+\begin{center}
+
+{\large\bfseries COLLEGE OF ENGINEERING, GUINDY}\\[2pt]
+{\normalsize\bfseries ANNA UNIVERSITY, CHENNAI -- 25}\\[26pt]
+
+{\Large\bfseries Railway Digital Twin with Wildlife Safety}\\[4pt]
+{\normalsize An Educational Simulation Integrating Godot 4, MQTT,\\ a Trusted Node.js Control Plane and ESP32 Edge Sensing}\\[26pt]
+
+{\normalsize\bfseries Submitted in partial fulfillment of the course}\\[2pt]
+{\normalsize\bfseries ``Embedded Systems and Internet of Things''}\\[26pt]
+
+% no logo image exists in the repository; omit the emblem rather than fabricate one
+{\normalsize\bfseries Submitted By}\\[4pt]
+\textbf{Team: 14}\\[10pt]
+{\renewcommand{\arraystretch}{1.35}%
+\begin{tabular}{r l}
+\textbf{Register Number} & \textbf{Name} \\
+2023103546 & \; Kathir Kalidass B \\
+2023103597 & \; Malini R \\
+2023103600 & \; Parthasarathi S \\
+2023103714 & \; Paril T \\
+\end{tabular}}\\[22pt]
+
+{\normalsize October 2026}
+
+\end{center}
+\end{titlepage}
+
+\pagenumbering{roman}
+\setcounter{page}{2}
+
+% ===================== ABSTRACT =====================
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Train--animal collisions remain a persistent operational risk on forested and
+rural railway corridors while conventional level-crossing protection offers the
+same single mechanism for every kind of intruder. This project develops an
+educational \emph{Railway Digital Twin with Wildlife Safety}: a complete,
+runnable miniature of a modern wildlife-protected railway line in which the
+same event can be observed simultaneously from four cooperating surfaces --- a
+three-dimensional twin simulation, a web operations dashboard, a trusted
+backend control plane, and an ESP32 edge controller, each communicating over
+an authenticated IoT message bus.
+
+The system is built as a staged software stack. \textbf{Godot~4.7} renders a
+two-track ``stadium'' railway world (UP and DOWN loops of 1253.98~m and
+1228.85~m around a 250~m straight-sided footprint) with an island station,
+interlocked crossovers, a wildlife level crossing with boom barriers, carved
+river with road and railway bridges, catenary, dynamic signal masts and
+Libre-TrainSim-derived Blender train, station, deer and
+elephant assets. \textbf{Node.js~22+} with Express and SQLite is the trusted
+control plane: the sole publisher of railway commands, state snapshots and
+alerts, enforcing bcrypt/JWT authentication, role-based access control
+(viewer/operator/admin), command-envelope validation, anti-replay protection
+through a persistent SQLite registry, and a full audit trail.
+\textbf{Eclipse Mosquitto~2} brokers the machine traffic on
+MQTT~TCP~1883/WebSocket~9001 with per-client credentials and least-privilege
+topic ACLs. A \textbf{React~18/Vite} dashboard presents live state, per-block
+signal aspects, per-train speed control, meet scheduling, wrong-line routing
+and hazard evidence badges. An \textbf{ESP32 (Arduino/PlatformIO)} node carries
+fail-safe field inputs --- wildlife and sensor-fault pulls, protective outputs,
+debounce, SNTP-gated clock truth and non-blocking telemetry. A
+\textbf{FastAPI ML microservice} using torchvision's SSDLite MobileNetV3
+detector confirms animal sightings from twin-camera frames behind a
+two-frame evidence policy.
+
+The wildlife protection chain implements a staged escalation
+NONE $\rightarrow$ SUSPECTED (30~km/h limit) $\rightarrow$ CONFIRMED
+(0~km/h, STOP/RED) driven by trackside sensor huts, onboard simulated
+cameras and ESP32 edge reports, with backend-authoritative hazard fusion,
+recovery-latched resets and restrictive fail-safe behaviour on any loss of
+communication. Every subsystem is verified by an automated gate ---
+42/42 Godot suites, 141/141 backend tests, 8/8 ML tests, 16/16 ESP32 native
+tests and a clean web build --- plus live end-to-end scenarios including a
+chance-based meet scheduling, an interlocked wrong-line run and the
+two-frame camera confirmation chain end-to-end on the live stack. The
+system is emphatically a classroom simulation and not certified railway
+signalling equipment.
+
+\vspace{6pt}
+\noindent\textbf{Keywords:} Digital Twin, Railway Safety, Wildlife, MQTT,
+IoT, ESP32, Godot Engine, Node.js, React, Machine Learning
+\clearpage
+% ===================== TOC / LOF / LOT =====================
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+%
+\pagenumbering{arabic}
