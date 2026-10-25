@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.1)  25 OCT 2026 23:51
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.4.1)  25 OCT 2026 23:56
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -752,25 +752,40 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[3] (./report.toc)
+[3] (./report.toc [4
+
+
+])
 \tf@toc=\write5
 \openout5 = `report.toc'.
 
- [4
 
 
-] (./report.lof)
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[5] (./report.lof)
 \tf@lof=\write6
 \openout6 = `report.lof'.
 
- [5
+ [6
 
 
-] (./report.lot)
+] (./report.lot
+LaTeX Font Info:    Trying to load font information for T1+cmtt on input line 1
+2.
+
+(/usr/share/texlive/texmf-dist/tex/latex/base/t1cmtt.fd
+File: t1cmtt.fd 2023/04/13 v2.5m Standard LaTeX font definitions
+))
 \tf@lot=\write7
 \openout7 = `report.lot'.
 
- [6
+ [7
 
 
 ])
@@ -809,11 +824,7 @@ LaTeX Warning: Reference `cha:features' on page 3 undefined on input line 96.
 LaTeX Warning: Reference `cha:appendix-gates' on page 3 undefined on input line
  96.
 
-LaTeX Font Info:    Trying to load font information for T1+cmtt on input line 1
-01.
-(/usr/share/texlive/texmf-dist/tex/latex/base/t1cmtt.fd
-File: t1cmtt.fd 2023/04/13 v2.5m Standard LaTeX font definitions
-)
+
 Overfull \hbox (14.09889pt too wide) in paragraph at lines 100--102
 \T1/cmr/m/n/12 The sys-tem was built in recorded, gated stages (dates from \T1/
 cmtt/m/n/12 docs/porting/acceptance.md\T1/cmr/m/n/12 ): 
@@ -1329,7 +1340,284 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[24]) (./sections/06-twin.tex) (./sections/07-dashboards.tex)
+[24]) (./sections/06-twin.tex
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[25]
+Chapter 6.
+
+Overfull \hbox (53.56146pt too wide) in paragraph at lines 6--9
+\T1/cmr/m/n/12 The twin is a full-scale, code-built 3 D world in Godot 4.7 run-
+ning (\T1/cmtt/m/n/12 godot/scenes/lts_full.tscn\T1/cmr/m/n/12 ),
+ []
+
+<figures/double_track_overview.png, id=375, 1445.4pt x 903.375pt>
+File: figures/double_track_overview.png Graphic file (type png)
+<use figures/double_track_overview.png>
+Package pdftex.def Info: figures/double_track_overview.png  used on input line 
+12.
+(pdftex.def)             Requested size: 478.00638pt x 298.74875pt.
+
+Overfull \hbox (28.45316pt too wide) in paragraph at lines 12--19
+ [][] 
+ []
+
+[26
+
+]
+Overfull \hbox (51.30638pt too wide) in paragraph at lines 31--36
+\T1/cmr/m/n/12 based on where the train is --- hid-den from wildlife spawn-ing 
+logic (\T1/cmtt/m/n/12 test_opposite_running\T1/cmr/m/n/12 ). 
+ []
+
+
+Overfull \hbox (44.61899pt too wide) in paragraph at lines 41--45
+\T1/cmr/m/n/12 dis-play per-block as-pects from the back-end (\T1/cmtt/m/n/12 t
+est_catenary_double\T1/cmr/m/n/12 , \T1/cmtt/m/n/12 test_signal_masts\T1/cmr/m/
+n/12 ). 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[27 <./figures/double_track_overview.png>]
+<figures/platform_after_topdown.png, id=389, 1445.4pt x 903.375pt>
+File: figures/platform_after_topdown.png Graphic file (type png)
+<use figures/platform_after_topdown.png>
+Package pdftex.def Info: figures/platform_after_topdown.png  used on input line
+ 56.
+(pdftex.def)             Requested size: 478.00638pt x 298.74875pt.
+
+Overfull \hbox (28.45316pt too wide) in paragraph at lines 56--59
+ [][] 
+ []
+
+
+Underfull \hbox (badness 2326) in paragraph at lines 59--59
+[]\T1/cmr/bx/n/10.95 Figure 6.2: |\T1/cmr/m/n/10.95 Is-land sta-tion from above
+: mainly-top view show-ing plat-form mod-
+ []
+
+
+Underfull \hbox (badness 2088) in paragraph at lines 59--59
+\T1/cmr/m/n/10.95 ules, canopy/station build-ing, both plat-forms and the two t
+racks. Cap-tured from
+ []
+
+<figures/platform_after_oblique.png, id=390, 1445.4pt x 903.375pt>
+File: figures/platform_after_oblique.png Graphic file (type png)
+<use figures/platform_after_oblique.png>
+Package pdftex.def Info: figures/platform_after_oblique.png  used on input line
+ 65.
+(pdftex.def)             Requested size: 478.00638pt x 298.74875pt.
+
+Overfull \hbox (28.45316pt too wide) in paragraph at lines 65--68
+ [][] 
+ []
+
+
+Underfull \hbox (badness 7308) in paragraph at lines 68--68
+\T1/cmr/m/n/10.95 the par-al-lel tracks and sta-dium cor-ri-dor in the back-gro
+und. Cap-tured from
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[28 <./figures/platform_after_topdown.png>]
+<figures/wrong_line_before.png, id=398, 1445.4pt x 903.375pt>
+File: figures/wrong_line_before.png Graphic file (type png)
+<use figures/wrong_line_before.png>
+Package pdftex.def Info: figures/wrong_line_before.png  used on input line 88.
+(pdftex.def)             Requested size: 460.93456pt x 288.07965pt.
+
+Overfull \hbox (11.38133pt too wide) in paragraph at lines 88--91
+ [][] 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[29 <./figures/platform_after_oblique.png>]
+<figures/wrong_line_midway.png, id=406, 1445.4pt x 903.375pt>
+File: figures/wrong_line_midway.png Graphic file (type png)
+<use figures/wrong_line_midway.png>
+Package pdftex.def Info: figures/wrong_line_midway.png  used on input line 97.
+(pdftex.def)             Requested size: 460.93456pt x 288.07965pt.
+
+Overfull \hbox (11.38133pt too wide) in paragraph at lines 97--100
+ [][] 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[30 <./figures/wrong_line_before.png>]
+<figures/wrong_line_after.png, id=415, 1445.4pt x 903.375pt>
+File: figures/wrong_line_after.png Graphic file (type png)
+<use figures/wrong_line_after.png>
+Package pdftex.def Info: figures/wrong_line_after.png  used on input line 106.
+(pdftex.def)             Requested size: 460.93456pt x 288.07965pt.
+
+Overfull \hbox (11.38133pt too wide) in paragraph at lines 106--109
+ [][] 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[31 <./figures/wrong_line_midway.png>]
+<figures/meet_randomized.png, id=422, 1445.4pt x 903.375pt>
+File: figures/meet_randomized.png Graphic file (type png)
+<use figures/meet_randomized.png>
+Package pdftex.def Info: figures/meet_randomized.png  used on input line 127.
+(pdftex.def)             Requested size: 478.00638pt x 298.74875pt.
+
+Overfull \hbox (28.45316pt too wide) in paragraph at lines 127--130
+ [][] 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[32 <./figures/wrong_line_after.png>]
+Overfull \hbox (51.58101pt too wide) in paragraph at lines 136--144
+\T1/cmr/m/n/12 have landed in the scene graph and are placed on the cor-rect tr
+ack). \T1/cmtt/m/n/12 tools/export_lts_assets.py
+ []
+
+<figures/animals_scene.png, id=430, 1445.4pt x 903.375pt>
+File: figures/animals_scene.png Graphic file (type png)
+<use figures/animals_scene.png>
+Package pdftex.def Info: figures/animals_scene.png  used on input line 147.
+(pdftex.def)             Requested size: 460.93456pt x 288.07965pt.
+
+Overfull \hbox (11.38133pt too wide) in paragraph at lines 147--150
+ [][] 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[33 <./figures/meet_randomized.png>]
+
+LaTeX Warning: Reference `fig:cameraconfirm' on page 34 undefined on input line
+ 154.
+
+
+LaTeX Warning: Reference `cha:dashboards' on page 34 undefined on input line 15
+4.
+
+
+Overfull \hbox (18.30994pt too wide) in alignment at lines 179--184
+ [] [] 
+ []
+
+
+Overfull \hbox (18.30994pt too wide) in alignment at lines 184--189
+ [] [] 
+ []
+
+
+Overfull \hbox (3.48534pt too wide) in paragraph at lines 191--191
+[]|\T1/cmtt/m/n/12 train_reconciler.gd 
+ []
+
+
+Overfull \hbox (3.48534pt too wide) in paragraph at lines 191--191
+\T1/cmtt/m/n/12 fleet_controller.gd|  
+ []
+
+
+Overfull \hbox (9.65883pt too wide) in paragraph at lines 194--194
+[]|\T1/cmtt/m/n/12 wildlife_director.gd 
+ []
+
+
+Overfull \hbox (3.48534pt too wide) in paragraph at lines 194--194
+\T1/cmtt/m/n/12 wildlife_spawner.gd|  
+ []
+
+
+Overfull \hbox (28.1793pt too wide) in paragraph at lines 195--195
+\T1/cmtt/m/n/12 animal_safety_system.gd|  
+ []
+
+
+Overfull \hbox (22.00581pt too wide) in paragraph at lines 197--197
+\T1/cmtt/m/n/12 camera_confirmation.gd|  
+ []
+
+
+Overfull \hbox (28.1793pt too wide) in paragraph at lines 198--198
+[]|\T1/cmtt/m/n/12 trackside_sensor_hut.gd 
+ []
+
+
+Overfull \hbox (46.69978pt too wide) in paragraph at lines 198--198
+\T1/cmtt/m/n/12 wildlife_sensor_network.gd|  
+ []
+
+
+Overfull \hbox (9.65883pt too wide) in paragraph at lines 199--199
+[]|\T1/cmtt/m/n/12 block_signal_mast.gd 
+ []
+
+
+Overfull \hbox (18.30994pt too wide) in alignment at lines 189--202
+ [] [] 
+ []
+
+
+Package fancyhdr Warning: \headheight is too small (12.0pt): 
+(fancyhdr)                Make it at least 13.59999pt, for example:
+(fancyhdr)                \setlength{\headheight}{13.59999pt}.
+(fancyhdr)                You might also make \topmargin smaller to compensate:
+
+(fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
+
+[34 <./figures/animals_scene.png>]) (./sections/07-dashboards.tex)
 (./sections/08-features.tex) (./sections/09-results-conclusion.tex)
 (./sections/10-backmatter.tex)
 
@@ -1340,7 +1628,7 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[25] (./report.aux)
+[35] (./report.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -1358,17 +1646,17 @@ Package rerunfilecheck Warning: File `report.out' has changed.
 (rerunfilecheck)                or use package `bookmark'.
 
 Package rerunfilecheck Info: Checksums for `report.out':
-(rerunfilecheck)             Before: EC1841D3D8A252D9A7937407A91ABD17;3231
-(rerunfilecheck)             After:  8E4EB85A39BDA9FB7304FA165E4201F4;6377.
+(rerunfilecheck)             Before: 8E4EB85A39BDA9FB7304FA165E4201F4;6377
+(rerunfilecheck)             After:  47FA3DD6C2BEE0FF404CCA0254DC5E2C;7948.
  ) 
 Here is how much of TeX's memory you used:
- 23166 strings out of 474222
- 437306 string characters out of 5748734
+ 23291 strings out of 474222
+ 440466 string characters out of 5748734
  1941975 words of memory out of 5000000
- 44920 multiletter control sequences out of 15000+600000
+ 45017 multiletter control sequences out of 15000+600000
  570943 words of font info for 60 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,12n,87p,444b,841s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,12n,87p,630b,841s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi12.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share
 /texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive
@@ -1382,10 +1670,10 @@ lic/cm-super/sfbx2488.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm080
 xmf/fonts/type1/public/cm-super/sfrm1200.pfb></usr/share/texmf/fonts/type1/publ
 ic/cm-super/sfti1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1095
 .pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1200.pfb>
-Output written on report.pdf (31 pages, 374947 bytes).
+Output written on report.pdf (42 pages, 11111430 bytes).
 PDF statistics:
- 398 PDF objects out of 1000 (max. 8388607)
- 328 compressed objects within 4 object streams
- 94 named destinations out of 1000 (max. 500000)
- 165 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 553 PDF objects out of 1000 (max. 8388607)
+ 455 compressed objects within 5 object streams
+ 122 named destinations out of 1000 (max. 500000)
+ 333 words of extra memory for PDF output out of 10000 (max. 10000000)
 

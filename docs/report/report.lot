@@ -11,3 +11,5 @@
 \addvspace {10\p@ }
 \contentsline {table}{\numberline {5.1}{\ignorespaces Peripheral bill of materials (Wokwi \texttt {diagram.json})}}{22}{table.5.1}%
 \contentsline {table}{\numberline {5.2}{\ignorespaces Stage-D ESP32 verification record (dates 2026-10-21, per acceptance.md)}}{24}{table.5.2}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {6.1}{\ignorespaces Key \texttt {godot/src} modules}}{35}{table.6.1}%

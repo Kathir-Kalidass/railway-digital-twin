@@ -33,3 +33,11 @@
 \contentsline {section}{\numberline {5.4}Wokwi cloud simulation and the Pinggy tunnel}{23}{section.5.4}%
 \contentsline {section}{\numberline {5.5}Clock truth via SNTP}{24}{section.5.5}%
 \contentsline {section}{\numberline {5.6}Build results and Stage-D checklist status}{24}{section.5.6}%
+\contentsline {chapter}{\numberline {6}The Digital Twin World}{26}{chapter.6}%
+\contentsline {section}{\numberline {6.1}World composition}{26}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Island station and interlocked crossovers}{28}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Wrong-line run across the station}{29}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Chance-based meets}{32}{section.6.4}%
+\contentsline {section}{\numberline {6.5}The LTS asset fleet}{33}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Operator and observer surfaces of the twin}{34}{section.6.6}%
+\contentsline {section}{\numberline {6.7}Twin subsystem modules}{35}{section.6.7}%
