@@ -20,3 +20,6 @@ Libre-TrainSim-master/
 ml/.cache/
 __pycache__/
 .pytest_cache/
+
+# Windows metadata artifacts
+*:Zone.Identifier
