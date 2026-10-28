@@ -1,0 +1,16 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.blg
+*.bbl
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+__pycache__/

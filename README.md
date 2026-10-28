@@ -27,6 +27,20 @@ in slices 2B–2E. See
 `docs/superpowers/specs/2026-10-21-stage-c2-double-track-multitrain-design.md`.
 The wildlife underpass remains scenery only in Phase 1.
 
+## Conference paper
+
+`responsible_ai_conference_paper/` holds the IEEE-format paper
+*AI-Based Railway Track Defect Detection in India — False Negatives, Safety
+Assurance and Human Accountability*, together with its LaTeX source, figures,
+slide deck, and the scripts that regenerate them in place:
+
+```bash
+python3 responsible_ai_conference_paper/generate_figures.py   # fig_*.png
+python3 responsible_ai_conference_paper/generate_ppt.py       # slide deck
+cd responsible_ai_conference_paper
+pdflatex Conference.tex && pdflatex Conference.tex            # Conference.pdf
+```
+
 ## Requirements
 
 - Docker Engine with Compose
