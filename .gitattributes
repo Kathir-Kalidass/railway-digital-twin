@@ -1,0 +1,8 @@
+# git-crypt: real env files are encrypted in git; run "git-crypt unlock <repo>.key" after cloning
+.env filter=git-crypt diff=git-crypt
+.env.* filter=git-crypt diff=git-crypt
+*.env filter=git-crypt diff=git-crypt
+.env.example !filter !diff
+*.env.example !filter !diff
+.env.sample !filter !diff
+*.env.sample !filter !diff
